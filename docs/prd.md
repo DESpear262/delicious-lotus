@@ -93,6 +93,7 @@ The system is divided into **four distinct development tracks** with clear separ
 
 **Key Components:**
 - Multi-clip composition engine
+- Timeline-based editing with clip trimming and rearrangement
 - Transition effects library
 - Text overlay rendering
 - Audio synchronization
@@ -119,7 +120,7 @@ The system is divided into **four distinct development tracks** with clear separ
 - AWS ECS with Fargate
 - PostgreSQL RDS
 - ElastiCache for Redis
-- CloudWatch for monitoring
+- CloudWatch for monitoring (nice-to-have, not required for MVP)
 
 ### Functional Requirements
 
@@ -143,8 +144,10 @@ The system is divided into **four distinct development tracks** with clear separ
    - Generate text overlays and CTAs
 
 4. **Video Composition**
-   - Combine generated clips
-   - Apply transitions
+   - Timeline-based editing interface for clip arrangement
+   - Trim and rearrange generated clips
+   - Combine clips with precise timing control
+   - Apply transitions between clips
    - Overlay text elements
    - Add background music
    - Render final video
@@ -173,8 +176,7 @@ The system is divided into **four distinct development tracks** with clear separ
 - **Upload Limits:** 50MB for brand assets
 
 #### Quality Standards
-- **Resolution:** Minimum 1080p (1920x1080)
-- **Frame Rate:** 30 FPS minimum
+- **Resolution:** 720p (1280x720)
 - **Audio Quality:** 128 kbps AAC minimum
 - **Color Space:** sRGB with proper gamma
 - **Compression:** Optimized for web streaming
@@ -226,7 +228,7 @@ The system is divided into **four distinct development tracks** with clear separ
    - Deploy working web interface
 
 2. **Quality Requirements**
-   - Videos meet 1080p/30fps standards
+   - Videos meet 720p quality standards
    - Consistent visual style across clips
    - Smooth transitions without artifacts
    - Clear text overlays and CTAs

@@ -365,10 +365,10 @@ Returns the final composed video file.
 
 ### Section C: AI Backend ↔ FFmpeg Backend APIs
 
-#### 4. Analyze Audio (Beat and Structure)
+#### 4. Analyze Audio (Beat and Structure) - Post-MVP
 **POST** `/internal/v1/audio-analysis`
 
-Performs beat and structural audio analysis.
+**Post-MVP Feature:** Performs beat and structural audio analysis. Not required for MVP music video generation, which uses simple timing heuristics.
 
 **Request Body:**
 ```json

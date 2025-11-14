@@ -13,7 +13,7 @@ This project is an AI-powered video generation pipeline designed for the AI Vide
 - Prize: $5,000 for winning team
 
 **Core Value Proposition:**
-Generate professional-quality videos from text prompts in two key categories: brand-aligned advertising videos (15-60 seconds) with text overlays and multi-aspect ratios, and music videos (1-3 minutes) with beat-synchronized visuals and consistent artistic style throughout.
+Generate professional-quality videos from text prompts in two key categories: brand-aligned advertising videos (15-60 seconds) with text overlays and multi-aspect ratios, and music videos (1-3 minutes) with consistent artistic style throughout.
 
 ### Target Users
 
@@ -116,7 +116,7 @@ The system is divided into **four distinct development tracks** with clear separ
 - Timeline-based editing with clip trimming and rearrangement
 - Transition effects library
 - Text overlay rendering
-- Audio synchronization and beat matching
+- Audio integration with basic timing alignment
 - Music analysis for tempo and structure detection
 - Format conversion and optimization
 
@@ -156,7 +156,7 @@ The system is divided into **four distinct development tracks** with clear separ
 2. **Content Planning**
    - Break prompt into scene sequences
    - Determine clip count and durations (3-5 for ads, 10-20 for music)
-   - For music: Analyze beat structure and tempo
+   - For music: Basic timing alignment (beat analysis post-MVP)
    - Plan transitions and effects
    - Generate shot descriptions
 
@@ -164,7 +164,7 @@ The system is divided into **four distinct development tracks** with clear separ
    - Generate images/clips via Replicate models
    - Maintain visual consistency across clips
    - For ads: Apply brand colors and styling, generate CTAs
-   - For music: Sync visuals to beat and rhythm patterns
+   - For music: Basic visual pacing (rhythm sync post-MVP)
 
 4. **Video Composition**
    - Timeline-based editing interface for clip arrangement

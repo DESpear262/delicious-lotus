@@ -10,7 +10,7 @@
 
 **Phase:** Initial Setup and Foundation
 **Timeline:** MVP in 48 hours, currently at Hour 0
-**Active Agents:** Orange (planning + coordination)
+**Active Agents:** Orange (working on Block 0 PR 1)
 
 ---
 
@@ -25,7 +25,13 @@
 - ✅ PR-D001: Local Development Environment (commit b020358)
 - ✅ PR-F001: Project Initialization (commit 68eee3f)
 
+### Just Completed
+- ✅ Block 0 PR 1: FastAPI Project Bootstrap & Routing Structure (Orange)
+- ✅ Block 0 PR 2: Error Handling, Validation, and Response Models (Orange)
+- ✅ Block 0 PR 4: Internal Service Contract & Callouts (Blonde) - Complete
+
 ### Ready to Start
+- 🎯 **Block 0 PR 3: Generation Lifecycle API Skeleton** (4-5h) - UNBLOCKED
 - 🎯 PR-D003: Storage Documentation (1h)
 - 🎯 PR-D005: Environment Config Templates (2h)
 - 🎯 PR-D009: Deployment Documentation (2h)
@@ -92,3 +98,6 @@
 **2025-11-14 14:20** - Planned unblocked PRs (9 total: 4 DevOps, 5 Frontend)
 **2025-11-14 14:25** - User requested: Launch 2 agents (one for D001, one for F001)
 **2025-11-14 14:26** - Creating memory bank, then launching agents
+**2025-11-14 14:30** - Orange starting work on Block 0 PR 1: FastAPI Project Bootstrap & Routing Structure
+**2025-11-14 15:00** - Orange completed Block 0 PR 1: FastAPI skeleton with routers, logging, health endpoints, and lifecycle hooks. All Block 0 PRs now unblocked.
+**2025-11-14 15:30** - Orange completed Block 0 PR 2: Error handling, validation, and response models with standardized error format, Pydantic schemas, and centralized validation logic.

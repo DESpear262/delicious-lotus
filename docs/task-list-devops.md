@@ -116,8 +116,44 @@ This task list covers infrastructure, deployment, and operational concerns for t
 - Document prerequisites (AWS CLI, Docker, credentials)
 - Include monitoring and health check procedures
 
+### PR-D002: Backend Docker Container Configuration (Task 3)
+**Status:** Unblocked → Planning | **Est:** 3 hours | **Agent:** White
+**Dependencies:** Task 1 (Complete ✅), Task 2.5 (Complete ✅)
+**Description:** Create production-ready Dockerfile for Python FastAPI backend with FFmpeg support, optimized for Option B (static file serving).
+
+**Files to Create:**
+- `fastapi/Dockerfile` - Multi-stage production build
+- `fastapi/.dockerignore` - Exclude unnecessary files from build context
+- `fastapi/docker-compose.test.yml` - Local testing configuration
+- `scripts/build-backend.sh` - Build script for local and CI use
+- `scripts/test-backend.sh` - Testing script
+- `docs/docker-backend.md` - Documentation
+
+**Acceptance Criteria:**
+- [ ] Multi-stage Dockerfile (builder + runtime stages)
+- [ ] Python 3.13 with venv
+- [ ] FFmpeg installed and verified (ffmpeg -version)
+- [ ] All requirements.txt dependencies installed
+- [ ] FastAPI app configured to serve static files from /frontend/dist
+- [ ] Health check endpoint configured
+- [ ] Image size optimized (<500MB target)
+- [ ] Non-root user for security
+- [ ] Proper logging to stdout
+- [ ] Works with docker-compose.yml from PR-D001
+- [ ] Test scripts verify container starts and responds to health checks
+- [ ] Documentation covers build, run, and troubleshooting
+
+**Implementation Notes:**
+- Base image: python:3.13-slim (balance size/compatibility)
+- Install FFmpeg from Debian repos
+- Copy frontend/dist/* to /app/frontend/dist (static serving)
+- Use .dockerignore to exclude .git, node_modules, __pycache__, *.pyc
+- Set working directory to /app
+- Expose port 8000 (FastAPI default)
+- CMD: uvicorn app.main:app --host 0.0.0.0 --port 8000
+- Add HEALTHCHECK instruction with /health endpoint
+
 **Blocked PRs** (will plan when dependencies clear):
-- PR-D002: Backend Docker (needs backend code structure from backend team)
 - PR-D004: CI/CD Pipeline (needs PR-D002)
 - PR-D006: Monitoring (needs user to set up ECS)
 - PR-D007: Load Testing (needs deployment)

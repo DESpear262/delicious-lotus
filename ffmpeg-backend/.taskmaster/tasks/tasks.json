@@ -258,7 +258,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -266,7 +266,7 @@
             "description": "Create the foundational FFmpegCommandBuilder class with fluent interface pattern, command components storage, and method chaining support",
             "dependencies": [],
             "details": "Design the FFmpegCommandBuilder class with private fields for storing inputs, outputs, global options, and filter chains. Implement builder pattern with method chaining for fluent API. Create internal data structures for managing command components: input files list, output options dict, global flags, and filter complex graph. Add base methods like addInput(), setOutput(), addGlobalOption() that return self for chaining. Implement build() method that assembles final command string from components.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test class instantiation, method chaining behavior, and basic command assembly with simple inputs/outputs"
           },
           {
@@ -277,7 +277,7 @@
               1
             ],
             "details": "Create InputFile class to represent each input with properties for path, index, streams, and options. Implement automatic index assignment as files are added to maintain correct FFmpeg input references. Add stream detection methods to identify video, audio, and subtitle tracks. Create input option builders for seek position, duration limits, and format specification. Implement proper input ordering and reference tracking for filter complex usage. Add validation for file existence and format compatibility.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test multiple input file addition with correct index assignment, verify stream mapping generation, test input options like -ss and -t"
           },
           {
@@ -288,7 +288,7 @@
               2
             ],
             "details": "Implement FilterComplexBuilder class with methods for common transitions: fade(), crossfade(), cut(). Create timing calculator for transition start/end points based on clip durations. Build filter graph generator that creates proper FFmpeg filter syntax with input/output pads. Add support for transition duration, easing functions, and overlap handling. Implement setpts filter integration for timing adjustments. Create filter chain validation to ensure proper input/output connections.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test each transition type with various timing parameters, verify filter syntax correctness, test complex multi-transition sequences"
           },
           {
@@ -299,7 +299,7 @@
               3
             ],
             "details": "Create TextOverlay class with properties for text content, position (x, y coordinates or alignment), font styling (family, size, color), and animation parameters. Implement drawtext filter string generation with proper escaping for special characters. Add support for text animations: fade in/out, scrolling, typewriter effects using drawtext expressions. Create positioning helpers for common placements (center, corners, thirds). Implement font file loading and validation. Add support for timestamps and frame number overlays.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test text rendering with various fonts and sizes, verify positioning calculations, test animations and special character escaping"
           },
           {
@@ -310,7 +310,7 @@
               2
             ],
             "details": "Implement AudioMixer class for combining multiple audio sources with individual volume controls. Create amerge and amix filter builders for multi-channel audio mixing. Add volume normalization using loudnorm or volume filters. Implement audio ducking system using sidechaincompress for automatic volume reduction during speech. Create crossfade builders for smooth audio transitions between clips. Add support for audio delay/sync adjustment and sample rate conversion.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test mixing multiple audio tracks with different volumes, verify ducking behavior with speech detection, test audio sync adjustment"
           },
           {
@@ -322,7 +322,7 @@
               5
             ],
             "details": "Implement ConcatDemuxer class that generates temporary concat list files for FFmpeg's concat demuxer. Create safe file path handling and temporary file management for concat lists. Build concat filter generator for same-codec concatenation with proper stream mapping. Add support for mixed format concatenation with re-encoding. Implement duration calculation for concatenated output. Create cleanup mechanism for temporary concat files after processing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test concat file generation with various input formats, verify seamless playback of concatenated videos, test cleanup of temporary files"
           },
           {
@@ -333,7 +333,7 @@
               1
             ],
             "details": "Create H264EncoderSettings class with CRF value configuration (18-28 range), preset selection (ultrafast to veryslow), and profile settings (baseline, main, high). Implement bitrate calculation helpers for target file sizes. Add x264 tuning options for different content types (film, animation, grain). Configure keyframe interval and B-frame settings for streaming compatibility. Implement two-pass encoding support for precise bitrate targeting. Add format-specific settings for MP4, MOV, and MKV containers.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test encoding with different CRF values and measure quality/size tradeoffs, verify streaming compatibility, test two-pass encoding accuracy"
           },
           {
@@ -344,7 +344,7 @@
               1
             ],
             "details": "Implement comprehensive shell escaping function using shlex or custom escaping for different platforms (Linux, Windows). Create input validation to reject potentially dangerous characters or patterns. Build path sanitization for file inputs to prevent directory traversal attacks. Implement command length validation to prevent buffer overflows. Add whitelisting for allowed FFmpeg options and filters. Create security audit logging for suspicious command patterns. Implement subprocess execution with proper argument passing instead of shell=True.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test with malicious input attempts including shell metacharacters, verify path traversal prevention, test command execution safety"
           },
           {
@@ -357,7 +357,7 @@
               5
             ],
             "details": "Implement FilterValidator class that checks filter syntax, input/output pad connections, and parameter ranges. Create graph traversal algorithm to verify all filter inputs have sources and outputs have destinations. Build timing validator to ensure transitions don't exceed clip boundaries. Implement resolution and format compatibility checking between filter stages. Add validation for audio channel layout compatibility in mixing operations. Create detailed error messages indicating exact filter chain issues.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test validation with intentionally broken filter chains, verify error message clarity, test edge cases like circular dependencies"
           },
           {
@@ -376,7 +376,7 @@
               9
             ],
             "details": "Write parametrized tests for each builder method testing various input combinations and edge cases. Create fixture system for sample media files and expected command outputs. Implement command comparison tests validating generated FFmpeg commands against expected strings. Add integration tests that execute actual FFmpeg commands with test media files. Create regression test suite for previously discovered bugs. Implement performance benchmarks for command building operations. Add mock-based tests for file system operations.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Achieve 90%+ code coverage, verify all public methods have corresponding tests, validate error handling paths, benchmark command generation performance"
           }
         ]
@@ -1081,7 +1081,7 @@
     ],
     "metadata": {
       "created": "2025-11-14T21:27:16.741Z",
-      "updated": "2025-11-14T23:06:46.014Z",
+      "updated": "2025-11-14T23:34:49.769Z",
       "description": "Tasks for master context"
     }
   }

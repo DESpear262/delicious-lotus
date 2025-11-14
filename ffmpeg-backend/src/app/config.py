@@ -125,3 +125,7 @@ def get_settings() -> Settings:
         Settings: Application configuration
     """
     return Settings()
+
+
+# Create settings instance for easy import
+settings = get_settings()

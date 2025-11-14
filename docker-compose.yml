@@ -1,0 +1,125 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-video-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_video_pipeline}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_video_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_video_user} -d ${POSTGRES_DB:-ai_video_pipeline}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-network
+
+  # Redis Cache/Queue
+  redis:
+    image: redis:7-alpine
+    container_name: ai-video-redis
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-network
+
+  # Backend (FastAPI + FFmpeg) - Placeholder until backend team provides structure
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: ai-video-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      # API Keys (will be provided by user)
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
+      # Storage
+      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Application
+      ENVIRONMENT: development
+      DEBUG: ${DEBUG:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # CORS (for development)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv  # Prevent overwriting virtual environment
+      - backend_uploads:/app/uploads
+      - backend_outputs:/app/outputs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-video-network
+    # Placeholder command - will be replaced when backend team provides structure
+    command: echo "Backend placeholder - waiting for FastAPI structure from backend team"
+
+  # Celery Worker for async tasks (placeholder)
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: ai-video-celery-worker
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
+      REDIS_URL: redis://redis:6379/0
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
+      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      ENVIRONMENT: development
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+      - backend_uploads:/app/uploads
+      - backend_outputs:/app/outputs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-video-network
+    # Placeholder command - will be replaced when backend team provides Celery setup
+    command: echo "Celery worker placeholder - waiting for backend structure"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_outputs:
+    driver: local
+
+networks:
+  ai-video-network:
+    driver: bridge

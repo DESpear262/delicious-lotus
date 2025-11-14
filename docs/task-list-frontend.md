@@ -33,7 +33,7 @@ This task list covers the React/Vite web application for the video generation pi
 - Commit: 68eee3f
 
 ### PR-F002: Design System Foundation (Task 2)
-**Status:** Unblocked | **Est:** 3 hours | **Agent:** Available
+**Status:** In Progress | **Est:** 3 hours | **Agent:** White
 **Dependencies:** PR-F001 (Complete ✅)
 **Description:** Create comprehensive design system with CSS variables, base UI components, and responsive framework.
 

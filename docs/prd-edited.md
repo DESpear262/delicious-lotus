@@ -13,7 +13,7 @@ This project is an AI-powered video generation pipeline designed for the AI Vide
 - Prize: $5,000 for winning team
 
 **Core Value Proposition:**
-Generate professional-quality videos from text prompts in two key categories: brand-aligned advertising videos (15-60 seconds) with text overlays and multi-aspect ratios, and music videos (1-3 minutes) with beat-synchronized visuals and consistent artistic style throughout.
+Generate professional-quality videos from text prompts in two key categories: brand-aligned advertising videos (15-60 seconds) with text overlays and multi-aspect ratios, and music videos (1-3 minutes) with consistent artistic style throughout.
 
 ### Target Users
 
@@ -44,15 +44,16 @@ The MVP must demonstrate working pipelines for both Ad Creative and Music Video 
 ##### B. Music Video Pipeline (1-3 minutes)
 1. **Music-Driven Generation**
    - Accept audio file upload or generation
-   - Beat detection and tempo analysis
-   - Visual synchronization to music structure
+   - Basic timing alignment for visual pacing
    - Consistent artistic style throughout
 
 2. **Music Video Features**
    - Genre-appropriate visual themes
-   - Rhythm-synchronized transitions
+   - Smooth transitions between scenes
    - Sustained visual coherence over longer duration
-   - Dynamic pacing matching audio energy
+   - Dynamic pacing matching content flow
+
+**Note:** Advanced beat detection, tempo analysis, and rhythm-synchronized transitions are post-MVP features.
 
 ##### C. Shared Capabilities
 1. **Multi-Clip Composition**
@@ -72,7 +73,7 @@ The MVP must demonstrate working pipelines for both Ad Creative and Music Video 
 
 ### Technical Architecture
 
-**Update:** Beat detection is handled in the FFmpeg backend via a new audio analysis endpoint. AI backend consumes beat metadata for scene planning. Natural-language video edit instructions are processed by the AI backend, which generates updated compositions.
+**Update:** Audio analysis including beat detection is a post-MVP capability. For MVP, music video scene timing uses simple duration-based heuristics. Natural-language video edit instructions are processed by the AI backend, which generates updated compositions.
 
 The system is divided into **four distinct development tracks** with clear separation of concerns:
 
@@ -118,7 +119,7 @@ The system is divided into **four distinct development tracks** with clear separ
 - Timeline-based editing with clip trimming and rearrangement
 - Transition effects library
 - Text overlay rendering
-- Audio synchronization and beat matching
+- Audio integration with basic timing alignment
 - Music analysis for tempo and structure detection
 - Format conversion and optimization
 
@@ -158,7 +159,7 @@ The system is divided into **four distinct development tracks** with clear separ
 2. **Content Planning**
    - Break prompt into scene sequences
    - Determine clip count and durations (3-5 for ads, 10-20 for music)
-   - For music: Analyze beat structure and tempo
+   - For music: Basic timing alignment (beat analysis post-MVP)
    - Plan transitions and effects
    - Generate shot descriptions
 
@@ -166,7 +167,7 @@ The system is divided into **four distinct development tracks** with clear separ
    - Generate images/clips via Replicate models
    - Maintain visual consistency across clips
    - For ads: Apply brand colors and styling, generate CTAs
-   - For music: Sync visuals to beat and rhythm patterns
+   - For music: Basic visual pacing (rhythm sync post-MVP)
 
 4. **Video Composition**
    - Timeline-based editing interface for clip arrangement
@@ -281,6 +282,8 @@ The following features are explicitly excluded from the MVP but may be considere
    - Long-form content (>3 minutes)
 
 2. **Advanced Features**
+   - Beat detection and rhythm-synchronized visuals
+   - Audio tempo analysis and structural parsing
    - Custom model training/fine-tuning
    - Real-time editing capabilities
    - Collaborative features

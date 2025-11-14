@@ -40,7 +40,7 @@ Track 3 is the **Video Composition & Post-Processing Service** for the AI Video 
 
 ### 2.2 Out of Scope (MVP)
 
-- Beat detection (Track 2 responsibility for MVP)
+- Beat detection and audio analysis (post-MVP feature for all tracks)
 - LUT-based color grading
 - GPU acceleration
 - Custom/complex transitions

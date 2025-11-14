@@ -22,14 +22,18 @@ The final deliverable is an AI-driven orchestration engine capable of translatin
 ## 2. Team Scope
 
 ### In Scope
-- Prompt Parsing & Enhancement using LLMs  
-- Scene Planning Engine for ads and music pipelines  
-- AI Model Orchestration for clip generation  
-- API Gateway Orchestration (complex logic routing)  
-- AI-Assisted Editing Logic for natural-language edit requests  
-- Beat & Audio Integration using FFmpeg’s audio-analysis API  
-- Style & Brand Consistency Logic  
+- Prompt Parsing & Enhancement using LLMs
+- Scene Planning Engine for ads and music pipelines
+- AI Model Orchestration for clip generation
+- API Gateway Orchestration (complex logic routing)
+- AI-Assisted Editing Logic for natural-language edit requests
+- Style & Brand Consistency Logic
 - Clip-Oriented Metadata Storage
+
+### Post-MVP Features
+- Beat & Audio Integration using FFmpeg's audio-analysis API
+- Rhythm-synchronized scene timing
+- Tempo-aware visual pacing
 
 ### Out of Scope
 - CTA rendering (owned by Frontend + FFmpeg)  
@@ -60,15 +64,13 @@ The final deliverable is an AI-driven orchestration engine capable of translatin
 - Shot diversity + brand alignment  
 
 **Music Videos (60–180s):**
-- 10–20 scenes  
-- Scene boundaries tied to downbeats, sections, energy curve  
+- 10–20 scenes
+- Scene boundaries based on duration-based heuristics (post-MVP: beat synchronization)
 
-### 4.3 Beat-Aligned Planning
-- Consume beat/section/energy metadata from FFmpeg  
-- Align scenes to:  
-  - downbeats  
-  - major structural changes  
-  - energy-inflection points  
+### 4.3 Scene Timing Planning
+- For MVP: Duration-based scene distribution for music videos
+- Post-MVP: Beat-aligned planning consuming audio metadata from FFmpeg
+- Align scenes to content pacing and narrative flow  
 
 ### 4.4 Clip Generation Orchestration
 - Build micro-prompts  
@@ -111,11 +113,12 @@ The final deliverable is an AI-driven orchestration engine capable of translatin
 4. FFmpeg Composition → Final Video  
 
 ### Music Pipeline Flow
-1. Prompt + Audio → AI Backend  
-2. AI Backend → FFmpeg for beat detection  
-3. Beat metadata → Scene planning  
-4. Clip Gen → FFmpeg  
-5. Final Video  
+1. Prompt + Audio → AI Backend
+2. Duration-based scene planning (MVP) / Beat analysis (post-MVP)
+3. Clip Gen → FFmpeg
+4. Final Video
+
+**Note:** Post-MVP flow includes: AI Backend → FFmpeg for beat detection → Beat metadata → Scene planning  
 
 ### Edit Flow
 1. Natural-language edit → AI Backend  
@@ -158,12 +161,16 @@ The final deliverable is an AI-driven orchestration engine capable of translatin
 
 ## 10. Acceptance Criteria
 
-1. Generates structured scenes reliably for both pipelines  
-2. Beat-driven planning works end-to-end  
-3. Natural-language edits produce correct timeline diffs  
-4. API gateway orchestrates without deadlocks or loops  
-5. Style consistency across clips meets design requirements  
-6. All endpoints fully documented and integrated  
+1. Generates structured scenes reliably for both pipelines
+2. Duration-based scene timing works for music videos (MVP)
+3. Natural-language edits produce correct timeline diffs
+4. API gateway orchestrates without deadlocks or loops
+5. Style consistency across clips meets design requirements
+6. All endpoints fully documented and integrated
+
+**Post-MVP Criteria:**
+- Beat-driven planning works end-to-end
+- Audio analysis integration with FFmpeg  
 
 ## 11. Anticipated Python Library Stack (Python 3.13.9 Compatible)
 

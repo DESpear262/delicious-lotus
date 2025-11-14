@@ -52,45 +52,81 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ---
 
-### Task 3: Docker Container Configuration
+### Task 2.5: Frontend Deployment Decision
 **Priority:** Critical
-**Estimated Time:** 4 hours
-**Dependencies:** Task 1
+**Estimated Time:** 1 hour
+**Dependencies:** None
+
+**Decision Point:** Choose frontend deployment approach before proceeding with infrastructure.
+
+**Options:**
+
+**Option A: Vercel Deployment (RECOMMENDED FOR MVP)**
+- **Pros:** Simplest setup, no Docker needed, automatic CI/CD, edge caching
+- **Cons:** Requires CORS configuration, separate deployment
+- **Effort:** Minimal (2 hours setup)
+- **Best for:** Fast MVP iteration
+
+**Option B: FastAPI Serves Static Files**
+- **Pros:** Single container, simpler CORS, unified deployment
+- **Cons:** Backend handles static file serving, less separation of concerns
+- **Effort:** Low (add static file mounting to backend)
+- **Best for:** Simplicity, single service
+
+**Note:** Option C (separate nginx container in ECS) has been ruled out as unnecessarily complex for this project.
+
+**Decision Required:**
+- [ ] Choose deployment approach (document in this task)
+- [ ] Update subsequent tasks based on decision
+- [ ] Inform frontend team of deployment target
+
+**Deliverables:**
+- Documented deployment decision
+- Updated task list reflecting chosen approach
+
+---
+
+### Task 3: Backend Docker Container Configuration
+**Priority:** Critical
+**Estimated Time:** 3 hours
+**Dependencies:** Task 1, Task 2.5
 
 **Subtasks:**
 - [ ] Create Dockerfile for Python backend (FastAPI + FFmpeg)
-- [ ] Create Dockerfile for frontend (React/Vite)
-- [ ] Create multi-stage builds for optimization
+- [ ] Create multi-stage build for optimization
 - [ ] Ensure FFmpeg is properly installed in backend container
 - [ ] Configure Python 3.13 with venv in container
-- [ ] Optimize image sizes (target <500MB per container)
+- [ ] **If Option B chosen:** Add static file serving capability to backend
+- [ ] Optimize image size (target <500MB)
+- [ ] Test backend container locally
 
 **Deliverables:**
 - `backend/Dockerfile`
-- `frontend/Dockerfile`
-- Build scripts for local testing
+- `backend/docker-compose.test.yml` for local testing
+- Build and test scripts
+
+**Note:** Frontend deployment handled separately based on Task 2.5 decision
 
 ---
 
 ### Task 4: ECS Infrastructure Setup
 **Priority:** Critical
-**Estimated Time:** 6 hours
-**Dependencies:** Tasks 2, 3
+**Estimated Time:** 4 hours
+**Dependencies:** Tasks 2, 2.5, 3
 
 **Subtasks:**
 - [ ] Create ECS cluster with Fargate
 - [ ] Write task definition for backend service
-- [ ] Write task definition for frontend service
-- [ ] Configure service discovery for inter-service communication
 - [ ] Set up CloudWatch log groups (basic logging only)
 - [ ] Configure task networking (no ALB per requirements)
 - [ ] Set up direct task IP access
+- [ ] **If Option B chosen:** Configure backend to serve frontend static files
 
 **Deliverables:**
 - `deploy/ecs-task-backend.json`
-- `deploy/ecs-task-frontend.json`
 - `deploy/ecs-service-config.json`
 - Deployment documentation
+- **If Option A:** Document CORS configuration for Vercel
 
 ---
 
@@ -133,24 +169,68 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ---
 
+### Task 6A: Frontend Deployment Setup - Option A (Vercel)
+**Priority:** Critical (if Option A chosen)
+**Estimated Time:** 2 hours
+**Dependencies:** Task 2.5 (if Option A chosen)
+
+**Execute only if Vercel deployment chosen in Task 2.5**
+
+**Subtasks:**
+- [ ] Create Vercel account and connect to GitHub repo
+- [ ] Configure Vercel project for frontend directory
+- [ ] Set up environment variables in Vercel
+- [ ] Configure API endpoint to point to ECS backend
+- [ ] Set up CORS in backend to allow Vercel domain
+- [ ] Test deployment and API connectivity
+
+**Deliverables:**
+- Frontend deployed to Vercel
+- CORS configuration documented
+- Vercel deployment URL
+
+---
+
+### Task 6B: Frontend Deployment Setup - Option B (FastAPI Static)
+**Priority:** Critical (if Option B chosen)
+**Estimated Time:** 1 hour
+**Dependencies:** Task 2.5 (if Option B chosen), Task 3
+
+**Execute only if FastAPI static serving chosen in Task 2.5**
+
+**Subtasks:**
+- [ ] Add static file mounting to FastAPI application
+- [ ] Configure frontend build output directory
+- [ ] Set up build step in backend Docker container
+- [ ] Test static file serving locally
+- [ ] Document build and deployment process
+
+**Deliverables:**
+- FastAPI configured to serve static files
+- Frontend build integrated into backend container
+- Single deployment artifact
+
+---
+
 ## Phase 2: MVP Deployment (Hours 24-36)
 
 ### Task 7: CI/CD Pipeline Setup
 **Priority:** High
-**Estimated Time:** 4 hours
-**Dependencies:** Tasks 3, 4
+**Estimated Time:** 2-3 hours (varies by Task 2.5 decision)
+**Dependencies:** Tasks 3, 4, and 6A/6B (based on choice)
 
 **Subtasks:**
 - [ ] Create GitHub Actions workflow for backend
-- [ ] Create GitHub Actions workflow for frontend
 - [ ] Set up ECR push on main branch commits
 - [ ] Configure ECS service updates on new images
 - [ ] Add basic health checks
 - [ ] Set up rollback capability
+- [ ] **If Option A:** Vercel handles frontend CI/CD automatically
+- [ ] **If Option B:** Frontend builds as part of backend deployment
 
 **Deliverables:**
 - `.github/workflows/deploy-backend.yml`
-- `.github/workflows/deploy-frontend.yml`
+- **If Option B:** Integrated build process documented
 - Deployment automation working
 
 ---
@@ -324,27 +404,33 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ## Critical Path for MVP (48 hours)
 
-**First 12 hours:**
+**First 8 hours:**
 1. Task 1: Local Development Environment
 2. Task 2: AWS Account Setup
-3. Task 3: Docker Containers (start)
+3. **Task 2.5: Frontend Deployment Decision** (CRITICAL - affects all following tasks)
 
-**Hours 12-24:**
-4. Task 3: Docker Containers (complete)
-5. Task 4: ECS Infrastructure (start)
-6. Task 5: Database Infrastructure
+**Hours 8-16:**
+4. Task 3: Backend Docker Container (3 hours)
+5. Task 5: Database Infrastructure (3 hours)
+6. Task 6: Storage Configuration (2 hours)
+
+**Hours 16-24:**
+7. Task 4: ECS Infrastructure (4 hours)
+8. **Execute ONE of:** Task 6A (Vercel) or 6B (FastAPI static)
 
 **Hours 24-36:**
-7. Task 4: ECS Infrastructure (complete)
-8. Task 6: Storage Configuration
-9. Task 7: CI/CD Pipeline
+9. Task 7: CI/CD Pipeline (varies by deployment choice)
 10. Task 8: Environment Configuration
+11. Task 9: Basic Monitoring
 
 **Hours 36-48:**
-11. Task 9: Basic Monitoring
 12. Task 10: Load Testing
 13. Task 12: Security Hardening
 14. Task 13: Documentation
+
+**Note:** Path complexity and time requirements vary based on Task 2.5 decision:
+- **Option A (Vercel):** Fastest path, ~30 hours total
+- **Option B (FastAPI):** Slightly more complex, ~32 hours total
 
 ---
 
@@ -383,14 +469,19 @@ This task list covers infrastructure, deployment, and operational concerns for t
 - **If RDS is too expensive**: Use containerized PostgreSQL
 - **If deployment is slow**: Pre-build and cache containers
 - **If S3 is slow**: Implement local caching layer
+- **If chosen frontend deployment fails**: Switch to Vercel (always available as backup)
+- **If CORS issues**: Fall back to FastAPI static serving (Option B)
 
 ---
 
 ## Notes
 
+- **CRITICAL DECISION FIRST:** Complete Task 2.5 (frontend deployment decision) before starting infrastructure work
 - Focus on simplicity for MVP - no Terraform, no complex orchestration
+- **Recommended for MVP:** Option A (Vercel) for fastest iteration, defer complexity to post-MVP
 - Prioritize working deployment over optimization
 - Document everything for handover to other teams
 - Keep costs minimal during development
 - Test with realistic video generation loads early
 - Coordinate with Backend/AI teams on API contracts
+- **Frontend deployment is flexible:** Don't assume Docker/ECS until decision is made

@@ -3,7 +3,7 @@
 
 ### Product Overview
 
-This project is an AI-powered video generation pipeline designed for the AI Video Generation Competition (November 14-22, 2025). The system automates the creation of professional-quality video content with minimal human intervention, focusing on the **Ad Creative Pipeline** category for the MVP phase.
+This project is an AI-powered video generation pipeline designed for the AI Video Generation Competition (November 14-22, 2025). The system automates the creation of professional-quality video content with minimal human intervention, implementing both **Ad Creative Pipeline** (15-60 seconds) and **Music Video Pipeline** (1-3 minutes) for the MVP phase.
 
 **Competition Context:**
 - Total Duration: 8 days
@@ -13,42 +13,60 @@ This project is an AI-powered video generation pipeline designed for the AI Vide
 - Prize: $5,000 for winning team
 
 **Core Value Proposition:**
-Generate high-quality, brand-aligned advertising videos (15-60 seconds) from text prompts, with automated visual composition, text overlays, and multi-aspect ratio support for modern marketing needs.
+Generate professional-quality videos from text prompts in two key categories: brand-aligned advertising videos (15-60 seconds) with text overlays and multi-aspect ratios, and music videos (1-3 minutes) with beat-synchronized visuals and consistent artistic style throughout.
 
 ### Target Users
 
 - **Primary:** Marketing teams needing rapid ad creative generation
-- **Secondary:** Content creators requiring quick video variations for A/B testing
-- **Tertiary:** Agencies producing multiple campaign variations
+- **Secondary:** Musicians and artists requiring music video production
+- **Tertiary:** Content creators needing both promotional and creative video content
+- **Quaternary:** Agencies producing multiple campaign and creative variations
 
 ### MVP Requirements (48-Hour Checkpoint)
 
-The MVP must demonstrate a working Ad Creative Pipeline with the following capabilities:
+The MVP must demonstrate working pipelines for both Ad Creative and Music Video categories:
 
 #### Core Functionality
+
+##### A. Ad Creative Pipeline (15-60 seconds)
 1. **Text-to-Video Generation**
    - Accept detailed text prompts describing the ad concept
    - Parse brand requirements (colors, logos, products)
    - Generate coherent video narrative
 
-2. **Multi-Clip Composition**
-   - Minimum 3-5 distinct clips per video
-   - Smooth transitions between clips
-   - Consistent visual style throughout
-
-3. **Ad-Specific Features**
+2. **Ad-Specific Features**
    - Product showcase capabilities
    - Brand color/identity application
    - Call-to-action (CTA) text overlays
    - Background music integration
+   - Multiple aspect ratios: 16:9, 9:16, 1:1
 
-4. **Format Support**
-   - Multiple aspect ratios: 16:9 (landscape), 9:16 (vertical), 1:1 (square)
-   - Duration range: 15-60 seconds
+##### B. Music Video Pipeline (1-3 minutes)
+1. **Music-Driven Generation**
+   - Accept audio file upload or generation
+   - Beat detection and tempo analysis
+   - Visual synchronization to music structure
+   - Consistent artistic style throughout
+
+2. **Music Video Features**
+   - Genre-appropriate visual themes
+   - Rhythm-synchronized transitions
+   - Sustained visual coherence over longer duration
+   - Dynamic pacing matching audio energy
+
+##### C. Shared Capabilities
+1. **Multi-Clip Composition**
+   - Minimum 3-5 clips for ads, 10-20 for music videos
+   - Smooth transitions between clips
+   - Timeline-based editing with trimming
+
+2. **Format Support**
+   - Duration ranges: 15-60 seconds (ads), 60-180 seconds (music)
    - Export format: MP4 with H.264 encoding
+   - 720p resolution output
 
-5. **Deployment**
-   - Functioning web interface for prompt input
+3. **Deployment**
+   - Functioning web interface for both pipelines
    - Progress tracking during generation
    - Download capability for completed videos
 
@@ -77,10 +95,12 @@ The system is divided into **four distinct development tracks** with clear separ
 
 **Key Components:**
 - Prompt parsing and enhancement
-- Content planning engine
+- Content planning engine (ads and music videos)
 - Replicate API integration
 - Image/video generation orchestration
 - Style consistency management
+- Beat-to-visual mapping for music videos
+- Genre-based visual theme selection
 
 **Technology Stack:**
 - Python 3.13 with FastAPI
@@ -96,7 +116,8 @@ The system is divided into **four distinct development tracks** with clear separ
 - Timeline-based editing with clip trimming and rearrangement
 - Transition effects library
 - Text overlay rendering
-- Audio synchronization
+- Audio synchronization and beat matching
+- Music analysis for tempo and structure detection
 - Format conversion and optimization
 
 **Technology Stack:**
@@ -127,21 +148,23 @@ The system is divided into **four distinct development tracks** with clear separ
 #### Video Generation Flow
 1. **Input Processing**
    - Accept text prompt (500-2000 characters)
-   - Parse brand guidelines and requirements
+   - For ads: Parse brand guidelines and requirements
+   - For music: Accept audio file or generation parameters
    - Validate aspect ratio and duration selections
-   - Handle optional asset uploads
+   - Handle optional asset uploads (logos, audio files)
 
 2. **Content Planning**
    - Break prompt into scene sequences
-   - Determine clip count and durations
+   - Determine clip count and durations (3-5 for ads, 10-20 for music)
+   - For music: Analyze beat structure and tempo
    - Plan transitions and effects
    - Generate shot descriptions
 
 3. **Asset Generation**
    - Generate images/clips via Replicate models
    - Maintain visual consistency across clips
-   - Apply brand colors and styling
-   - Generate text overlays and CTAs
+   - For ads: Apply brand colors and styling, generate CTAs
+   - For music: Sync visuals to beat and rhythm patterns
 
 4. **Video Composition**
    - Timeline-based editing interface for clip arrangement
@@ -171,9 +194,10 @@ The system is divided into **four distinct development tracks** with clear separ
 - **Generation Time:**
   - 30-second video: <5 minutes
   - 60-second video: <10 minutes
+  - 3-minute video: <20 minutes
 - **Concurrent Jobs:** Support 5 simultaneous generations
 - **API Response Time:** <500ms for status queries
-- **Upload Limits:** 50MB for brand assets
+- **Upload Limits:** 50MB for brand assets, 100MB for audio files
 
 #### Quality Standards
 - **Resolution:** 720p (1280x720)
@@ -182,12 +206,12 @@ The system is divided into **four distinct development tracks** with clear separ
 - **Compression:** Optimized for web streaming
 
 #### Cost Efficiency
-- **Target Cost:** <$2.00 per minute of generated video
 - **Optimization Strategies:**
   - Use cheaper models during development
   - Implement smart caching for repeated elements
   - Batch API calls when possible
   - Reuse generated assets where appropriate
+  - Balance quality vs. cost based on use case
 
 #### Reliability
 - **Success Rate:** >90% successful generations
@@ -222,10 +246,10 @@ The system is divided into **four distinct development tracks** with clear separ
 
 #### MVP Success Metrics
 1. **Functional Requirements**
-   - Successfully generate ad videos from text prompts
-   - Support all three aspect ratios
-   - Achieve 3-5 clip composition minimum
-   - Deploy working web interface
+   - Successfully generate both ad videos and music videos from prompts
+   - Support all three aspect ratios for ads
+   - Achieve required clip composition (3-5 for ads, 10-20 for music)
+   - Deploy working web interface for both pipelines
 
 2. **Quality Requirements**
    - Videos meet 720p quality standards
@@ -236,7 +260,7 @@ The system is divided into **four distinct development tracks** with clear separ
 3. **Performance Requirements**
    - Meet generation time targets
    - Handle 5 concurrent users
-   - <$2/minute generation cost
+   - Optimize for cost-effective generation
 
 4. **Competition Submission**
    - GitHub repository with documentation
@@ -250,10 +274,9 @@ The system is divided into **four distinct development tracks** with clear separ
 The following features are explicitly excluded from the MVP but may be considered for future phases:
 
 1. **Other Video Categories**
-   - Music Video Pipeline
-   - Educational/Explainer Videos
+   - Educational/Explainer Videos (bonus category)
    - Social Media Stories
-   - Long-form content (>60 seconds)
+   - Long-form content (>3 minutes)
 
 2. **Advanced Features**
    - Custom model training/fine-tuning
@@ -287,9 +310,9 @@ The following features are explicitly excluded from the MVP but may be considere
 #### Internal Success Criteria
 - Complete MVP within 48 hours
 - Zero critical bugs in submission
-- Successfully generate 10+ demo videos
+- Successfully generate 10+ demo videos (both ads and music videos)
 - Document all architectural decisions
-- Achieve <$2/minute cost target
+- Maintain reasonable generation costs while prioritizing quality
 
 ### Risk Mitigation
 

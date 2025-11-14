@@ -8,8 +8,8 @@ This file tracks which agent identities are currently in use. Agents must claim 
 
 | Identity | Status | Last Commit | Current PR |
 |----------|--------|-------------|------------|
-| White    | In Use | 2025-11-14T15:00:00Z | PR-F002 |
-| Orange   | Available | - | - |
+| White    | In Use | 2025-11-14T22:05:00Z | PR-F002 Design System |
+| Orange   | In Use | 2025-11-14T22:05:00Z | PR-D005 Environment Config |
 | Blonde   | Available | - | - |
 | Pink     | Available | - | - |
 | Blue     | Available | - | - |

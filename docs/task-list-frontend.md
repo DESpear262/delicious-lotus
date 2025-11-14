@@ -15,10 +15,13 @@ This task list covers the React/Vite web application for the video generation pi
 ## Currently Unblocked PRs
 
 ### PR-F001: Project Initialization (Task 1)
-**Status:** Unblocked | **Est:** 1 hour | **Agent:** Available
-- Initialize React 18 + Vite + TypeScript with core tooling
-- Files: `frontend/package.json`, `tsconfig.json`, `vite.config.ts`, ESLint/Prettier configs
-- Build must output static files for backend serving
+**Status:** Complete ✅ | **Est:** 1 hour | **Completed by:** Orange
+- React 19 + Vite + TypeScript with strict mode
+- Core dependencies: axios, react-router-dom, socket.io-client
+- Path aliases (@/ -> src/), ESLint, Prettier, CSS Variables foundation
+- Build outputs to dist/ for FastAPI serving (NO Tailwind per requirements)
+- Files: 25 files including package.json, tsconfig*.json, vite.config.ts, ESLint/Prettier configs, src structure
+- Commit: 68eee3f
 
 ### PR-F002: Design System Foundation (Task 2)
 **Status:** Unblocked | **Est:** 3 hours | **Agent:** Available (after PR-F001)

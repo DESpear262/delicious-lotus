@@ -12,6 +12,15 @@ This task list covers the React/Vite web application for the video generation pi
 
 ---
 
+## PR Status Summary
+
+**Completed:** 1/16+
+**Unblocked (Ready to Start):** 3
+**Blocked (Dependencies Not Met):** 1
+**Planned for Next Wave:** Multiple
+
+---
+
 ## Currently Unblocked PRs
 
 ### PR-F001: Project Initialization (Task 1)
@@ -24,25 +33,152 @@ This task list covers the React/Vite web application for the video generation pi
 - Commit: 68eee3f
 
 ### PR-F002: Design System Foundation (Task 2)
-**Status:** Unblocked | **Est:** 3 hours | **Agent:** Available (after PR-F001)
-- CSS variables, base components, responsive breakpoints
-- Files: `styles/*.css`, `components/ui/*.tsx` (Button, Input, Card)
-- No Tailwind per project requirements
+**Status:** Unblocked | **Est:** 3 hours | **Agent:** Available
+**Dependencies:** PR-F001 (Complete ✅)
+**Description:** Create comprehensive design system with CSS variables, base UI components, and responsive framework.
+
+**Files to Create/Modify:**
+- `frontend/src/styles/globals.css` - Update with complete design tokens
+- `frontend/src/styles/components.css` - Base component styles
+- `frontend/src/styles/animations.css` - Loading states and transitions
+- `frontend/src/styles/responsive.css` - Responsive utilities
+- `frontend/src/components/ui/Button.tsx` - Button component (primary, secondary, outline variants)
+- `frontend/src/components/ui/Input.tsx` - Input component with validation states
+- `frontend/src/components/ui/Card.tsx` - Card container component
+- `frontend/src/components/ui/Spinner.tsx` - Loading spinner
+- `frontend/src/components/ui/Toast.tsx` - Toast notification (basic structure)
+
+**Acceptance Criteria:**
+- [ ] CSS variables for complete design system:
+  - [ ] Colors (primary, secondary, error, warning, success, neutrals)
+  - [ ] Spacing scale (4px base, 8px, 12px, 16px, 24px, 32px, 48px, 64px)
+  - [ ] Typography (font families, sizes, weights, line heights)
+  - [ ] Shadows (elevation system)
+  - [ ] Border radius (sm, md, lg)
+  - [ ] Z-index scale
+- [ ] Responsive breakpoints defined: mobile (<768px), tablet (768-1024px), desktop (>1024px)
+- [ ] Base UI components implemented with TypeScript props
+- [ ] Loading states and animations (fade, slide, spin)
+- [ ] Error state styling
+- [ ] Consistent visual language across components
+- [ ] No Tailwind CSS (use CSS Modules)
+- [ ] Accessibility: proper focus states, ARIA labels where needed
+
+**Implementation Notes:**
+- Build on globals.css created in PR-F001
+- Use CSS Modules for component-specific styles
+- Professional color palette: blue primary, green secondary (as defined in PRD)
+- Components should be composable and reusable
+- Include TypeScript interfaces for all component props
+- Test components in isolation (visual testing in browser)
 
 ### PR-F003: API Client Setup (Task 3)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (after PR-F001)
-- Axios client with interceptors, TypeScript types, service modules
-- Files: `api/client.ts`, `api/types.ts`, `api/services/*.ts`, `utils/errors.ts`
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+**Dependencies:** PR-F001 (Complete ✅)
+**Description:** Configure Axios HTTP client with interceptors, error handling, and TypeScript interfaces for all backend API endpoints.
+
+**Files to Create:**
+- `frontend/src/api/client.ts` - Axios instance with configuration
+- `frontend/src/api/types.ts` - TypeScript interfaces for all API requests/responses
+- `frontend/src/api/services/generation.ts` - Video generation API calls
+- `frontend/src/api/services/composition.ts` - Video composition API calls
+- `frontend/src/api/services/assets.ts` - Asset upload/management API calls
+- `frontend/src/api/services/jobs.ts` - Job status and history API calls
+- `frontend/src/utils/errors.ts` - Error handling utilities
+- `frontend/src/utils/retry.ts` - Exponential backoff retry logic
+
+**Acceptance Criteria:**
+- [ ] Axios instance with base URL from environment variable
+- [ ] Request interceptor for authentication (if needed)
+- [ ] Response interceptor for error handling
+- [ ] Retry logic with exponential backoff (3 retries, 1s/2s/4s)
+- [ ] TypeScript interfaces for all API endpoints:
+  - [ ] POST /api/generate - Create video generation job
+  - [ ] GET /api/jobs/{id} - Get job status
+  - [ ] GET /api/jobs - List job history
+  - [ ] POST /api/upload - Upload brand assets
+  - [ ] GET /api/download/{id} - Download completed video
+  - [ ] DELETE /api/jobs/{id} - Cancel/delete job
+  - [ ] POST /api/compose - Create video composition
+- [ ] Service modules organized by domain (generation, composition, assets)
+- [ ] Error handling utilities with user-friendly messages
+- [ ] TypeScript types for all parameters and responses
+- [ ] Timeout configuration (30s for API calls, 5min for uploads)
+
+**Implementation Notes:**
+- Base URL should default to '/api' for same-origin (Option B deployment)
+- Include proper TypeScript generics for type-safe API calls
+- Error types should match backend error responses
+- Consider offline/network error scenarios
+- Prepare for WebSocket integration (PR-F004) by keeping job polling separate
 
 ### PR-F005: Routing and Layout (Task 5)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (after PR-F001, PR-F002)
-- React Router setup with main layout and navigation
-- Files: `App.tsx`, `layouts/MainLayout.tsx`, `components/Navigation.tsx`, page stubs
+**Status:** Blocked | **Est:** 2 hours | **Agent:** Available
+**Dependencies:** PR-F001 (Complete ✅), PR-F002 (In Progress/Blocked)
+**Description:** React Router setup with main layout, navigation, and route structure.
+**Note:** Blocked until PR-F002 completes (needs design system components for layout)
+
+**Files to Create/Modify:**
+- `frontend/src/App.tsx` - Update with route configuration
+- `frontend/src/layouts/MainLayout.tsx` - Main layout with header/footer
+- `frontend/src/components/Navigation.tsx` - Navigation menu component
+- `frontend/src/pages/Home.tsx` - Home/generation page
+- `frontend/src/pages/History.tsx` - Generation history page
+- `frontend/src/pages/NotFound.tsx` - 404 error page
+
+**Acceptance Criteria:**
+- [ ] React Router v6 configured with routes
+- [ ] Main layout with header, main content area, footer
+- [ ] Navigation menu (Home, History)
+- [ ] Routes defined for all pages: /, /history, /404
+- [ ] 404 page for unknown routes
+- [ ] Breadcrumb navigation component
+- [ ] Active route highlighting in navigation
+- [ ] Responsive navigation (mobile hamburger menu)
+
+**Implementation Notes:**
+- Depends on Button, Card components from PR-F002
+- Use React Router's <Outlet> for layout composition
+- Navigation should be accessible (keyboard navigation, screen readers)
 
 ### PR-F016: User Documentation (Task 16)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (parallel work)
-- User guide, FAQ, prompt best practices
-- Files: `docs/user-guide.md`, `docs/faq.md`, `docs/prompt-best-practices.md`
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+**Dependencies:** None (parallel work)
+**Description:** Create user-facing documentation including user guide, FAQ, and prompt engineering best practices.
+
+**Files to Create:**
+- `docs/user-guide.md` - Comprehensive user guide with screenshots
+- `docs/faq.md` - Frequently asked questions
+- `docs/prompt-best-practices.md` - Tips for writing effective prompts
+- `frontend/src/components/HelpTooltip.tsx` - In-app help tooltip component
+- `frontend/src/data/helpContent.ts` - Help content data
+
+**Acceptance Criteria:**
+- [ ] User guide covering:
+  - [ ] Getting started / account setup
+  - [ ] Creating your first video
+  - [ ] Ad Creative generation workflow
+  - [ ] Music Video generation workflow (post-MVP)
+  - [ ] Uploading brand assets
+  - [ ] Using the timeline editor
+  - [ ] Downloading and sharing videos
+  - [ ] Troubleshooting common issues
+- [ ] FAQ with 10-15 common questions
+- [ ] Prompt best practices guide:
+  - [ ] What makes a good prompt
+  - [ ] Example prompts for different ad types
+  - [ ] How to describe brand identity
+  - [ ] Tips for consistent visual style
+  - [ ] Common pitfalls to avoid
+- [ ] In-app help tooltip component (basic structure)
+- [ ] Help content organized for easy access
+
+**Implementation Notes:**
+- Can be written before full implementation (describe intended workflows)
+- Include placeholder screenshots (update with real screenshots later)
+- Focus on MVP features (Ad Creative pipeline)
+- Prepare structure for Music Video documentation (post-MVP)
+- Write in clear, user-friendly language (non-technical audience)
 
 **Next Wave** (after foundation complete):
 - PR-F004: WebSocket Integration (Task 4) - After F001, F003

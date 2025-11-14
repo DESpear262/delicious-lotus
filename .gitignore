@@ -132,8 +132,8 @@ docker-compose.override.yml
 
 # AWS
 .aws/
-credentials
-config
+.aws/credentials
+.aws/config
 aws_credentials
 *.pem
 *.ppk

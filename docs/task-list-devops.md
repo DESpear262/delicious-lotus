@@ -12,6 +12,14 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ---
 
+## PR Status Summary
+
+**Completed:** 2/9
+**Unblocked (Ready to Start):** 2
+**Blocked (Dependencies Not Met):** 5
+
+---
+
 ## Currently Unblocked PRs
 
 ### PR-D001: Local Development Environment (Task 1)
@@ -24,19 +32,94 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ### PR-D003: Storage Architecture Documentation (Task 6 - doc only)
 **Status:** Unblocked | **Est:** 1 hour | **Agent:** Available
-- Document S3 structure, lifecycle policies, IAM permissions
-- Files: `docs/storage-architecture.md`, `.env.example` updates
-- Note: Actual AWS resources created by user when credentials ready
+**Dependencies:** None
+**Description:** Document S3 bucket structure, lifecycle policies, and IAM permissions. Actual AWS resource creation will be done by user when credentials available.
+
+**Files to Create/Modify:**
+- `docs/storage-architecture.md` - S3 structure, folder organization, lifecycle policies
+- `.env.example` - Add S3-related environment variables (if not already comprehensive)
+
+**Acceptance Criteria:**
+- [ ] S3 bucket structure documented (uploads/, generations/, compositions/, temp/)
+- [ ] Lifecycle policies specified (7-day auto-delete for temp files, 30-day for generations)
+- [ ] IAM permissions documented (least privilege for ECS tasks)
+- [ ] Presigned URL generation approach documented
+- [ ] CORS configuration for direct uploads (if applicable)
+- [ ] Cost optimization strategies documented
+- [ ] Environment variables defined in .env.example
+
+**Implementation Notes:**
+- Focus on documentation only - no actual AWS resources
+- Coordinate with backend team on file paths and naming conventions
+- Consider both local development (filesystem) and production (S3) scenarios
 
 ### PR-D005: Environment Configuration Templates (Task 8)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
-- Create env templates for dev/prod, document all variables
-- Files: `.env.example`, `deploy/env.*.template`, `docs/environment-setup.md`
+**Status:** Complete ✅ | **Est:** 2 hours | **Completed by:** Orange
+**Files:** `deploy/env.dev.template`, `deploy/env.prod.template`, `docs/environment-setup.md`, `backend/app/config/settings.py`, `backend/app/config/__init__.py`, `backend/app/__init__.py`, `.gitignore` (fixed)
+**Commit:** 1215253
+**Dependencies:** None
+**Description:** Create comprehensive environment configuration templates for dev and production environments with all required secrets and settings.
+
+**Files to Create/Modify:**
+- `deploy/env.dev.template` - Development environment template
+- `deploy/env.prod.template` - Production environment template
+- `docs/environment-setup.md` - Configuration guide and variable reference
+- `.env.example` - Ensure completeness (may already be comprehensive from PR-D001)
+- `backend/app/config/settings.py` - Settings management structure (if backend allows)
+
+**Acceptance Criteria:**
+- [ ] All environment variables documented with descriptions
+- [ ] Templates for Replicate API keys (placeholder format)
+- [ ] Templates for database connection strings (dev/prod)
+- [ ] Templates for Redis configuration (dev/prod)
+- [ ] CORS settings for Option B single-domain deployment
+- [ ] AWS credentials templates (S3, ECR, ECS)
+- [ ] Security settings (secrets, JWT keys, etc.)
+- [ ] Feature flags for MVP vs post-MVP features
+- [ ] Secrets management approach documented
+- [ ] Clear instructions on how to populate actual values
+
+**Implementation Notes:**
+- Templates only - user provides actual credentials
+- Support Option B deployment (FastAPI static serving)
+- Document which variables are required vs optional
+- Include examples of valid values (but not real secrets)
+- Consider using different secret management for production (AWS Secrets Manager documentation)
 
 ### PR-D009: Deployment Documentation (Task 13)
 **Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
-- Deployment guide, architecture diagram, troubleshooting
-- Files: `docs/deployment-guide.md`, `docs/architecture.md`, `docs/troubleshooting.md`
+**Dependencies:** None (can document in parallel with implementation)
+**Description:** Create comprehensive deployment, architecture, and troubleshooting documentation for the entire system.
+
+**Files to Create:**
+- `docs/deployment-guide.md` - Step-by-step deployment procedures
+- `docs/architecture.md` - System architecture diagram and explanation
+- `docs/troubleshooting.md` - Common issues and solutions
+- `docs/cost-tracking.md` - AWS cost tracking and optimization
+- `docs/scaling.md` - Post-MVP scaling recommendations
+
+**Acceptance Criteria:**
+- [ ] Deployment runbook with step-by-step instructions
+- [ ] Architecture diagram (can be ASCII art or Mermaid diagram)
+- [ ] Component interaction documentation (Frontend → Backend → AI → FFmpeg)
+- [ ] Deployment sequence documented (Docker build → ECR push → ECS update)
+- [ ] Rollback procedures documented
+- [ ] Troubleshooting guide with common issues:
+  - [ ] Container startup failures
+  - [ ] Database connection issues
+  - [ ] S3 access problems
+  - [ ] Frontend not loading
+  - [ ] API errors
+- [ ] AWS resource inventory (RDS, ElastiCache, S3, ECR, ECS, CloudWatch)
+- [ ] Cost tracking spreadsheet structure
+- [ ] Scaling recommendations for post-MVP
+
+**Implementation Notes:**
+- Can be written before full implementation (describe intended architecture)
+- Focus on Option B deployment model (single container with static files)
+- Include both local development and production deployment
+- Document prerequisites (AWS CLI, Docker, credentials)
+- Include monitoring and health check procedures
 
 **Blocked PRs** (will plan when dependencies clear):
 - PR-D002: Backend Docker (needs backend code structure from backend team)

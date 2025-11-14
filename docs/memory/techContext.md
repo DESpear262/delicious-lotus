@@ -25,8 +25,8 @@
 - **Static Files:** FastAPI StaticFiles middleware
 
 ### Infrastructure
-- **Database:** PostgreSQL (RDS for production)
-- **Cache/Queue:** Redis (ElastiCache for production)
+- **Database:** PostgreSQL 16 (RDS for production)
+- **Cache/Queue:** Redis 7 (ElastiCache for production) - using redis:7-alpine for stability
 - **Storage:** S3 for video/asset storage
 - **Deployment:** AWS ECS with Fargate
 - **Container Registry:** AWS ECR
@@ -38,7 +38,8 @@
 
 ### Local Setup (PR-D001)
 - Docker Compose for local development
-- PostgreSQL + Redis containers
+- PostgreSQL 16 container (port 5432)
+- Redis 7 container (port 6379, using redis:7-alpine image)
 - Environment variables via .env file
 - Hot reload for both frontend and backend
 

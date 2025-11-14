@@ -9,7 +9,7 @@ This file tracks which agent identities are currently in use. Agents must claim 
 | Identity | Status | Last Commit | Current PR |
 |----------|--------|-------------|------------|
 | White    | Available | - | - |
-| Orange   | In Use | 2025-11-14T14:05:00Z | Planning Frontend & DevOps PRs |
+| Orange   | Available | - | - |
 | Blonde   | Available | - | - |
 | Pink     | Available | - | - |
 | Blue     | Available | - | - |

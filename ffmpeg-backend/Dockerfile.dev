@@ -1,0 +1,48 @@
+# Development Dockerfile with hot-reload and dev tools
+
+FROM python:3.13-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    FFMPEG_VERSION=7.1 \
+    PATH="/usr/local/bin:${PATH}"
+
+WORKDIR /app
+
+# Install system dependencies and FFmpeg static build
+RUN apt-get update && apt-get install -y \
+    --no-install-recommends \
+    curl \
+    xz-utils \
+    ca-certificates \
+    git \
+    && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+    -o /tmp/ffmpeg.tar.xz \
+    && mkdir -p /tmp/ffmpeg \
+    && tar -xf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg --strip-components=1 \
+    && cp /tmp/ffmpeg/ffmpeg /usr/local/bin/ \
+    && cp /tmp/ffmpeg/ffprobe /usr/local/bin/ \
+    && chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe \
+    && rm -rf /tmp/ffmpeg /tmp/ffmpeg.tar.xz \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify FFmpeg installation
+RUN ffmpeg -version && ffprobe -version
+
+# Install Python dependencies
+COPY pyproject.toml ./
+COPY src/ ./src/
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install . \
+    && pip install ".[dev]"
+
+# Create temporary directory for FFmpeg processing
+RUN mkdir -p /tmp/ffmpeg && chmod 777 /tmp/ffmpeg
+
+# Expose port
+EXPOSE 8000
+
+# Run with hot-reload for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

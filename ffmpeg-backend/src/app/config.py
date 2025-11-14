@@ -1,0 +1,127 @@
+"""Application configuration using Pydantic settings."""
+
+from functools import lru_cache
+from typing import Annotated, Literal
+
+from pydantic import Field, PostgresDsn, RedisDsn, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Application settings
+    app_name: str = "FFmpeg Backend"
+    app_version: str = "0.1.0"
+    environment: Literal["development", "staging", "production"] = "development"
+    debug: bool = Field(default=False, description="Enable debug mode")
+    log_level: str = Field(default="INFO", description="Logging level")
+
+    # API settings
+    api_v1_prefix: str = "/api/v1"
+    allowed_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://localhost:8000"],
+        description="CORS allowed origins",
+    )
+
+    # Database settings
+    database_url: PostgresDsn = Field(
+        default="postgresql://ffmpeg:ffmpeg@localhost:5432/ffmpeg_backend",
+        description="PostgreSQL database URL",
+    )
+    db_pool_size: int = Field(default=10, description="Database connection pool size")
+    db_max_overflow: int = Field(
+        default=20, description="Max overflow connections beyond pool_size"
+    )
+
+    # Redis settings
+    redis_url: RedisDsn = Field(
+        default="redis://localhost:6379/0", description="Redis connection URL"
+    )
+    redis_max_connections: int = Field(default=50, description="Redis connection pool size")
+
+    # RQ (Job Queue) settings
+    rq_default_timeout: int = Field(
+        default=3600, description="Default job timeout in seconds (1 hour)"
+    )
+    rq_result_ttl: int = Field(default=86400, description="Job result TTL in seconds (24 hours)")
+    rq_failure_ttl: int = Field(default=604800, description="Failed job TTL in seconds (7 days)")
+
+    # S3/Object Storage settings
+    s3_bucket_name: str = Field(default="", description="S3 bucket name for media storage")
+    s3_region: str = Field(default="us-east-1", description="S3 region")
+    s3_access_key_id: str = Field(default="", description="AWS access key ID")
+    s3_secret_access_key: str = Field(default="", description="AWS secret access key")
+    s3_endpoint_url: str | None = Field(
+        default=None, description="Custom S3 endpoint URL (for MinIO, etc.)"
+    )
+
+    # FFmpeg settings
+    ffmpeg_path: str = Field(default="/usr/local/bin/ffmpeg", description="Path to FFmpeg binary")
+    ffprobe_path: str = Field(
+        default="/usr/local/bin/ffprobe", description="Path to ffprobe binary"
+    )
+    ffmpeg_threads: int = Field(default=0, description="Number of threads for FFmpeg (0 = auto)")
+    max_concurrent_jobs: int = Field(default=4, description="Maximum concurrent FFmpeg jobs")
+
+    # Media processing settings
+    temp_dir: str = Field(
+        default="/tmp/ffmpeg",  # noqa: S108
+        description="Temporary directory for processing",
+    )
+    max_upload_size: int = Field(
+        default=1024 * 1024 * 1024, description="Max upload size in bytes (1GB default)"
+    )
+    supported_video_formats: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["mp4", "mov", "avi", "mkv", "webm"],
+        description="Supported video file formats",
+    )
+    supported_audio_formats: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["mp3", "wav", "aac", "m4a", "ogg", "flac"],
+        description="Supported audio file formats",
+    )
+    supported_image_formats: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["jpg", "jpeg", "png", "gif", "webp"],
+        description="Supported image file formats",
+    )
+
+    @field_validator(
+        "allowed_origins",
+        "supported_video_formats",
+        "supported_audio_formats",
+        "supported_image_formats",
+        mode="before",
+    )
+    @classmethod
+    def parse_comma_separated(cls, v: str | list[str]) -> list[str]:
+        """Parse comma-separated string into list."""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(",") if item.strip()]
+        return v
+
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment."""
+        return self.environment == "development"
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.environment == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached application settings.
+
+    Returns:
+        Settings: Application configuration
+    """
+    return Settings()

@@ -8,6 +8,45 @@ This task list covers infrastructure, deployment, and operational concerns for t
 **Post-MVP:** Add Music Video Pipeline (1-3 minutes) support
 **Timeline:** 48 hours to MVP, 8 days total
 
+**DEPLOYMENT DECISION (Task 2.5):** Option B - FastAPI serves static frontend files (single container deployment)
+
+---
+
+## Currently Unblocked PRs
+
+### PR-D001: Local Development Environment (Task 1)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+- Create Docker Compose for local dev (PostgreSQL, Redis, placeholder services)
+- Files: `docker-compose.yml`, `.env.example`, `docs/local-setup.md`, DB init scripts
+
+### PR-D003: Storage Architecture Documentation (Task 6 - doc only)
+**Status:** Unblocked | **Est:** 1 hour | **Agent:** Available
+- Document S3 structure, lifecycle policies, IAM permissions
+- Files: `docs/storage-architecture.md`, `.env.example` updates
+- Note: Actual AWS resources created by user when credentials ready
+
+### PR-D005: Environment Configuration Templates (Task 8)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+- Create env templates for dev/prod, document all variables
+- Files: `.env.example`, `deploy/env.*.template`, `docs/environment-setup.md`
+
+### PR-D009: Deployment Documentation (Task 13)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+- Deployment guide, architecture diagram, troubleshooting
+- Files: `docs/deployment-guide.md`, `docs/architecture.md`, `docs/troubleshooting.md`
+
+**Blocked PRs** (will plan when dependencies clear):
+- PR-D002: Backend Docker (needs backend code structure from backend team)
+- PR-D004: CI/CD Pipeline (needs PR-D002)
+- PR-D006: Monitoring (needs user to set up ECS)
+- PR-D007: Load Testing (needs deployment)
+- PR-D008: Security Hardening (needs infrastructure)
+
+**User Tasks** (require AWS credentials):
+- Task 2: AWS Account Setup and IAM
+- Task 4: ECS Infrastructure
+- Task 5: Database Infrastructure
+
 ---
 
 ## Phase 1: MVP Infrastructure (Hours 0-24)

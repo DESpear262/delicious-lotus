@@ -8,6 +8,45 @@ This task list covers the React/Vite web application for the video generation pi
 **Post-MVP:** Add Music Video Pipeline interface (1-3 minutes)
 **Timeline:** 48 hours to MVP, 8 days total
 
+**DEPLOYMENT APPROACH:** Frontend builds to static files, served by FastAPI backend (Option B)
+
+---
+
+## Currently Unblocked PRs
+
+### PR-F001: Project Initialization (Task 1)
+**Status:** Unblocked | **Est:** 1 hour | **Agent:** Available
+- Initialize React 18 + Vite + TypeScript with core tooling
+- Files: `frontend/package.json`, `tsconfig.json`, `vite.config.ts`, ESLint/Prettier configs
+- Build must output static files for backend serving
+
+### PR-F002: Design System Foundation (Task 2)
+**Status:** Unblocked | **Est:** 3 hours | **Agent:** Available (after PR-F001)
+- CSS variables, base components, responsive breakpoints
+- Files: `styles/*.css`, `components/ui/*.tsx` (Button, Input, Card)
+- No Tailwind per project requirements
+
+### PR-F003: API Client Setup (Task 3)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (after PR-F001)
+- Axios client with interceptors, TypeScript types, service modules
+- Files: `api/client.ts`, `api/types.ts`, `api/services/*.ts`, `utils/errors.ts`
+
+### PR-F005: Routing and Layout (Task 5)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (after PR-F001, PR-F002)
+- React Router setup with main layout and navigation
+- Files: `App.tsx`, `layouts/MainLayout.tsx`, `components/Navigation.tsx`, page stubs
+
+### PR-F016: User Documentation (Task 16)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available (parallel work)
+- User guide, FAQ, prompt best practices
+- Files: `docs/user-guide.md`, `docs/faq.md`, `docs/prompt-best-practices.md`
+
+**Next Wave** (after foundation complete):
+- PR-F004: WebSocket Integration (Task 4) - After F001, F003
+- PR-F006: Generation Form (Task 6) - After F002, F003, F005
+- PR-F008: Video Preview (Task 8) - After F002
+- And subsequent PRs as dependencies clear...
+
 ---
 
 ## Phase 1: MVP Core Setup (Hours 0-12)

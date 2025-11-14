@@ -14,9 +14,9 @@ This task list covers the React/Vite web application for the video generation pi
 
 ## PR Status Summary
 
-**Completed:** 1/16+
-**Unblocked (Ready to Start):** 3
-**Blocked (Dependencies Not Met):** 1
+**Completed:** 2/16+
+**Unblocked (Ready to Start):** 4
+**Blocked (Dependencies Not Met):** 0
 **Planned for Next Wave:** Multiple
 
 ---
@@ -33,7 +33,9 @@ This task list covers the React/Vite web application for the video generation pi
 - Commit: 68eee3f
 
 ### PR-F002: Design System Foundation (Task 2)
-**Status:** In Progress | **Est:** 3 hours | **Agent:** White
+**Status:** Complete ✅ | **Est:** 3 hours | **Completed by:** White
+**Files:** 17 files (Button, Input, Card, Spinner, Toast components + CSS Modules, animations, responsive styles)
+**Commit:** dec2632
 **Dependencies:** PR-F001 (Complete ✅)
 **Description:** Create comprehensive design system with CSS variables, base UI components, and responsive framework.
 
@@ -113,10 +115,9 @@ This task list covers the React/Vite web application for the video generation pi
 - Prepare for WebSocket integration (PR-F004) by keeping job polling separate
 
 ### PR-F005: Routing and Layout (Task 5)
-**Status:** Blocked | **Est:** 2 hours | **Agent:** Available
-**Dependencies:** PR-F001 (Complete ✅), PR-F002 (In Progress/Blocked)
+**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+**Dependencies:** PR-F001 (Complete ✅), PR-F002 (Complete ✅)
 **Description:** React Router setup with main layout, navigation, and route structure.
-**Note:** Blocked until PR-F002 completes (needs design system components for layout)
 
 **Files to Create/Modify:**
 - `frontend/src/App.tsx` - Update with route configuration

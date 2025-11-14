@@ -1,0 +1,34 @@
+# ===================================
+# AI Video Pipeline - Backend Development Dockerfile
+# PLACEHOLDER for local development environment
+# ===================================
+#
+# This is a minimal placeholder Dockerfile that allows docker-compose to build.
+# The backend team will replace this with the actual FastAPI + FFmpeg setup.
+#
+# When the backend team completes PR-D002, this file will be replaced with:
+# - Python 3.13 base image
+# - FFmpeg installation
+# - FastAPI dependencies
+# - Celery setup
+# - Development hot-reload configuration
+#
+# ===================================
+
+FROM python:3.13-slim
+
+# Set working directory
+WORKDIR /app
+
+# Create placeholder directories
+RUN mkdir -p /app/uploads /app/outputs /app/storage
+
+# Install minimal dependencies for placeholder
+RUN pip install --no-cache-dir fastapi uvicorn
+
+# Placeholder message
+CMD ["sh", "-c", "echo 'Backend placeholder - waiting for FastAPI structure from backend team' && sleep infinity"]
+
+# Health check placeholder
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD echo "Placeholder healthy"

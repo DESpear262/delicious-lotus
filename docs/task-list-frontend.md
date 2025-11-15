@@ -71,6 +71,41 @@ This task list covers the React/Vite web application for the video generation pi
 ---
 
 ### PR-F005: Routing and Layout
+=======
+### PR-F004: WebSocket Integration (Task 4)
+**Status:** Unblocked | **Est:** 3 hours | **Agent:** Available
+**Dependencies:** PR-F001 (Complete ✅), PR-F003 (Complete ✅)
+**Description:** Implement Socket.io client for real-time progress updates during video generation, including auto-reconnection, event handling, and offline message queuing.
+
+**Files to Create/Modify:**
+- `frontend/src/hooks/useWebSocket.ts` - React hook for WebSocket connection management
+- `frontend/src/utils/websocket.ts` - Socket.io client configuration and utilities
+- `frontend/src/types/websocket.ts` - TypeScript interfaces for WebSocket events
+- `frontend/src/context/WebSocketContext.tsx` - Global WebSocket context provider
+
+**Acceptance Criteria:**
+- [ ] Socket.io client configured with environment-based server URL
+- [ ] Custom React hook for WebSocket connection management
+- [ ] Auto-reconnection logic with exponential backoff
+- [ ] Event handlers for generation progress updates
+- [ ] Message queue for offline handling and reconnection
+- [ ] Connection status indicators (connecting, connected, disconnected)
+- [ ] TypeScript interfaces for all WebSocket event types:
+  - [ ] generation_started, generation_progress, generation_completed, generation_failed
+  - [ ] composition_started, composition_progress, composition_completed, composition_failed
+  - [ ] job_cancelled, job_error events
+- [ ] Error handling with user-friendly reconnection messages
+- [ ] Graceful degradation to polling if WebSocket fails
+- [ ] Integration with existing API client for fallback polling
+
+**Implementation Notes:**
+- Depends on socket.io-client dependency (added in PR-F001)
+- Server URL should default to same origin for Option B deployment
+- Include heartbeat mechanism for connection monitoring
+- Consider connection pooling for multiple concurrent jobs
+- WebSocket events should complement, not replace, API polling for reliability
+
+### PR-F005: Routing and Layout (Task 5)
 **Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
 **Dependencies:** PR-F001 ✅, PR-F002 ✅
 **Description:** React Router setup with main layout, navigation, and route structure.

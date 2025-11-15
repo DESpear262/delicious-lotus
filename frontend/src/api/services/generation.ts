@@ -3,7 +3,7 @@
  * API calls for video generation operations
  */
 
-import { get, post } from '@/api/client';
+import { get, post, del } from '@/api/client';
 import type {
   CreateGenerationRequest,
   CreateGenerationResponse,
@@ -13,6 +13,11 @@ import type {
   GetAssetsResponse,
   PaginationParams,
 } from '@/api/types';
+
+export interface DeleteGenerationResponse {
+  generation_id: string;
+  message: string;
+}
 
 /**
  * Submit a new video generation request
@@ -78,6 +83,15 @@ export const getGenerationAssets = async (
   generationId: string
 ): Promise<GetAssetsResponse> => {
   return get<GetAssetsResponse>(`/v1/generations/${generationId}/assets`);
+};
+
+/**
+ * Delete a generation
+ */
+export const deleteGeneration = async (
+  generationId: string
+): Promise<DeleteGenerationResponse> => {
+  return del<DeleteGenerationResponse>(`/v1/generations/${generationId}`);
 };
 
 /**

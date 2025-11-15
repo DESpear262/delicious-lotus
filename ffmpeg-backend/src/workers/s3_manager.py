@@ -28,9 +28,10 @@ class S3Manager:
         """Initialize S3 manager with configured client."""
         self.bucket_name = settings.s3_bucket_name
 
-        # Configure boto3 client with retry logic
+        # Configure boto3 client with retry logic and signature version 4
         config = Config(
             region_name=settings.s3_region,
+            signature_version="s3v4",  # Required for presigned URLs in some regions
             retries={
                 "max_attempts": 3,
                 "mode": "adaptive",

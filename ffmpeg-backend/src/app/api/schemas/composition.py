@@ -354,3 +354,42 @@ class DownloadResponse(BaseModel):
         """Pydantic configuration."""
 
         from_attributes = True
+
+
+class CompositionListResponse(BaseModel):
+    """Response model for composition list endpoint with pagination."""
+
+    compositions: list[CompositionResponse] = Field(
+        ..., description="List of compositions in current page"
+    )
+    total: int = Field(..., ge=0, description="Total number of compositions matching filters")
+    offset: int = Field(..., ge=0, description="Pagination offset")
+    limit: int = Field(..., ge=1, description="Pagination limit")
+
+    class Config:
+        """Pydantic configuration."""
+
+        from_attributes = True
+
+
+class CompositionCancelResponse(BaseModel):
+    """Response model for composition cancellation."""
+
+    composition_id: UUID = Field(..., description="Cancelled composition ID")
+    status: str = Field(..., description="New status (should be 'cancelled')")
+    message: str = Field(..., description="Cancellation confirmation message")
+    cancelled_at: datetime = Field(..., description="When composition was cancelled")
+
+
+class BulkCancelResponse(BaseModel):
+    """Response model for bulk composition cancellation."""
+
+    cancelled_count: int = Field(..., ge=0, description="Number of compositions cancelled")
+    failed_count: int = Field(..., ge=0, description="Number that failed to cancel")
+    cancelled_ids: list[UUID] = Field(
+        default_factory=list, description="IDs of successfully cancelled compositions"
+    )
+    failed_ids: list[UUID] = Field(
+        default_factory=list, description="IDs of compositions that failed to cancel"
+    )
+    message: str = Field(..., description="Summary message")

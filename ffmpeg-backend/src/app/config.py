@@ -100,6 +100,9 @@ class Settings(BaseSettings):
     )
     rq_result_ttl: int = Field(default=86400, description="Job result TTL in seconds (24 hours)")
     rq_failure_ttl: int = Field(default=604800, description="Failed job TTL in seconds (7 days)")
+    rq_job_retry_count: int = Field(
+        default=0, ge=0, description="Number of times to retry failed jobs (0 = no retries)"
+    )
 
     # S3/Object Storage settings
     s3_bucket_name: str = Field(default="", description="S3 bucket name for media storage")

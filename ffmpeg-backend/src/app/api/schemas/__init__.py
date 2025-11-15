@@ -2,8 +2,11 @@
 
 from .composition import (
     AudioConfig,
+    BulkCancelResponse,
     ClipConfig,
+    CompositionCancelResponse,
     CompositionCreateRequest,
+    CompositionListResponse,
     CompositionMetadataResponse,
     CompositionResponse,
     CompositionStatusResponse,
@@ -39,8 +42,11 @@ __all__ = [
     "OutputSettings",
     "CompositionCreateRequest",
     "CompositionResponse",
+    "CompositionListResponse",
     "CompositionStatusResponse",
     "CompositionMetadataResponse",
+    "CompositionCancelResponse",
+    "BulkCancelResponse",
     "DownloadResponse",
     "ProcessingStage",
     "ProcessingStageInfo",

@@ -13,7 +13,10 @@ from workers.job_handlers import process_composition_job
 from workers.worker import enqueue_job
 
 from app.api.schemas import (
+    BulkCancelResponse,
+    CompositionCancelResponse,
     CompositionCreateRequest,
+    CompositionListResponse,
     CompositionMetadataResponse,
     CompositionResponse,
     CompositionStatusResponse,
@@ -188,17 +191,21 @@ async def create_composition(
         "priority": "default",  # Could be derived from request or user tier
     }
 
-    # Enqueue background job for processing
+    # Enqueue background job for processing with callbacks
     try:
+        from workers.job_callbacks import on_job_failure, on_job_success
+
         job = enqueue_job(
             func=process_composition_job,
             kwargs={"job_id": str(uuid.uuid4()), **job_params},
             queue_name="default",  # TODO: Support priority queues based on user tier
             description=f"Process composition: {request.title}",
+            on_success=on_job_success,
+            on_failure=on_job_failure,
         )
 
         logger.info(
-            "Composition job enqueued",
+            "Composition job enqueued with callbacks",
             extra={
                 "composition_id": str(composition_id),
                 "job_id": job.id,
@@ -226,15 +233,128 @@ async def create_composition(
     return CompositionResponse.model_validate(composition)
 
 
-@router.get("/")
-async def list_compositions() -> dict[str, str]:
-    """List all compositions.
+@router.get("/", response_model=CompositionListResponse)
+async def list_compositions(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    status_filter: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> CompositionListResponse:
+    """List all compositions with pagination and filtering.
+
+    This endpoint retrieves compositions with support for filtering by status
+    and pagination. Results are ordered by creation time (most recent first).
+
+    Args:
+        db: Database session (injected)
+        status_filter: Optional status filter (pending, queued, processing, completed, failed, cancelled)
+        offset: Pagination offset (default: 0)
+        limit: Pagination limit (default: 50, max: 100)
 
     Returns:
-        dict: Placeholder response
+        CompositionListResponse: List of compositions with pagination info
+
+    Raises:
+        HTTPException: 400 for invalid parameters
+        HTTPException: 500 for database errors
     """
-    # TODO: Implement composition listing
-    return {"message": "Compositions endpoint - to be implemented"}
+    # Validate pagination parameters
+    if offset < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Offset must be non-negative",
+        )
+
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Limit must be between 1 and 100",
+        )
+
+    # Validate status filter if provided
+    if status_filter:
+        valid_statuses = ["pending", "queued", "processing", "completed", "failed", "cancelled"]
+        if status_filter.lower() not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status filter. Must be one of: {', '.join(valid_statuses)}",
+            )
+
+    logger.info(
+        "Listing compositions",
+        extra={
+            "status_filter": status_filter,
+            "offset": offset,
+            "limit": limit,
+        },
+    )
+
+    try:
+        # Build query
+        query = select(Composition)
+
+        # Apply status filter if provided
+        if status_filter:
+            try:
+                status_enum = CompositionStatus(status_filter.lower())
+                query = query.where(Composition.status == status_enum)
+            except ValueError:
+                # Invalid status - already validated above, but handle gracefully
+                pass
+
+        # Get total count before pagination
+        from sqlalchemy import func
+
+        count_query = select(func.count()).select_from(Composition)
+        if status_filter:
+            try:
+                status_enum = CompositionStatus(status_filter.lower())
+                count_query = count_query.where(Composition.status == status_enum)
+            except ValueError:
+                pass
+
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Order by creation time (most recent first) and apply pagination
+        query = query.order_by(Composition.created_at.desc()).offset(offset).limit(limit)
+
+        # Execute query
+        result = await db.execute(query)
+        compositions = result.scalars().all()
+
+        logger.info(
+            "Retrieved compositions",
+            extra={
+                "count": len(compositions),
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "status_filter": status_filter,
+            },
+        )
+
+        # Convert to response models
+        composition_responses = [CompositionResponse.model_validate(comp) for comp in compositions]
+
+        return CompositionListResponse(
+            compositions=composition_responses,
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to list compositions",
+            extra={"error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve compositions",
+        ) from e
 
 
 @router.get("/{composition_id}/status", response_model=CompositionStatusResponse)
@@ -737,15 +857,359 @@ async def get_composition_metadata(
     )
 
 
-@router.get("/{composition_id}")
-async def get_composition(composition_id: str) -> dict[str, str]:
-    """Get a specific composition.
+@router.post("/{composition_id}/cancel", response_model=CompositionCancelResponse)
+async def cancel_composition(
+    composition_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> CompositionCancelResponse:
+    """Cancel a specific composition and its associated job.
+
+    This endpoint cancels a composition that is in QUEUED or PROCESSING status.
+    It removes the job from the RQ queue, updates the database status to CANCELLED,
+    and cleans up any temporary files.
 
     Args:
-        composition_id: Composition identifier
+        composition_id: Unique composition identifier
+        db: Database session (injected)
 
     Returns:
-        dict: Placeholder response
+        CompositionCancelResponse: Cancellation confirmation
+
+    Raises:
+        HTTPException: 404 if composition not found
+        HTTPException: 400 if composition cannot be cancelled (already completed/failed)
+        HTTPException: 500 for server errors
     """
-    # TODO: Implement composition retrieval
-    return {"message": f"Get composition {composition_id} endpoint - to be implemented"}
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from rq import Queue
+    from rq.job import Job
+    from workers.redis_pool import get_redis_connection
+
+    logger.info(
+        "Cancelling composition",
+        extra={"composition_id": str(composition_id)},
+    )
+
+    try:
+        # Query composition from database
+        result = await db.execute(select(Composition).where(Composition.id == composition_id))
+        composition = result.scalar_one_or_none()
+
+        if not composition:
+            logger.warning(
+                "Composition not found for cancellation",
+                extra={"composition_id": str(composition_id)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Composition {composition_id} not found",
+            )
+
+        # Check if composition can be cancelled
+        if composition.status in (CompositionStatus.COMPLETED, CompositionStatus.CANCELLED):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot cancel composition with status {composition.status.value}",
+            )
+
+        if composition.status == CompositionStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot cancel failed composition",
+            )
+
+        # Try to cancel the RQ job if it's queued or processing
+        redis_conn = get_redis_connection()
+        cancelled_job = False
+
+        for queue_name in ["high", "default", "low"]:
+            queue = Queue(name=queue_name, connection=redis_conn)
+
+            # Get all jobs in the queue
+            for job in queue.jobs:
+                # Check if this job is for our composition
+                if (
+                    hasattr(job, "kwargs")
+                    and job.kwargs
+                    and str(job.kwargs.get("composition_id")) == str(composition_id)
+                ):
+                    # Cancel the job
+                    job.cancel()
+                    job.delete()
+                    cancelled_job = True
+
+                    logger.info(
+                        f"Cancelled RQ job {job.id} in queue {queue_name}",
+                        extra={
+                            "composition_id": str(composition_id),
+                            "job_id": job.id,
+                            "queue": queue_name,
+                        },
+                    )
+                    break
+
+            if cancelled_job:
+                break
+
+        # Clean up temp files
+        try:
+            import shutil
+
+            from app.config import settings
+
+            temp_dir = Path(settings.temp_dir) / str(composition_id)
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.info(
+                    f"Cleaned up temp directory for composition {composition_id}",
+                    extra={"composition_id": str(composition_id), "temp_dir": str(temp_dir)},
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to clean up temp files for composition {composition_id}: {e}",
+                extra={"composition_id": str(composition_id), "error": str(e)},
+            )
+
+        # Update composition status to CANCELLED
+        composition.status = CompositionStatus.CANCELLED
+        composition.error_message = "Cancelled by user"
+        await db.commit()
+        await db.refresh(composition)
+
+        cancelled_at = datetime.now(UTC)
+
+        logger.info(
+            f"Composition {composition_id} cancelled successfully",
+            extra={
+                "composition_id": str(composition_id),
+                "job_cancelled": cancelled_job,
+            },
+        )
+
+        return CompositionCancelResponse(
+            composition_id=composition_id,
+            status=composition.status.value,
+            message=f"Composition {composition_id} has been cancelled",
+            cancelled_at=cancelled_at,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to cancel composition",
+            extra={"composition_id": str(composition_id), "error": str(e)},
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to cancel composition",
+        ) from e
+
+
+@router.post("/cancel-all", response_model=BulkCancelResponse)
+async def cancel_all_queued_compositions(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> BulkCancelResponse:
+    """Cancel all queued compositions.
+
+    This endpoint cancels all compositions that are in QUEUED or PROCESSING status.
+    It removes jobs from the RQ queue, updates database statuses, and cleans up temp files.
+
+    Args:
+        db: Database session (injected)
+
+    Returns:
+        BulkCancelResponse: Summary of cancellation operation
+
+    Raises:
+        HTTPException: 500 for server errors
+    """
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from rq import Queue
+    from workers.redis_pool import get_redis_connection
+
+    logger.info("Cancelling all queued compositions")
+
+    cancelled_ids: list[uuid.UUID] = []
+    failed_ids: list[uuid.UUID] = []
+
+    try:
+        # Query all compositions that can be cancelled
+        result = await db.execute(
+            select(Composition).where(
+                Composition.status.in_([CompositionStatus.QUEUED, CompositionStatus.PROCESSING])
+            )
+        )
+        compositions = result.scalars().all()
+
+        logger.info(
+            f"Found {len(compositions)} compositions to cancel",
+            extra={"count": len(compositions)},
+        )
+
+        # Get Redis connection and queues
+        redis_conn = get_redis_connection()
+        queues = {name: Queue(name=name, connection=redis_conn) for name in ["high", "default", "low"]}
+
+        # Cancel each composition
+        for composition in compositions:
+            try:
+                # Try to find and cancel the RQ job
+                cancelled_job = False
+
+                for queue_name, queue in queues.items():
+                    for job in queue.jobs:
+                        if (
+                            hasattr(job, "kwargs")
+                            and job.kwargs
+                            and str(job.kwargs.get("composition_id")) == str(composition.id)
+                        ):
+                            job.cancel()
+                            job.delete()
+                            cancelled_job = True
+
+                            logger.debug(
+                                f"Cancelled job {job.id} for composition {composition.id}",
+                                extra={
+                                    "composition_id": str(composition.id),
+                                    "job_id": job.id,
+                                    "queue": queue_name,
+                                },
+                            )
+                            break
+
+                    if cancelled_job:
+                        break
+
+                # Clean up temp files
+                try:
+                    import shutil
+
+                    from app.config import settings
+
+                    temp_dir = Path(settings.temp_dir) / str(composition.id)
+                    if temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as cleanup_error:
+                    logger.warning(
+                        f"Failed to clean up temp files for {composition.id}: {cleanup_error}",
+                        extra={"composition_id": str(composition.id)},
+                    )
+
+                # Update composition status
+                composition.status = CompositionStatus.CANCELLED
+                composition.error_message = "Cancelled by bulk operation"
+
+                cancelled_ids.append(composition.id)
+
+            except Exception as comp_error:
+                logger.exception(
+                    f"Failed to cancel composition {composition.id}",
+                    extra={"composition_id": str(composition.id), "error": str(comp_error)},
+                )
+                failed_ids.append(composition.id)
+
+        # Commit all changes
+        await db.commit()
+
+        logger.info(
+            f"Bulk cancellation complete: {len(cancelled_ids)} succeeded, {len(failed_ids)} failed",
+            extra={
+                "cancelled_count": len(cancelled_ids),
+                "failed_count": len(failed_ids),
+            },
+        )
+
+        message = f"Cancelled {len(cancelled_ids)} composition(s)"
+        if failed_ids:
+            message += f", {len(failed_ids)} failed"
+
+        return BulkCancelResponse(
+            cancelled_count=len(cancelled_ids),
+            failed_count=len(failed_ids),
+            cancelled_ids=cancelled_ids,
+            failed_ids=failed_ids,
+            message=message,
+        )
+
+    except Exception as e:
+        logger.exception(
+            "Failed to cancel queued compositions",
+            extra={"error": str(e)},
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to cancel queued compositions",
+        ) from e
+
+
+@router.get("/{composition_id}", response_model=CompositionResponse)
+async def get_composition(
+    composition_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> CompositionResponse:
+    """Get detailed information about a specific composition.
+
+    This endpoint retrieves comprehensive information about a composition including
+    its current status, configuration, timestamps, and output URL (if completed).
+
+    Args:
+        composition_id: Unique composition identifier
+        db: Database session (injected)
+
+    Returns:
+        CompositionResponse: Detailed composition information
+
+    Raises:
+        HTTPException: 404 if composition not found
+        HTTPException: 500 for database errors
+    """
+    logger.info(
+        "Retrieving composition details",
+        extra={"composition_id": str(composition_id)},
+    )
+
+    try:
+        # Query composition from database
+        result = await db.execute(select(Composition).where(Composition.id == composition_id))
+        composition = result.scalar_one_or_none()
+
+        if not composition:
+            logger.warning(
+                "Composition not found",
+                extra={"composition_id": str(composition_id)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Composition {composition_id} not found",
+            )
+
+        logger.info(
+            "Retrieved composition",
+            extra={
+                "composition_id": str(composition_id),
+                "status": composition.status.value,
+                "title": composition.title,
+            },
+        )
+
+        # Return composition response
+        return CompositionResponse.model_validate(composition)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to retrieve composition",
+            extra={"composition_id": str(composition_id), "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve composition",
+        ) from e

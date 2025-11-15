@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.v1 import router as api_v1_router
 from .config import get_settings
-from .middleware import ErrorHandlerMiddleware, LoggingMiddleware, RequestIDMiddleware
+from .middleware import LoggingMiddleware, RequestIDMiddleware
+from .middleware.exception_handlers import setup_exception_handlers
+from .middleware.rate_limiting import RateLimitMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -47,9 +49,12 @@ def create_app() -> FastAPI:
     )
 
     # Add custom middleware (order matters - first added is outermost)
-    app.add_middleware(ErrorHandlerMiddleware)
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
+
+    # Setup exception handlers (replaces ErrorHandlerMiddleware with more comprehensive handling)
+    setup_exception_handlers(app)
 
     # Include API routers
     app.include_router(api_v1_router, prefix=settings.api_v1_prefix)

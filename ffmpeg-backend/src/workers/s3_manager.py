@@ -352,6 +352,98 @@ class S3Manager:
                 return False
             raise
 
+    def generate_presigned_url(
+        self,
+        s3_key: str,
+        expiration: int = 3600,
+        response_headers: dict[str, str] | None = None,
+    ) -> str:
+        """Generate a presigned URL for downloading a file from S3.
+
+        Args:
+            s3_key: S3 object key
+            expiration: URL expiration time in seconds (default 1 hour)
+            response_headers: Optional response headers to include in presigned URL
+
+        Returns:
+            str: Presigned URL
+
+        Raises:
+            ClientError: If presigned URL generation fails
+        """
+        try:
+            params = {
+                "Bucket": self.bucket_name,
+                "Key": s3_key,
+            }
+
+            # Add response headers if provided
+            if response_headers:
+                params["ResponseContentDisposition"] = response_headers.get(
+                    "ContentDisposition", ""
+                )
+                params["ResponseContentType"] = response_headers.get("ContentType", "")
+
+            presigned_url = self.s3_client.generate_presigned_url(
+                "get_object",
+                Params=params,
+                ExpiresIn=expiration,
+            )
+
+            logger.info(
+                f"Generated presigned URL for {s3_key}",
+                extra={
+                    "s3_key": s3_key,
+                    "expiration_seconds": expiration,
+                },
+            )
+
+            return presigned_url
+
+        except Exception as e:
+            logger.exception(
+                f"Failed to generate presigned URL: {s3_key}",
+                extra={"s3_key": s3_key, "error": str(e)},
+            )
+            raise
+
+    def get_object_metadata(self, s3_key: str) -> dict[str, Any]:
+        """Get metadata for an S3 object.
+
+        Args:
+            s3_key: S3 object key
+
+        Returns:
+            dict: Object metadata including size, content type, etc.
+
+        Raises:
+            ClientError: If object doesn't exist or metadata retrieval fails
+        """
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+
+            metadata = {
+                "size_bytes": response.get("ContentLength", 0),
+                "content_type": response.get("ContentType", ""),
+                "last_modified": response.get("LastModified"),
+                "etag": response.get("ETag", "").strip('"'),
+                "metadata": response.get("Metadata", {}),
+            }
+
+            logger.debug(
+                f"Retrieved metadata for {s3_key}",
+                extra={"s3_key": s3_key, "size_bytes": metadata["size_bytes"]},
+            )
+
+            return metadata
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                raise FileNotFoundError(
+                    f"S3 object not found: s3://{self.bucket_name}/{s3_key}"
+                ) from e
+            raise
+
 
 # Global S3 manager instance
 s3_manager = S3Manager()

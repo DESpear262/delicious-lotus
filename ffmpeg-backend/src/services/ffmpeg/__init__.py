@@ -18,12 +18,31 @@ from services.ffmpeg.filter_builder import (
     TransitionType,
 )
 from services.ffmpeg.input_manager import InputFileManager, MediaFileInfo, StreamInfo
+from services.ffmpeg.normalizer import (
+    NormalizationResult,
+    NormalizationSettings,
+    VideoNormalizer,
+    VideoNormalizerError,
+)
 from services.ffmpeg.security import FFmpegCommandValidator, FFmpegSecurityError
 from services.ffmpeg.text_overlay import (
     TextAnimation,
     TextOverlayBuilder,
     TextPosition,
     TextStyle,
+)
+from services.ffmpeg.timeline_assembler import (
+    AssembledTimeline,
+    TimelineAssembler,
+    TimelineAssemblyError,
+    TimelineClip,
+)
+from services.ffmpeg.transition_processor import (
+    ProcessedTransition,
+    TransitionConfig,
+    TransitionProcessor,
+    TransitionProcessorError,
+    TransitionStyle,
 )
 from services.ffmpeg.validator import FilterChainValidator, ValidationResult
 
@@ -59,6 +78,22 @@ __all__ = [
     "H264Preset",
     "H264Profile",
     "H264Tune",
+    # Normalizer
+    "VideoNormalizer",
+    "NormalizationSettings",
+    "NormalizationResult",
+    "VideoNormalizerError",
+    # Timeline Assembler
+    "TimelineAssembler",
+    "AssembledTimeline",
+    "TimelineClip",
+    "TimelineAssemblyError",
+    # Transition Processor
+    "TransitionProcessor",
+    "TransitionConfig",
+    "ProcessedTransition",
+    "TransitionProcessorError",
+    "TransitionStyle",
     # Security
     "FFmpegCommandValidator",
     "FFmpegSecurityError",

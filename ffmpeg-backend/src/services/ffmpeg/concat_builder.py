@@ -7,10 +7,16 @@ and building concatenation commands for seamless video joining.
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from services.ffmpeg.timeline_assembler import AssembledTimeline, TimelineClip
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -205,9 +211,9 @@ class ConcatDemuxerBuilder:
             try:
                 if file_path.exists():
                     file_path.unlink()
-            except Exception:
-                # Ignore cleanup errors
-                pass
+            except Exception as e:  # noqa: S110
+                # Ignore cleanup errors - best effort cleanup
+                logger.debug(f"Failed to cleanup file {file_path}: {e}")
 
         self._created_files.clear()
 
@@ -222,6 +228,117 @@ class ConcatDemuxerBuilder:
     def __del__(self) -> None:
         """Destructor - cleanup files."""
         self.cleanup()
+
+    def create_segments_from_timeline(
+        self,
+        timeline: AssembledTimeline,
+    ) -> list[ConcatSegment]:
+        """
+        Create concat segments from an assembled timeline.
+
+        This method converts TimelineClip objects into ConcatSegment objects
+        with proper trim points for the FFmpeg concat demuxer.
+
+        Args:
+            timeline: AssembledTimeline with clips to convert
+
+        Returns:
+            List of ConcatSegment objects ready for concat demuxer
+
+        Example:
+            >>> from services.ffmpeg.timeline_assembler import TimelineAssembler
+            >>> assembler = TimelineAssembler()
+            >>> timeline = assembler.assemble_timeline(clips)
+            >>> builder = ConcatDemuxerBuilder()
+            >>> segments = builder.create_segments_from_timeline(timeline)
+            >>> concat_file = builder.generate_concat_file(segments)
+        """
+        if not timeline.clips:
+            raise ValueError("Timeline has no clips to convert to segments")
+
+        segments: list[ConcatSegment] = []
+
+        logger.info(
+            "Creating concat segments from timeline",
+            extra={"clip_count": timeline.clip_count},
+        )
+
+        for clip in timeline.clips:
+            segment = self._clip_to_segment(clip)
+            segments.append(segment)
+
+            logger.debug(
+                "Created concat segment from timeline clip",
+                extra={
+                    "clip_id": clip.clip_id,
+                    "source_path": str(clip.source_path),
+                    "inpoint": segment.inpoint,
+                    "outpoint": segment.outpoint,
+                    "duration": segment.duration,
+                },
+            )
+
+        logger.info(
+            "Created concat segments from timeline",
+            extra={"segment_count": len(segments)},
+        )
+
+        return segments
+
+    def _clip_to_segment(self, clip: TimelineClip) -> ConcatSegment:
+        """
+        Convert a TimelineClip to a ConcatSegment.
+
+        Args:
+            clip: TimelineClip to convert
+
+        Returns:
+            ConcatSegment with appropriate trim points
+        """
+        # Determine duration
+        duration = None
+        if clip.source_end is not None:
+            # Calculate exact duration from trim points
+            duration = clip.source_end - clip.source_start
+
+        return ConcatSegment(
+            file_path=clip.source_path,
+            duration=duration,
+            inpoint=clip.source_start,
+            outpoint=clip.source_end,
+        )
+
+    def generate_concat_file_from_timeline(
+        self,
+        timeline: AssembledTimeline,
+        output_path: str | Path | None = None,
+        safe_mode: bool = False,
+    ) -> Path:
+        """
+        Generate a concat demuxer file directly from a timeline.
+
+        This is a convenience method that combines create_segments_from_timeline
+        and generate_concat_file into a single call.
+
+        Args:
+            timeline: AssembledTimeline to convert to concat file
+            output_path: Path for concat file (default: temp file)
+            safe_mode: Use safe mode (requires absolute paths)
+
+        Returns:
+            Path to generated concat file
+
+        Example:
+            >>> timeline = assembler.assemble_timeline(clips)
+            >>> builder = ConcatDemuxerBuilder()
+            >>> concat_file = builder.generate_concat_file_from_timeline(timeline)
+        """
+        segments = self.create_segments_from_timeline(timeline)
+        return self.generate_concat_file(
+            segments=segments,
+            output_path=output_path,
+            safe_mode=safe_mode,
+        )
 
 
 def create_concat_segments_from_files(

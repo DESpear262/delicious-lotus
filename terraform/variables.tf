@@ -138,3 +138,22 @@ variable "replicate_api_token" {
   sensitive   = true
   default     = "" # Must be provided
 }
+
+# CloudWatch Monitoring Configuration
+variable "alarm_email" {
+  description = "Email address for CloudWatch alarm notifications"
+  type        = string
+  default     = "" # Must be provided
+}
+
+variable "monthly_cost_threshold" {
+  description = "Monthly cost threshold in USD for cost alarms"
+  type        = number
+  default     = 60
+}
+
+variable "s3_storage_threshold_gb" {
+  description = "S3 storage threshold in GB for storage alarms"
+  type        = number
+  default     = 50
+}

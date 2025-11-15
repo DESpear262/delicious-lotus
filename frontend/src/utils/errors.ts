@@ -31,9 +31,9 @@ export class ApiError extends Error {
     this.requestId = requestId;
     this.timestamp = timestamp;
 
-    // Maintains proper stack trace for where error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ApiError);
+    // Maintains proper stack trace for where error was thrown (V8 only)
+    if (typeof (Error as typeof Error & { captureStackTrace?: (target: object, constructor: Function) => void }).captureStackTrace === 'function') {
+      (Error as typeof Error & { captureStackTrace: (target: object, constructor: Function) => void }).captureStackTrace(this, ApiError);
     }
   }
 
@@ -69,8 +69,8 @@ export class NetworkError extends Error {
     super(message);
     this.name = 'NetworkError';
 
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, NetworkError);
+    if (typeof (Error as typeof Error & { captureStackTrace?: (target: object, constructor: Function) => void }).captureStackTrace === 'function') {
+      (Error as typeof Error & { captureStackTrace: (target: object, constructor: Function) => void }).captureStackTrace(this, NetworkError);
     }
   }
 }
@@ -83,8 +83,8 @@ export class TimeoutError extends Error {
     super(message);
     this.name = 'TimeoutError';
 
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, TimeoutError);
+    if (typeof (Error as typeof Error & { captureStackTrace?: (target: object, constructor: Function) => void }).captureStackTrace === 'function') {
+      (Error as typeof Error & { captureStackTrace: (target: object, constructor: Function) => void }).captureStackTrace(this, TimeoutError);
     }
   }
 }

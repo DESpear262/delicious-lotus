@@ -1,0 +1,44 @@
+/* History Page */
+.historyPage {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-8) var(--spacing-4);
+}
+
+.historyTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-4);
+}
+
+.historyDescription {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-6);
+}
+
+.historyNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  padding: var(--spacing-4);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-info);
+}
+
+/* Mobile Responsive */
+@media (max-width: 767px) {
+  .historyPage {
+    padding: var(--spacing-4) var(--spacing-2);
+  }
+
+  .historyTitle {
+    font-size: var(--font-size-2xl);
+  }
+
+  .historyDescription {
+    font-size: var(--font-size-base);
+  }
+}

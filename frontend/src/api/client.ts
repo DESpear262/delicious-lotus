@@ -3,7 +3,8 @@
  * Configured Axios instance with interceptors and error handling
  */
 
-import axios, {
+import axios from 'axios';
+import type {
   AxiosInstance,
   AxiosRequestConfig,
   AxiosResponse,

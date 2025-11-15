@@ -171,11 +171,13 @@ export class CircuitBreaker {
     lastFailureTime: 0,
     isOpen: false,
   };
+  private maxFailures: number;
+  private resetTimeout: number;
 
-  constructor(
-    private maxFailures: number = 5,
-    private resetTimeout: number = 60000
-  ) {}
+  constructor(maxFailures: number = 5, resetTimeout: number = 60000) {
+    this.maxFailures = maxFailures;
+    this.resetTimeout = resetTimeout;
+  }
 
   /**
    * Check if circuit breaker is open (blocking requests)

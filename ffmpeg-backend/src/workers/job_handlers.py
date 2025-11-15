@@ -1,5 +1,6 @@
 """Job handlers for video composition and processing tasks."""
 
+import asyncio
 import logging
 import time
 import traceback
@@ -301,6 +302,71 @@ class CompositionJobHandler:
             },
         )
 
+    async def _collect_metrics_async(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Execute job with async metrics collection.
+
+        Args:
+            params: Job parameters
+
+        Returns:
+            dict: Job execution result
+        """
+        from db.session import get_db_session
+        from services.metrics import JobMetricsContext, MetricsCollector
+
+        validated_params = self.validate_params(params)
+        self.context.composition_id = validated_params.composition_id
+
+        # Execute job with metrics collection
+        async with get_db_session() as session:
+            metrics_collector = MetricsCollector(session)
+
+            async with JobMetricsContext(
+                collector=metrics_collector,
+                composition_id=validated_params.composition_id,
+                processing_job_id=UUID(self.job_id),
+            ):
+                # Initialize progress tracker
+                from workers.progress_tracker import ProgressTracker
+
+                self.progress_tracker = ProgressTracker(
+                    job_id=self.job_id,
+                    composition_id=str(validated_params.composition_id),
+                    throttle_seconds=0.5,  # Update at most every 0.5 seconds
+                )
+
+                # Update status to in progress
+                self._update_context(
+                    status=JobStatus.IN_PROGRESS,
+                    operation="Job initialized",
+                    progress=0.0,
+                )
+
+                # Execute job
+                result = self._execute_job(validated_params)
+
+                # Record FFmpeg stats if available in metadata
+                if "ffmpeg_stats" in self.context.metadata:
+                    ffmpeg_stats = self.context.metadata["ffmpeg_stats"]
+                    await metrics_collector.record_ffmpeg_stats(
+                        composition_id=validated_params.composition_id,
+                        processing_job_id=UUID(self.job_id),
+                        stats={
+                            "frame_rate": ffmpeg_stats.get("fps", 0.0),
+                            "bitrate": ffmpeg_stats.get("bitrate_kbps", 0.0),
+                            "encoding_speed": ffmpeg_stats.get("speed", 0.0),
+                        },
+                    )
+
+                # Mark as completed
+                self._update_context(
+                    status=JobStatus.COMPLETED,
+                    operation="Job completed successfully",
+                    progress=100.0,
+                )
+
+                return result
+
     def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """Execute the composition job.
 
@@ -313,8 +379,6 @@ class CompositionJobHandler:
         Raises:
             Exception: If job execution fails
         """
-        from workers.progress_tracker import ProgressTracker
-
         start_time = time.time()
 
         try:
@@ -324,32 +388,8 @@ class CompositionJobHandler:
                 extra={"job_id": self.job_id, "params": params},
             )
 
-            validated_params = self.validate_params(params)
-            self.context.composition_id = validated_params.composition_id
-
-            # Initialize progress tracker
-            self.progress_tracker = ProgressTracker(
-                job_id=self.job_id,
-                composition_id=str(validated_params.composition_id),
-                throttle_seconds=0.5,  # Update at most every 0.5 seconds
-            )
-
-            # Update status to in progress
-            self._update_context(
-                status=JobStatus.IN_PROGRESS,
-                operation="Job initialized",
-                progress=0.0,
-            )
-
-            # Execute job (will be implemented in next subtask)
-            result = self._execute_job(validated_params)
-
-            # Mark as completed
-            self._update_context(
-                status=JobStatus.COMPLETED,
-                operation="Job completed successfully",
-                progress=100.0,
-            )
+            # Execute job with metrics collection (run async code in sync context)
+            result = asyncio.run(self._collect_metrics_async(params))
 
             execution_time = time.time() - start_time
 
@@ -357,7 +397,7 @@ class CompositionJobHandler:
                 "Job execution completed successfully",
                 extra={
                     "job_id": self.job_id,
-                    "composition_id": str(validated_params.composition_id),
+                    "composition_id": str(self.context.composition_id),
                     "execution_time": execution_time,
                     "result": result,
                 },
@@ -366,7 +406,7 @@ class CompositionJobHandler:
             return {
                 "success": True,
                 "job_id": self.job_id,
-                "composition_id": str(validated_params.composition_id),
+                "composition_id": str(self.context.composition_id),
                 "execution_time": execution_time,
                 "result": result,
                 "context": self.context.to_dict(),
@@ -484,8 +524,14 @@ class CompositionJobHandler:
             # Generate output filename
             output_filename = f"{params.composition_id}_{uuid4().hex[:8]}.{params.output_format}"
 
+            # Track last FFmpeg progress for metrics
+            last_ffmpeg_progress = None
+
             # Progress callback for FFmpeg
             def ffmpeg_progress_callback(progress: FFmpegProgress) -> None:
+                nonlocal last_ffmpeg_progress
+                last_ffmpeg_progress = progress
+
                 # Map FFmpeg progress (0-100%) to job progress (40-80%)
                 job_progress = 40.0 + (progress.progress_percent * 0.4)
 
@@ -521,6 +567,15 @@ class CompositionJobHandler:
                 "FFmpeg composition completed",
                 extra={"output_file": str(output_file)},
             )
+
+            # Store FFmpeg stats in metadata for metrics collection
+            if last_ffmpeg_progress:
+                self.context.metadata["ffmpeg_stats"] = {
+                    "frames": last_ffmpeg_progress.frame,
+                    "fps": last_ffmpeg_progress.fps,
+                    "speed": last_ffmpeg_progress.speed,
+                    "bitrate_kbps": last_ffmpeg_progress.bitrate_kbps,
+                }
 
             self._update_context(
                 operation="Video processing complete",

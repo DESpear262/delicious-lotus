@@ -48,6 +48,13 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "httpx>=0.26.0",
     "tenacity>=8.2.3",
+    "PyJWT>=2.8.0",
+
+    # Logging
+    "python-json-logger>=2.0.7",
+
+    # System monitoring
+    "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]

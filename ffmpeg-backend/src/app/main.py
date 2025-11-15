@@ -1,23 +1,26 @@
 """Main FastAPI application."""
 
-import logging
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.internal import router as internal_router
 from .api.v1 import router as api_v1_router
 from .config import get_settings
+from .logging_config import get_logger, setup_logging
 from .middleware import InternalAuthMiddleware, LoggingMiddleware, RequestIDMiddleware
 from .middleware.exception_handlers import setup_exception_handlers
+from .middleware.metrics import MetricsMiddleware
 from .middleware.rate_limiting import RateLimitMiddleware
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Initialize structured logging
+settings = get_settings()
+setup_logging(
+    environment=settings.environment,
+    log_level=settings.log_level,
+    log_dir="./logs",
+    enable_file_logging=not settings.is_development,  # Only file logging in non-dev
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -52,6 +55,7 @@ def create_app() -> FastAPI:
     # Add custom middleware (order matters - first added is outermost)
     app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
     app.add_middleware(InternalAuthMiddleware, rate_limit_per_key=100)
+    app.add_middleware(MetricsMiddleware)
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
 

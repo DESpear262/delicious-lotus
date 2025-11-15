@@ -797,7 +797,7 @@
             "description": "Set up Python logging configuration with pythonjsonlogger for structured JSON output including request IDs, composition IDs, and contextual metadata",
             "dependencies": [],
             "details": "Install pythonjsonlogger package and configure root logger with JSON formatter. Set up logging configuration in config.py with appropriate log levels for different environments (DEBUG for dev, INFO for staging, WARNING for prod). Create custom formatters to include request_id, composition_id, user_id, timestamp, level, module, and function name in every log entry. Configure separate loggers for API, worker, and FFmpeg processes with appropriate handlers.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests to verify JSON log output format contains all required fields. Test that context variables are properly propagated through async contexts. Validate log levels work correctly across environments."
           },
           {
@@ -808,7 +808,7 @@
               1
             ],
             "details": "Implement basic GET /health endpoint returning simple OK/ERROR status with HTTP 200/503. Create detailed GET /health/detailed endpoint that checks PostgreSQL connection and query execution, Redis connectivity and SET/GET operations, S3 bucket access and list permissions, and FFmpeg binary availability and version. Return structured JSON with individual component status, response times, and error messages. Add configurable timeout for health checks (default 5 seconds). Include system metrics like CPU and memory usage in detailed response.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test health endpoints return correct status codes when services are up or down. Mock component failures to verify proper error reporting. Validate response format and timeout handling."
           },
           {
@@ -819,7 +819,7 @@
               1
             ],
             "details": "Create metrics collector class to track job processing metrics including start/end times, CPU seconds used, peak memory consumption, and FFmpeg-specific stats (frames processed, encoding speed, bitrate). Implement API middleware to measure request/response times, status code distribution, and endpoint usage. Add worker instrumentation for queue depth, job wait time, and processing duration. Store metrics in PostgreSQL job_metrics table with efficient batch inserts. Create aggregation queries for hourly/daily summaries.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify metrics are accurately collected during job processing. Test that performance overhead of metrics collection is minimal. Validate aggregation queries produce correct summaries."
           },
           {
@@ -1081,7 +1081,7 @@
     ],
     "metadata": {
       "created": "2025-11-14T21:27:16.741Z",
-      "updated": "2025-11-15T02:01:39.247Z",
+      "updated": "2025-11-15T03:08:50.409Z",
       "description": "Tasks for master context"
     }
   }

@@ -46,20 +46,28 @@ class FFmpegCommandBuilder:
         output_file: Path,
         resolution: str = "1920x1080",
         fps: int = 30,
+        composition_config: dict[str, Any] | None = None,
     ) -> list[str]:
         """Build a simple FFmpeg command for concatenating videos.
 
         Args:
-            input_files: List of input video file paths
+            input_files: List of input video file paths or dict mapping asset IDs to paths
             output_file: Output video file path
             resolution: Output resolution (WxH)
             fps: Output frame rate
+            composition_config: Optional composition configuration for trimming
 
         Returns:
             list[str]: FFmpeg command arguments
         """
         if not input_files:
             raise ValueError("No input files provided")
+
+        # Normalize input_files to dict format for consistent handling
+        if isinstance(input_files, list):
+            input_files_dict = {f"asset_{i}": path for i, path in enumerate(input_files)}
+        else:
+            input_files_dict = input_files
 
         cmd = [
             self.ffmpeg_path,
@@ -71,39 +79,211 @@ class FFmpegCommandBuilder:
         ]
 
         # Add input files
-        for input_file in input_files:
-            cmd.extend(["-i", str(input_file)])
+        for file_path in input_files_dict.values():
+            cmd.extend(["-i", str(file_path)])
+
+        # Get asset timing information for trimming
+        assets = composition_config.get("assets", []) if composition_config else []
+
+        # Track whether output will have audio
+        output_has_audio = False
 
         # Build filter complex for concatenation
-        if len(input_files) > 1:
-            # Scale and concatenate inputs
-            filter_parts = []
-            for i in range(len(input_files)):
-                filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+        if len(input_files_dict) > 1:
+            # Check which files have audio streams
+            files_with_audio = []
+            for i, (file_id, file_path) in enumerate(input_files_dict.items()):
+                has_audio = self.has_audio_stream(file_path)
+                files_with_audio.append(has_audio)
 
-            concat_inputs = "".join([f"[v{i}][{i}:a]" for i in range(len(input_files))])
-            filter_parts.append(f"{concat_inputs}concat=n={len(input_files)}:v=1:a=1[outv][outa]")
+                logger.debug(
+                    f"Input {i} ({file_id}): has_audio={has_audio}",
+                    extra={"input_index": i, "file_id": file_id, "has_audio": has_audio},
+                )
+
+            # Determine if output should have audio (at least one input has audio)
+            any_has_audio = any(files_with_audio)
+            output_has_audio = any_has_audio
+
+            # Scale, trim, and concatenate inputs
+            filter_parts = []
+            for i, asset in enumerate(assets[: len(input_files_dict)]):
+                # Use trim_start/trim_end for extracting from source video
+                trim_start = asset.get("trim_start", 0)
+                trim_end = asset.get("trim_end")
+                has_audio = files_with_audio[i] if i < len(files_with_audio) else False
+
+                if trim_start or trim_end:
+                    # Apply trim filter for video
+                    duration = trim_end - trim_start if trim_end else None
+                    trim_filter = f"[{i}:v]trim=start={trim_start}"
+                    if trim_end:
+                        trim_filter += f":duration={duration}"
+                    trim_filter += (
+                        f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v{i}]"
+                    )
+                    filter_parts.append(trim_filter)
+
+                    # Only apply audio trim if this file has audio
+                    if has_audio:
+                        audio_trim = f"[{i}:a]atrim=start={trim_start}"
+                        if trim_end:
+                            audio_trim += f":duration={duration}"
+                        audio_trim += f",asetpts=PTS-STARTPTS[a{i}]"
+                        filter_parts.append(audio_trim)
+                    elif any_has_audio:
+                        # File has no audio but we need audio for concat - generate silence
+                        silence_duration = duration if duration else 10  # Default 10s if no end
+                        filter_parts.append(
+                            f"anullsrc=channel_layout=stereo:sample_rate=48000:duration={silence_duration}[a{i}]"
+                        )
+                else:
+                    # No trimming - just scale video
+                    filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+
+                    # Handle audio
+                    if has_audio:
+                        filter_parts.append(f"[{i}:a]acopy[a{i}]")
+                    elif any_has_audio:
+                        # Generate silence to match other streams (10 seconds default)
+                        filter_parts.append(
+                            f"anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[a{i}]"
+                        )
+
+            # Build concat filter based on whether we have audio
+            if any_has_audio:
+                concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(len(input_files_dict))])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={len(input_files_dict)}:v=1:a=1[outv][outa]"
+                )
+                map_args = ["-map", "[outv]", "-map", "[outa]"]
+            else:
+                # No audio in any file - video-only concat
+                concat_inputs = "".join([f"[v{i}]" for i in range(len(input_files_dict))])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={len(input_files_dict)}:v=1:a=0[outv]"
+                )
+                map_args = ["-map", "[outv]"]
+
+            # Add text overlays if provided
+            overlays = composition_config.get("overlays", []) if composition_config else []
+            if overlays:
+                video_label = "outv"
+                for i, overlay in enumerate(overlays):
+                    next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_outv"
+                    overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                    filter_parts.append(overlay_filter)
+                    video_label = next_label
+
+                # Update map to use final overlay output
+                map_args = ["-map", f"[{video_label}]", "-map", "[outa]"] if any_has_audio else ["-map", f"[{video_label}]"]
 
             filter_complex = ";".join(filter_parts)
 
-            cmd.extend(
-                [
-                    "-filter_complex",
-                    filter_complex,
-                    "-map",
-                    "[outv]",
-                    "-map",
-                    "[outa]",
-                ]
-            )
+            cmd.extend(["-filter_complex", filter_complex] + map_args)
         else:
-            # Single file - just scale
-            cmd.extend(
-                [
-                    "-vf",
-                    f"scale={resolution},setsar=1,fps={fps}",
-                ]
-            )
+            # Single file - scale and optionally trim
+            asset = assets[0] if assets else {}
+            # Use trim_start/trim_end for extracting from source video
+            trim_start = asset.get("trim_start", 0)
+            trim_end = asset.get("trim_end")
+
+            # Check if the input file has audio
+            first_file = next(iter(input_files_dict.values()))
+            has_audio = self.has_audio_stream(first_file)
+            output_has_audio = has_audio
+
+            if trim_start or trim_end:
+                # Apply trim filter for single file
+                duration = trim_end - trim_start if trim_end else None
+
+                video_trim = f"[0:v]trim=start={trim_start}"
+                if duration:
+                    video_trim += f":duration={duration}"
+                video_trim += f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v]"
+
+                if has_audio:
+                    # Video has audio - apply audio trim as well
+                    audio_trim = f"[0:a]atrim=start={trim_start}"
+                    if duration:
+                        audio_trim += f":duration={duration}"
+                    audio_trim += ",asetpts=PTS-STARTPTS[a]"
+
+                    filter_parts = [video_trim, audio_trim]
+
+                    # Add text overlays if provided
+                    overlays = composition_config.get("overlays", []) if composition_config else []
+                    video_label = "v"
+                    if overlays:
+                        for i, overlay in enumerate(overlays):
+                            next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                            overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                            filter_parts.append(overlay_filter)
+                            video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
+
+                    cmd.extend(
+                        [
+                            "-filter_complex",
+                            filter_complex,
+                            "-map",
+                            f"[{video_label}]",
+                            "-map",
+                            "[a]",
+                        ]
+                    )
+                else:
+                    # Video has no audio - only trim video
+                    filter_parts = [video_trim]
+
+                    # Add text overlays if provided
+                    overlays = composition_config.get("overlays", []) if composition_config else []
+                    video_label = "v"
+                    if overlays:
+                        for i, overlay in enumerate(overlays):
+                            next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                            overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                            filter_parts.append(overlay_filter)
+                            video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
+
+                    cmd.extend(
+                        [
+                            "-filter_complex",
+                            filter_complex,
+                            "-map",
+                            f"[{video_label}]",
+                        ]
+                    )
+            else:
+                # Just scale (no trimming)
+                overlays = composition_config.get("overlays", []) if composition_config else []
+                if overlays:
+                    # Use filter_complex for scale + overlays
+                    scale_filter = f"[0:v]scale={resolution},setsar=1,fps={fps}[v]"
+                    filter_parts = [scale_filter]
+
+                    if has_audio:
+                        filter_parts.append("[0:a]acopy[a]")
+
+                    video_label = "v"
+                    for i, overlay in enumerate(overlays):
+                        next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                        overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                        filter_parts.append(overlay_filter)
+                        video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
+
+                    cmd.extend(["-filter_complex", filter_complex])
+                    cmd.extend(["-map", f"[{video_label}]"])
+                    if has_audio:
+                        cmd.extend(["-map", "[a]"])
+                else:
+                    # Just scale, no overlays
+                    cmd.extend(["-vf", f"scale={resolution},setsar=1,fps={fps}"])
 
         # Output settings
         cmd.extend(
@@ -114,10 +294,22 @@ class FFmpegCommandBuilder:
                 "medium",  # Encoding preset
                 "-crf",
                 "23",  # Constant Rate Factor (quality)
-                "-c:a",
-                "aac",  # AAC audio codec
-                "-b:a",
-                "192k",  # Audio bitrate
+            ]
+        )
+
+        # Only add audio codec settings if output has audio
+        if output_has_audio:
+            cmd.extend(
+                [
+                    "-c:a",
+                    "aac",  # AAC audio codec
+                    "-b:a",
+                    "192k",  # Audio bitrate
+                ]
+            )
+
+        cmd.extend(
+            [
                 "-movflags",
                 "+faststart",  # Enable fast start for MP4
                 "-threads",
@@ -129,7 +321,7 @@ class FFmpegCommandBuilder:
         logger.info(
             "Built FFmpeg command",
             extra={
-                "input_count": len(input_files),
+                "input_count": len(input_files_dict),
                 "output": str(output_file),
                 "resolution": resolution,
                 "fps": fps,
@@ -158,19 +350,313 @@ class FFmpegCommandBuilder:
         Returns:
             list[str]: FFmpeg command arguments
         """
-        # For now, use simple composition
-        # TODO: Implement complex filter graphs based on composition_config
+        # Separate video and audio-only assets
+        assets = composition_config.get("assets", [])
+        video_files = []
+        audio_files = []
+
+        for asset in assets:
+            asset_id = asset.get("id")
+            asset_type = asset.get("type", "video")
+
+            if asset_id in input_files:
+                if asset_type == "audio":
+                    audio_files.append(input_files[asset_id])
+                else:
+                    video_files.append(input_files[asset_id])
+
         logger.info(
-            "Building complex composition (using simple mode for now)",
-            extra={"config": composition_config, "input_count": len(input_files)},
+            "Building composition with separated assets",
+            extra={
+                "video_count": len(video_files),
+                "audio_count": len(audio_files),
+                "total_inputs": len(input_files),
+            },
         )
 
-        return self.build_simple_composition(
-            input_files=list(input_files.values()),
-            output_file=output_file,
-            resolution=resolution,
-            fps=fps,
+        # If we have video files, process them
+        if video_files:
+            # If we have background audio, we'll mix it in
+            if audio_files:
+                return self._build_video_with_audio(
+                    video_files=video_files,
+                    audio_files=audio_files,
+                    output_file=output_file,
+                    resolution=resolution,
+                    fps=fps,
+                    composition_config=composition_config,
+                )
+            else:
+                # Just video, no background audio
+                return self.build_simple_composition(
+                    input_files=video_files,
+                    output_file=output_file,
+                    resolution=resolution,
+                    fps=fps,
+                    composition_config=composition_config,
+                )
+        else:
+            raise ValueError("No video assets found in composition")
+
+    def _build_video_with_audio(
+        self,
+        video_files: list[Path],
+        audio_files: list[Path],
+        output_file: Path,
+        resolution: str,
+        fps: int,
+        composition_config: dict[str, Any],
+    ) -> list[str]:
+        """Build FFmpeg command for video with background audio mixing.
+
+        Args:
+            video_files: List of video file paths
+            audio_files: List of audio file paths (background music, etc.)
+            output_file: Output file path
+            resolution: Output resolution (WxH)
+            fps: Output frame rate
+            composition_config: Composition configuration with audio settings
+
+        Returns:
+            list[str]: FFmpeg command arguments
+        """
+        cmd = [
+            "ffmpeg",
+            "-y",  # Overwrite output
+            "-progress",
+            "pipe:1",  # Progress to stdout
+            "-loglevel",
+            "warning",  # Only show warnings/errors
+        ]
+
+        # Add all inputs (video files first, then audio files)
+        all_inputs = video_files + audio_files
+        for input_file in all_inputs:
+            cmd.extend(["-i", str(input_file)])
+
+        # Get audio settings
+        audio_config = composition_config.get("audio", {})
+        music_volume = audio_config.get("music_volume", 0.3)
+        original_audio_volume = audio_config.get("original_audio_volume", 0.7)
+
+        video_input_count = len(video_files)
+
+        # Build filter complex
+        filter_parts = []
+
+        # Check which video files have audio streams
+        files_with_audio = []
+        for i, video_file in enumerate(video_files):
+            has_audio = self.has_audio_stream(video_file)
+            files_with_audio.append(has_audio)
+            logger.debug(
+                f"Video input {i}: has_audio={has_audio}",
+                extra={"input_index": i, "video_file": str(video_file), "has_audio": has_audio},
+            )
+
+        any_has_audio = any(files_with_audio)
+
+        # Process video clips (concatenate if multiple)
+        if video_input_count > 1:
+            # Scale each video and handle audio
+            for i in range(video_input_count):
+                filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+
+                # Handle audio for each video
+                if files_with_audio[i]:
+                    filter_parts.append(f"[{i}:a]acopy[a{i}]")
+                elif any_has_audio:
+                    # Generate silence for videos without audio
+                    filter_parts.append(
+                        f"anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[a{i}]"
+                    )
+
+            # Concatenate videos with their audio
+            if any_has_audio:
+                concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(video_input_count)])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={video_input_count}:v=1:a=1[video_out][video_audio]"
+                )
+            else:
+                # No audio in any video - video-only concat, then generate silence
+                concat_inputs = "".join([f"[v{i}]" for i in range(video_input_count)])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={video_input_count}:v=1:a=0[video_out]"
+                )
+                # Generate silence for mixing with background audio
+                filter_parts.append(
+                    "anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[video_audio]"
+                )
+        else:
+            # Single video - just scale
+            filter_parts.append(f"[0:v]scale={resolution},setsar=1,fps={fps}[video_out]")
+
+            # Handle audio for single video
+            if files_with_audio[0]:
+                filter_parts.append("[0:a]acopy[video_audio]")
+            else:
+                # Generate silence for video without audio
+                filter_parts.append(
+                    "anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[video_audio]"
+                )
+
+        # Mix background audio with video audio
+        # Adjust volumes and mix
+        if audio_files:
+            bg_audio_index = video_input_count  # First audio file after videos
+            filter_parts.append(
+                f"[video_audio]volume={original_audio_volume}[video_audio_adjusted]"
+            )
+            filter_parts.append(f"[{bg_audio_index}:a]volume={music_volume}[bg_audio_adjusted]")
+            filter_parts.append(
+                "[video_audio_adjusted][bg_audio_adjusted]amix=inputs=2:duration=first[audio_out]"
+            )
+        else:
+            filter_parts.append(f"[video_audio]volume={original_audio_volume}[audio_out]")
+
+        filter_complex = ";".join(filter_parts)
+
+        cmd.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[video_out]",
+                "-map",
+                "[audio_out]",
+            ]
         )
+
+        # Output settings
+        cmd.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "medium",
+                "-crf",
+                "23",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "-movflags",
+                "+faststart",
+                "-threads",
+                str(self.threads),
+                str(output_file),
+            ]
+        )
+
+        logger.info(
+            "Built video+audio mixing command",
+            extra={
+                "video_count": len(video_files),
+                "audio_count": len(audio_files),
+                "music_volume": music_volume,
+                "original_volume": original_audio_volume,
+            },
+        )
+
+        return cmd
+
+    def has_audio_stream(self, video_path: Path) -> bool:
+        """Check if video file has an audio stream.
+
+        Args:
+            video_path: Path to video file
+
+        Returns:
+            bool: True if video has audio stream, False otherwise
+        """
+        try:
+            cmd = [
+                settings.ffprobe_path,
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(video_path),
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,  # Don't raise on non-zero exit
+            )
+
+            # If there's output and it contains "audio", the file has audio
+            return "audio" in result.stdout.strip().lower()
+
+        except Exception as e:
+            logger.warning(f"Failed to check audio stream: {e}")
+            return False  # Assume no audio on error
+
+    def _build_overlay_filter(
+        self, overlay: dict[str, Any], input_label: str, output_label: str
+    ) -> str:
+        """Build drawtext filter for text overlay.
+
+        Args:
+            overlay: Overlay configuration with text, position, timing, font settings
+            input_label: Input video stream label
+            output_label: Output video stream label
+
+        Returns:
+            str: FFmpeg drawtext filter string
+        """
+        text = overlay.get("text", "")
+        position = overlay.get("position", "bottom_center")
+        start_time = overlay.get("start_time", 0)
+        end_time = overlay.get("end_time")
+        font_size = overlay.get("font_size", 24)
+        font_color = overlay.get("font_color", "#FFFFFF")
+
+        # Convert hex color to FFmpeg format (remove #)
+        if font_color.startswith("#"):
+            font_color = font_color[1:]
+
+        # Map position to x,y coordinates
+        position_map = {
+            "top_left": "x=10:y=10",
+            "top_center": "x=(w-text_w)/2:y=10",
+            "top_right": "x=w-text_w-10:y=10",
+            "center_left": "x=10:y=(h-text_h)/2",
+            "center": "x=(w-text_w)/2:y=(h-text_h)/2",
+            "center_right": "x=w-text_w-10:y=(h-text_h)/2",
+            "bottom_left": "x=10:y=h-text_h-10",
+            "bottom_center": "x=(w-text_w)/2:y=h-text_h-10",
+            "bottom_right": "x=w-text_w-10:y=h-text_h-10",
+        }
+        xy_coords = position_map.get(position, position_map["bottom_center"])
+
+        # Escape text for FFmpeg (escape special characters)
+        text_escaped = text.replace(":", "\\:").replace("'", "\\'")
+
+        # Build enable expression for timing
+        if end_time is not None:
+            enable_expr = f"enable='between(t,{start_time},{end_time})'"
+        else:
+            enable_expr = f"enable='gte(t,{start_time})'"
+
+        # Build drawtext filter
+        drawtext = (
+            f"[{input_label}]drawtext="
+            f"text='{text_escaped}':"
+            f"{xy_coords}:"
+            f"fontsize={font_size}:"
+            f"fontcolor=0x{font_color}:"
+            f"box=1:boxcolor=0x000000@0.5:boxborderw=5:"
+            f"{enable_expr}"
+            f"[{output_label}]"
+        )
+
+        return drawtext
 
 
 class FFmpegProgressParser:
@@ -382,6 +868,7 @@ class FFmpegPipeline:
                         progress_callback(current_progress)
 
             # Wait for completion with timeout
+            elapsed = time.time() - start_time
             try:
                 return_code = self.process.wait(timeout=max(10, timeout - elapsed))
             except subprocess.TimeoutExpired as timeout_err:

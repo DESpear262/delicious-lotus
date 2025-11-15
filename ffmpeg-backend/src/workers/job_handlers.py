@@ -311,20 +311,50 @@ class CompositionJobHandler:
         Returns:
             dict: Job execution result
         """
+        from db.models.composition import Composition, CompositionStatus
         from db.session import get_db_session
         from services.metrics import JobMetricsContext, MetricsCollector
+        from sqlalchemy import select
 
         validated_params = self.validate_params(params)
         self.context.composition_id = validated_params.composition_id
 
         # Execute job with metrics collection
         async with get_db_session() as session:
+            # Update composition status to PROCESSING
+            try:
+                result = await session.execute(
+                    select(Composition).where(Composition.id == validated_params.composition_id)
+                )
+                composition = result.scalar_one_or_none()
+
+                if composition:
+                    composition.status = CompositionStatus.PROCESSING
+                    await session.commit()
+
+                    self.logger.info(
+                        f"Updated composition {validated_params.composition_id} to PROCESSING",
+                        extra={"composition_id": str(validated_params.composition_id)},
+                    )
+                else:
+                    self.logger.warning(
+                        f"Composition {validated_params.composition_id} not found for status update",
+                        extra={"composition_id": str(validated_params.composition_id)},
+                    )
+            except Exception as e:
+                self.logger.exception(
+                    f"Failed to update composition status to PROCESSING: {e}",
+                    extra={"composition_id": str(validated_params.composition_id), "error": str(e)},
+                )
+                # Don't fail the job if status update fails
+                await session.rollback()
+
             metrics_collector = MetricsCollector(session)
 
             async with JobMetricsContext(
                 collector=metrics_collector,
                 composition_id=validated_params.composition_id,
-                processing_job_id=UUID(self.job_id),
+                processing_job_id=None,  # ProcessingJob record not created yet
             ):
                 # Initialize progress tracker
                 from workers.progress_tracker import ProgressTracker
@@ -350,7 +380,7 @@ class CompositionJobHandler:
                     ffmpeg_stats = self.context.metadata["ffmpeg_stats"]
                     await metrics_collector.record_ffmpeg_stats(
                         composition_id=validated_params.composition_id,
-                        processing_job_id=UUID(self.job_id),
+                        processing_job_id=None,  # No ProcessingJob record for RQ jobs
                         stats={
                             "frame_rate": ffmpeg_stats.get("fps", 0.0),
                             "bitrate": ffmpeg_stats.get("bitrate_kbps", 0.0),
@@ -607,10 +637,23 @@ class CompositionJobHandler:
                 },
             )
 
+            # Generate presigned URL for temporary access (24 hours)
+            presigned_url = s3_manager.generate_presigned_url(
+                s3_key=s3_output_key,
+                expiration=86400,  # 24 hours
+            )
+
             self.logger.info(
                 "Output uploaded to S3",
-                extra={"s3_url": s3_url, "s3_key": s3_output_key},
+                extra={
+                    "s3_url": s3_url,
+                    "presigned_url": presigned_url,
+                    "s3_key": s3_output_key,
+                },
             )
+
+            # Use presigned URL as the output URL
+            s3_url = presigned_url
 
             self._update_context(
                 operation="Upload complete",

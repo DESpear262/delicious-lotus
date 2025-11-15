@@ -50,7 +50,11 @@ class Composition(BaseModel):
 
     # Status tracking
     status: Mapped[CompositionStatus] = mapped_column(
-        Enum(CompositionStatus, name="composition_status"),
+        Enum(
+            CompositionStatus,
+            name="composition_status",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=CompositionStatus.PENDING,
         nullable=False,
         index=True,

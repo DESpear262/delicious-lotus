@@ -11,21 +11,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies and FFmpeg static build
+# Install system dependencies and FFmpeg (full build with libfreetype for drawtext filter)
 RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     curl \
-    xz-utils \
     ca-certificates \
     git \
-    && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-    -o /tmp/ffmpeg.tar.xz \
-    && mkdir -p /tmp/ffmpeg \
-    && tar -xf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg --strip-components=1 \
-    && cp /tmp/ffmpeg/ffmpeg /usr/local/bin/ \
-    && cp /tmp/ffmpeg/ffprobe /usr/local/bin/ \
-    && chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe \
-    && rm -rf /tmp/ffmpeg /tmp/ffmpeg.tar.xz \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Verify FFmpeg installation

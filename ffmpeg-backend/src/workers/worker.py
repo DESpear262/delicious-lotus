@@ -466,6 +466,9 @@ def enqueue_job(
     failure_ttl: int | None = None,
     job_id: str | None = None,
     description: str | None = None,
+    retry_count: int | None = None,
+    on_success: Any | None = None,
+    on_failure: Any | None = None,
 ) -> Job:
     """Enqueue a job to be processed by a worker.
 
@@ -479,6 +482,9 @@ def enqueue_job(
         failure_ttl: How long to keep failed job info (seconds)
         job_id: Custom job ID (optional)
         description: Job description (optional)
+        retry_count: Number of retry attempts (defaults to config setting)
+        on_success: Success callback function (called when job succeeds)
+        on_failure: Failure callback function (called when job fails)
 
     Returns:
         Job: Enqueued job instance
@@ -492,6 +498,10 @@ def enqueue_job(
     redis_conn = get_redis_connection()
     queue = Queue(name=queue_name, connection=redis_conn)
 
+    # Use configured retry count if not specified
+    if retry_count is None:
+        retry_count = settings.rq_job_retry_count
+
     job = queue.enqueue(
         func,
         args=args,
@@ -501,6 +511,9 @@ def enqueue_job(
         failure_ttl=failure_ttl or settings.rq_failure_ttl,
         job_id=job_id,
         description=description,
+        retry=retry_count if retry_count > 0 else None,  # RQ doesn't like retry=0
+        on_success=on_success,
+        on_failure=on_failure,
     )
 
     logger.info(
@@ -510,7 +523,10 @@ def enqueue_job(
             "job_func": func.__name__ if hasattr(func, "__name__") else str(func),
             "queue": queue_name,
             "timeout": job.timeout,
+            "retry_count": retry_count,
             "description": description,
+            "has_success_callback": on_success is not None,
+            "has_failure_callback": on_failure is not None,
         },
     )
 

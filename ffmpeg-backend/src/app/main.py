@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from .api.internal import router as internal_router
 from .api.v1 import router as api_v1_router
@@ -30,6 +31,60 @@ setup_logging(
 logger = get_logger(__name__)
 
 
+def custom_openapi(app: FastAPI):
+    """Customize OpenAPI schema to include security schemes.
+
+    Args:
+        app: FastAPI application instance
+
+    Returns:
+        Callable that generates custom OpenAPI schema
+    """
+
+    def openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+        # Add security schemes for Swagger UI
+        openapi_schema["components"]["securitySchemes"] = {
+            "APIKeyHeader": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key",
+                "description": "API Key for internal endpoints (e.g., dev_key_123)",
+            },
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT token for service-to-service authentication",
+            },
+        }
+
+        # Apply security to all /internal endpoints
+        for path, path_item in openapi_schema.get("paths", {}).items():
+            if path.startswith("/internal/"):
+                for operation in path_item.values():
+                    if isinstance(operation, dict) and "operationId" in operation:
+                        # Allow either API Key or Bearer token
+                        operation["security"] = [
+                            {"APIKeyHeader": []},
+                            {"BearerAuth": []},
+                        ]
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    return openapi
+
+
 def create_app() -> FastAPI:  # noqa: C901
     """Create and configure the FastAPI application.
 
@@ -48,6 +103,9 @@ def create_app() -> FastAPI:  # noqa: C901
         openapi_url="/openapi.json",
         debug=settings.debug,
     )
+
+    # Customize OpenAPI schema for authentication
+    app.openapi = custom_openapi(app)
 
     # Configure CORS
     app.add_middleware(

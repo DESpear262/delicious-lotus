@@ -100,6 +100,9 @@ class Settings(BaseSettings):
     )
     rq_result_ttl: int = Field(default=86400, description="Job result TTL in seconds (24 hours)")
     rq_failure_ttl: int = Field(default=604800, description="Failed job TTL in seconds (7 days)")
+    rq_job_retry_count: int = Field(
+        default=0, ge=0, description="Number of times to retry failed jobs (0 = no retries)"
+    )
 
     # S3/Object Storage settings
     s3_bucket_name: str = Field(default="", description="S3 bucket name for media storage")
@@ -111,9 +114,9 @@ class Settings(BaseSettings):
     )
 
     # FFmpeg settings
-    ffmpeg_path: str = Field(default="/usr/local/bin/ffmpeg", description="Path to FFmpeg binary")
+    ffmpeg_path: str = Field(default="/usr/bin/ffmpeg", description="Path to FFmpeg binary")
     ffprobe_path: str = Field(
-        default="/usr/local/bin/ffprobe", description="Path to ffprobe binary"
+        default="/usr/bin/ffprobe", description="Path to ffprobe binary"
     )
     ffmpeg_threads: int = Field(default=0, description="Number of threads for FFmpeg (0 = auto)")
     max_concurrent_jobs: int = Field(default=4, description="Maximum concurrent FFmpeg jobs")

@@ -71,6 +71,10 @@ def validate_callback_url_reachability(callback_url: str) -> bool:
     summary="Process video clips",
     description="Submit clips for processing with normalization, codec conversion, and thumbnail generation",
     dependencies=[Depends(require_internal_auth)],
+    responses={
+        401: {"description": "Authentication required"},
+        429: {"description": "Rate limit exceeded"},
+    },
 )
 async def process_clips(
     request_body: ProcessClipsRequest,

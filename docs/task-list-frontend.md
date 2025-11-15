@@ -14,9 +14,9 @@ This task list covers the React/Vite web application for the video generation pi
 
 ## PR Status Summary
 
-**Completed:** 2/16+
-**Unblocked (Ready to Start):** 4
-**Blocked (Dependencies Not Met):** 0
+**Completed:** 3/16+
+**Unblocked (Ready to Start):** 2
+**Blocked (Dependencies Not Met):** 10+
 **Planned for Next Wave:** Multiple
 
 ---
@@ -34,78 +34,76 @@ This task list covers the React/Vite web application for the video generation pi
 
 ### PR-F002: Design System Foundation (Task 2)
 **Status:** Complete ✅ | **Est:** 3 hours | **Completed by:** White
-**Files:** 17 files (Button, Input, Card, Spinner, Toast components + CSS Modules, animations, responsive styles)
-**Commit:** dec2632
 **Dependencies:** PR-F001 (Complete ✅)
 **Description:** Create comprehensive design system with CSS variables, base UI components, and responsive framework.
 
-**Files to Create/Modify:**
-- `frontend/src/styles/globals.css` - Update with complete design tokens
-- `frontend/src/styles/components.css` - Base component styles
-- `frontend/src/styles/animations.css` - Loading states and transitions
-- `frontend/src/styles/responsive.css` - Responsive utilities
-- `frontend/src/components/ui/Button.tsx` - Button component (primary, secondary, outline variants)
-- `frontend/src/components/ui/Input.tsx` - Input component with validation states
-- `frontend/src/components/ui/Card.tsx` - Card container component
-- `frontend/src/components/ui/Spinner.tsx` - Loading spinner
-- `frontend/src/components/ui/Toast.tsx` - Toast notification (basic structure)
+**Files Created (17 files, 2,436 lines):**
+- ✅ `frontend/src/styles/globals.css` - Complete design tokens
+- ✅ `frontend/src/styles/components.css` - Base component styles
+- ✅ `frontend/src/styles/animations.css` - Loading states and transitions
+- ✅ `frontend/src/styles/responsive.css` - Responsive utilities
+- ✅ `frontend/src/components/ui/Button.tsx` - Button component (primary, secondary, outline variants)
+- ✅ `frontend/src/components/ui/Input.tsx` - Input component with validation states
+- ✅ `frontend/src/components/ui/Card.tsx` - Card container component
+- ✅ `frontend/src/components/ui/Spinner.tsx` - Loading spinner
+- ✅ `frontend/src/components/ui/Toast.tsx` - Toast notification system
 
-**Acceptance Criteria:**
-- [ ] CSS variables for complete design system:
-  - [ ] Colors (primary, secondary, error, warning, success, neutrals)
-  - [ ] Spacing scale (4px base, 8px, 12px, 16px, 24px, 32px, 48px, 64px)
-  - [ ] Typography (font families, sizes, weights, line heights)
-  - [ ] Shadows (elevation system)
-  - [ ] Border radius (sm, md, lg)
-  - [ ] Z-index scale
-- [ ] Responsive breakpoints defined: mobile (<768px), tablet (768-1024px), desktop (>1024px)
-- [ ] Base UI components implemented with TypeScript props
-- [ ] Loading states and animations (fade, slide, spin)
-- [ ] Error state styling
-- [ ] Consistent visual language across components
-- [ ] No Tailwind CSS (use CSS Modules)
-- [ ] Accessibility: proper focus states, ARIA labels where needed
+**Commit:** dec2632
 
-**Implementation Notes:**
-- Build on globals.css created in PR-F001
-- Use CSS Modules for component-specific styles
-- Professional color palette: blue primary, green secondary (as defined in PRD)
-- Components should be composable and reusable
-- Include TypeScript interfaces for all component props
-- Test components in isolation (visual testing in browser)
+**Acceptance Criteria (All Met):**
+- ✅ CSS variables for complete design system:
+  - ✅ Colors (primary, secondary, error, warning, success, neutrals)
+  - ✅ Spacing scale (4px base, 8px, 12px, 16px, 24px, 32px, 48px, 64px)
+  - ✅ Typography (font families, sizes, weights, line heights)
+  - ✅ Shadows (elevation system)
+  - ✅ Border radius (sm, md, lg)
+  - ✅ Z-index scale
+- ✅ Responsive breakpoints defined: mobile (<768px), tablet (768-1024px), desktop (>1024px)
+- ✅ Base UI components implemented with TypeScript props
+- ✅ Loading states and animations (fade, slide, spin)
+- ✅ Error state styling
+- ✅ Consistent visual language across components
+- ✅ No Tailwind CSS (use CSS Modules)
+- ✅ Accessibility: proper focus states, ARIA labels where needed
 
 ### PR-F003: API Client Setup (Task 3)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+**Status:** Complete ✅ | **Est:** 2 hours | **Completed by:** Orange
 **Dependencies:** PR-F001 (Complete ✅)
 **Description:** Configure Axios HTTP client with interceptors, error handling, and TypeScript interfaces for all backend API endpoints.
 
-**Files to Create:**
-- `frontend/src/api/client.ts` - Axios instance with configuration
-- `frontend/src/api/types.ts` - TypeScript interfaces for all API requests/responses
-- `frontend/src/api/services/generation.ts` - Video generation API calls
-- `frontend/src/api/services/composition.ts` - Video composition API calls
-- `frontend/src/api/services/assets.ts` - Asset upload/management API calls
-- `frontend/src/api/services/jobs.ts` - Job status and history API calls
-- `frontend/src/utils/errors.ts` - Error handling utilities
-- `frontend/src/utils/retry.ts` - Exponential backoff retry logic
+**Files Created (9 files):**
+- ✅ `frontend/src/api/client.ts` - Axios instance with configuration
+- ✅ `frontend/src/api/types.ts` - TypeScript interfaces for all API requests/responses
+- ✅ `frontend/src/api/services/generation.ts` - Video generation API calls
+- ✅ `frontend/src/api/services/composition.ts` - Video composition API calls
+- ✅ `frontend/src/api/services/assets.ts` - Asset upload/management API calls
+- ✅ `frontend/src/api/services/jobs.ts` - Job status and history API calls
+- ✅ `frontend/src/utils/errors.ts` - Error handling utilities
+- ✅ `frontend/src/utils/retry.ts` - Exponential backoff retry logic
+- ✅ `frontend/src/api/index.ts` - Centralized API exports
 
-**Acceptance Criteria:**
-- [ ] Axios instance with base URL from environment variable
-- [ ] Request interceptor for authentication (if needed)
-- [ ] Response interceptor for error handling
-- [ ] Retry logic with exponential backoff (3 retries, 1s/2s/4s)
-- [ ] TypeScript interfaces for all API endpoints:
-  - [ ] POST /api/generate - Create video generation job
-  - [ ] GET /api/jobs/{id} - Get job status
-  - [ ] GET /api/jobs - List job history
-  - [ ] POST /api/upload - Upload brand assets
-  - [ ] GET /api/download/{id} - Download completed video
-  - [ ] DELETE /api/jobs/{id} - Cancel/delete job
-  - [ ] POST /api/compose - Create video composition
-- [ ] Service modules organized by domain (generation, composition, assets)
-- [ ] Error handling utilities with user-friendly messages
-- [ ] TypeScript types for all parameters and responses
-- [ ] Timeout configuration (30s for API calls, 5min for uploads)
+**Acceptance Criteria (All Met):**
+- ✅ Axios instance with base URL from environment variable (VITE_API_BASE_URL, defaults to '/api')
+- ✅ Request interceptor with X-Request-ID header, client version, circuit breaker check
+- ✅ Response interceptor for error handling with structured ApiError class
+- ✅ Retry logic with exponential backoff (3 retries, 1s/2s/4s delays)
+- ✅ TypeScript interfaces for all API endpoints:
+  - ✅ POST /api/v1/generations - Create video generation job
+  - ✅ GET /api/v1/generations/{id} - Get generation status
+  - ✅ GET /api/v1/generations - List job history with pagination
+  - ✅ POST /api/v1/assets/upload - Upload brand assets
+  - ✅ GET /api/v1/compositions/{id}/download - Download completed video
+  - ✅ POST /api/v1/generations/{id}/cancel - Cancel job
+  - ✅ POST /api/v1/compositions - Create video composition
+  - ✅ All other endpoints from API specification
+- ✅ Service modules organized by domain (generation, composition, assets, jobs)
+- ✅ Error handling utilities with user-friendly messages
+- ✅ TypeScript types for all parameters and responses
+- ✅ Timeout configuration (30s for API calls, 5min for uploads)
+- ✅ Circuit breaker implementation (5 failures trigger open state)
+- ✅ Polling helpers for generation and composition status
+- ✅ File validation utilities for uploads
+- ✅ Updated .env.example with API configuration
 
 **Implementation Notes:**
 - Base URL should default to '/api' for same-origin (Option B deployment)

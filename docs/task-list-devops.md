@@ -14,9 +14,9 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ## PR Status Summary
 
-**Completed:** 2/9
-**Unblocked (Ready to Start):** 2
-**Blocked (Dependencies Not Met):** 5
+**Completed:** 4/9
+**Unblocked (Ready to Start):** 1
+**Blocked (Dependencies Not Met):** 4
 
 ---
 
@@ -31,22 +31,21 @@ This task list covers infrastructure, deployment, and operational concerns for t
 - Commit: b020358
 
 ### PR-D003: Storage Architecture Documentation (Task 6 - doc only)
-**Status:** Unblocked | **Est:** 1 hour | **Agent:** Available
+**Status:** Complete ✅ | **Est:** 1 hour | **Completed by:** White
 **Dependencies:** None
 **Description:** Document S3 bucket structure, lifecycle policies, and IAM permissions. Actual AWS resource creation will be done by user when credentials available.
 
-**Files to Create/Modify:**
-- `docs/storage-architecture.md` - S3 structure, folder organization, lifecycle policies
-- `.env.example` - Add S3-related environment variables (if not already comprehensive)
+**Files Created:**
+- `docs/storage-architecture.md` - Comprehensive S3 architecture, lifecycle policies, IAM permissions, presigned URLs, CORS config, cost optimization, local dev setup
 
 **Acceptance Criteria:**
-- [ ] S3 bucket structure documented (uploads/, generations/, compositions/, temp/)
-- [ ] Lifecycle policies specified (7-day auto-delete for temp files, 30-day for generations)
-- [ ] IAM permissions documented (least privilege for ECS tasks)
-- [ ] Presigned URL generation approach documented
-- [ ] CORS configuration for direct uploads (if applicable)
-- [ ] Cost optimization strategies documented
-- [ ] Environment variables defined in .env.example
+- [x] S3 bucket structure documented (uploads/, generations/, compositions/, temp/)
+- [x] Lifecycle policies specified (7-day auto-delete for temp files, 30-day for generations, 90-day for compositions)
+- [x] IAM permissions documented (least privilege for ECS tasks)
+- [x] Presigned URL generation approach documented (with code examples)
+- [x] CORS configuration for direct uploads (with JSON config)
+- [x] Cost optimization strategies documented (7 strategies with estimates)
+- [x] Environment variables defined in .env.example (already comprehensive, no additions needed)
 
 **Implementation Notes:**
 - Focus on documentation only - no actual AWS resources
@@ -55,36 +54,31 @@ This task list covers infrastructure, deployment, and operational concerns for t
 
 ### PR-D005: Environment Configuration Templates (Task 8)
 **Status:** Complete ✅ | **Est:** 2 hours | **Completed by:** Orange
-**Files:** `deploy/env.dev.template`, `deploy/env.prod.template`, `docs/environment-setup.md`, `backend/app/config/settings.py`, `backend/app/config/__init__.py`, `backend/app/__init__.py`, `.gitignore` (fixed)
-**Commit:** 1215253
 **Dependencies:** None
 **Description:** Create comprehensive environment configuration templates for dev and production environments with all required secrets and settings.
 
-**Files to Create/Modify:**
-- `deploy/env.dev.template` - Development environment template
-- `deploy/env.prod.template` - Production environment template
-- `docs/environment-setup.md` - Configuration guide and variable reference
-- `.env.example` - Ensure completeness (may already be comprehensive from PR-D001)
-- `backend/app/config/settings.py` - Settings management structure (if backend allows)
+**Files Created/Modified:**
+- ✅ `deploy/env.dev.template` - Development environment template
+- ✅ `deploy/env.prod.template` - Production environment template
+- ✅ `docs/environment-setup.md` - Configuration guide and variable reference
+- ✅ `backend/app/config/settings.py` - Settings management structure
+- ✅ `backend/app/config/__init__.py` - Config module initialization
+- ✅ `backend/app/__init__.py` - App initialization
+- ✅ `.gitignore` - Fixed to exclude actual .env files
 
-**Acceptance Criteria:**
-- [ ] All environment variables documented with descriptions
-- [ ] Templates for Replicate API keys (placeholder format)
-- [ ] Templates for database connection strings (dev/prod)
-- [ ] Templates for Redis configuration (dev/prod)
-- [ ] CORS settings for Option B single-domain deployment
-- [ ] AWS credentials templates (S3, ECR, ECS)
-- [ ] Security settings (secrets, JWT keys, etc.)
-- [ ] Feature flags for MVP vs post-MVP features
-- [ ] Secrets management approach documented
-- [ ] Clear instructions on how to populate actual values
+**Commit:** 1215253
 
-**Implementation Notes:**
-- Templates only - user provides actual credentials
-- Support Option B deployment (FastAPI static serving)
-- Document which variables are required vs optional
-- Include examples of valid values (but not real secrets)
-- Consider using different secret management for production (AWS Secrets Manager documentation)
+**Acceptance Criteria (All Met):**
+- ✅ All environment variables documented with descriptions
+- ✅ Templates for Replicate API keys (placeholder format)
+- ✅ Templates for database connection strings (dev/prod)
+- ✅ Templates for Redis configuration (dev/prod)
+- ✅ CORS settings for Option B single-domain deployment
+- ✅ AWS credentials templates (S3, ECR, ECS)
+- ✅ Security settings (secrets, JWT keys, etc.)
+- ✅ Feature flags for MVP vs post-MVP features
+- ✅ Secrets management approach documented
+- ✅ Clear instructions on how to populate actual values
 
 ### PR-D009: Deployment Documentation (Task 13)
 **Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
@@ -121,8 +115,44 @@ This task list covers infrastructure, deployment, and operational concerns for t
 - Document prerequisites (AWS CLI, Docker, credentials)
 - Include monitoring and health check procedures
 
+### PR-D002: Backend Docker Container Configuration (Task 3)
+**Status:** Complete ✅ | **Est:** 3 hours | **Completed by:** White
+**Dependencies:** Task 1 (Complete ✅), Task 2.5 (Complete ✅)
+**Description:** Create production-ready Dockerfile for Python FastAPI backend with FFmpeg support, optimized for Option B (static file serving).
+
+**Files to Create:**
+- `fastapi/Dockerfile` - Multi-stage production build
+- `fastapi/.dockerignore` - Exclude unnecessary files from build context
+- `fastapi/docker-compose.test.yml` - Local testing configuration
+- `scripts/build-backend.sh` - Build script for local and CI use
+- `scripts/test-backend.sh` - Testing script
+- `docs/docker-backend.md` - Documentation
+
+**Acceptance Criteria:**
+- [ ] Multi-stage Dockerfile (builder + runtime stages)
+- [ ] Python 3.13 with venv
+- [ ] FFmpeg installed and verified (ffmpeg -version)
+- [ ] All requirements.txt dependencies installed
+- [ ] FastAPI app configured to serve static files from /frontend/dist
+- [ ] Health check endpoint configured
+- [ ] Image size optimized (<500MB target)
+- [ ] Non-root user for security
+- [ ] Proper logging to stdout
+- [ ] Works with docker-compose.yml from PR-D001
+- [ ] Test scripts verify container starts and responds to health checks
+- [ ] Documentation covers build, run, and troubleshooting
+
+**Implementation Notes:**
+- Base image: python:3.13-slim (balance size/compatibility)
+- Install FFmpeg from Debian repos
+- Copy frontend/dist/* to /app/frontend/dist (static serving)
+- Use .dockerignore to exclude .git, node_modules, __pycache__, *.pyc
+- Set working directory to /app
+- Expose port 8000 (FastAPI default)
+- CMD: uvicorn app.main:app --host 0.0.0.0 --port 8000
+- Add HEALTHCHECK instruction with /health endpoint
+
 **Blocked PRs** (will plan when dependencies clear):
-- PR-D002: Backend Docker (needs backend code structure from backend team)
 - PR-D004: CI/CD Pipeline (needs PR-D002)
 - PR-D006: Monitoring (needs user to set up ECS)
 - PR-D007: Load Testing (needs deployment)

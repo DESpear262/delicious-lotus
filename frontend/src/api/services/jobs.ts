@@ -3,7 +3,6 @@
  * API calls for job status and history management
  */
 
-import { get } from '@/api/client';
 import type {
   ListGenerationsResponse,
   GetGenerationResponse,

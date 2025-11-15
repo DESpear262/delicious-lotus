@@ -61,6 +61,35 @@ export const uploadFile = async (
 };
 
 /**
+ * Upload asset with full options support (including abort signal)
+ */
+export const uploadAsset = async (
+  formData: FormData,
+  options?: {
+    signal?: AbortSignal;
+    onUploadProgress?: (progressEvent: ProgressEvent) => void;
+  }
+): Promise<UploadResponse> => {
+  return upload<UploadResponse>(
+    '/v1/assets/upload',
+    formData,
+    options?.onUploadProgress
+      ? (progress) => {
+          // Convert progress number to ProgressEvent-like object
+          const progressEvent = {
+            loaded: progress,
+            total: 100,
+          } as ProgressEvent;
+          options.onUploadProgress?.(progressEvent);
+        }
+      : undefined,
+    {
+      signal: options?.signal,
+    }
+  );
+};
+
+/**
  * Delete an uploaded asset
  */
 export const deleteAsset = async (assetId: string): Promise<void> => {

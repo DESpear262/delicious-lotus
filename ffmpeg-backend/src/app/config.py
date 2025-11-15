@@ -157,6 +157,29 @@ class Settings(BaseSettings):
         description="JWT token expiration time in minutes",
     )
 
+    # Feature Flags
+    feature_dev_api_enabled: bool = Field(
+        default=False, description="Enable development/debugging API endpoints"
+    )
+    feature_beat_detection_enabled: bool = Field(
+        default=False, description="Enable beat detection for audio sync"
+    )
+    feature_gpu_encoding_enabled: bool = Field(
+        default=False, description="Enable GPU-accelerated encoding (NVENC/QSV)"
+    )
+    feature_4k_output_enabled: bool = Field(
+        default=False, description="Enable 4K resolution output"
+    )
+    feature_websocket_enabled: bool = Field(
+        default=True, description="Enable WebSocket real-time updates"
+    )
+    feature_metrics_enabled: bool = Field(
+        default=True, description="Enable Prometheus metrics collection"
+    )
+    feature_advanced_filters_enabled: bool = Field(
+        default=False, description="Enable advanced video filters and effects"
+    )
+
     @field_validator(
         "allowed_origins",
         "supported_video_formats",
@@ -182,6 +205,82 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if running in production environment."""
         return self.environment == "production"
+
+    @property
+    def is_staging(self) -> bool:
+        """Check if running in staging environment."""
+        return self.environment == "staging"
+
+    def validate_configuration(self) -> list[str]:  # noqa: C901
+        """Validate configuration and return list of errors.
+
+        Returns:
+            List of error messages (empty if valid)
+        """
+        errors: list[str] = []
+
+        # Validate critical settings in production
+        if self.is_production:
+            errors.extend(self._validate_production_settings())
+
+        # Validate numeric ranges
+        errors.extend(self._validate_numeric_ranges())
+
+        return errors
+
+    def _validate_production_settings(self) -> list[str]:
+        """Validate production-specific settings."""
+        errors: list[str] = []
+
+        if not self.s3_bucket_name:
+            errors.append("S3_BUCKET_NAME is required in production")
+        if not self.s3_access_key_id:
+            errors.append("S3_ACCESS_KEY_ID is required in production")
+        if not self.s3_secret_access_key:
+            errors.append("S3_SECRET_ACCESS_KEY is required in production")
+        if not self.internal_api_keys:
+            errors.append("INTERNAL_API_KEYS is required in production")
+        if not self.jwt_secret_key:
+            errors.append("JWT_SECRET_KEY is required in production")
+        if self.debug:
+            errors.append("DEBUG should be False in production")
+        if "localhost" in self.allowed_origins:
+            errors.append("ALLOWED_ORIGINS should not include localhost in production")
+
+        return errors
+
+    def _validate_numeric_ranges(self) -> list[str]:
+        """Validate numeric configuration values."""
+        errors: list[str] = []
+
+        if self.db_pool_size < 1:
+            errors.append("DB_POOL_SIZE must be at least 1")
+        if self.db_max_overflow < 0:
+            errors.append("DB_MAX_OVERFLOW must be non-negative")
+        if self.redis_max_connections < 1:
+            errors.append("REDIS_MAX_CONNECTIONS must be at least 1")
+        if self.max_concurrent_jobs < 1:
+            errors.append("MAX_CONCURRENT_JOBS must be at least 1")
+        if self.log_sampling_rate < 0.0 or self.log_sampling_rate > 1.0:
+            errors.append("LOG_SAMPLING_RATE must be between 0.0 and 1.0")
+
+        return errors
+
+    def get_feature_flags(self) -> dict[str, bool]:
+        """Get all feature flags as a dictionary.
+
+        Returns:
+            Dictionary of feature flag names and their values
+        """
+        return {
+            "dev_api": self.feature_dev_api_enabled,
+            "beat_detection": self.feature_beat_detection_enabled,
+            "gpu_encoding": self.feature_gpu_encoding_enabled,
+            "4k_output": self.feature_4k_output_enabled,
+            "websocket": self.feature_websocket_enabled,
+            "metrics": self.feature_metrics_enabled,
+            "advanced_filters": self.feature_advanced_filters_enabled,
+        }
 
 
 @lru_cache

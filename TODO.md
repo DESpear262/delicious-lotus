@@ -27,6 +27,11 @@
 - [ ] Add analysis result versioning for A/B testing
 - [ ] Implement user feedback loop for analysis quality improvement
 - [ ] Add support for custom analysis templates per industry/brand
+- [ ] Multiple Replicate model support (beyond google/veo-3.1-fast)
+  - [ ] Model selection logic based on video type/duration/complexity
+  - [ ] Fallback model selection for rate limits/failures
+  - [ ] Performance benchmarking and model comparison
+  - [ ] A/B testing framework for model selection
 
 ## Non-MVP AI Backend Features (Phase 2)
 

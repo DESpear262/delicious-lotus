@@ -194,56 +194,56 @@
 
 ---
 
-## PR #301: Micro-Prompt Builder  
-**Time:** 6 hours  
+## PR #301: Micro-Prompt Builder **(COMPLETED - Orange)**
+**Time:** 6 hours
 
 ### Tasks:
-- [ ] Convert scenes → model prompts  
-- [ ] Integrate brand + style vectors  
-- [ ] Include shot descriptors  
+- [x] Convert scenes → model prompts
+- [x] Integrate brand + style vectors
+- [x] Include shot descriptors
 
 ### Testing:
-- [ ] Unit: micro-prompt formatting  
-- [ ] Integration: scenes → prompts  
+- [x] Unit: micro-prompt formatting
+- [x] Integration: scenes → prompts  
 
 ---
 
-## PR #302: Replicate Model Client  
-**Prerequisites:** PR #301  
+## PR #302: Replicate Model Client **(COMPLETED - Orange)**
+**Prerequisites:** PR #301
 **Time:** 4–6 hours  
 
 ### Tasks:
-- [ ] Async client wrapper  
-- [ ] Retry with backoff  
-- [ ] Parse clip metadata  
+- [x] Async client wrapper
+- [x] Retry with backoff
+- [x] Parse clip metadata
 
 ### Testing:
-- [ ] Unit: client I/O  
-- [ ] Integration: mock Replicate  
+- [x] Unit: client I/O
+- [x] Integration: mock Replicate  
 
 ---
 
-## PR #303: Clip Assembly & DB/Redis Integration  
-**Prerequisites:** PR #302  
-**Time:** 6–8 hours  
+## PR #303: Clip Assembly & DB/Redis Integration **(COMPLETED - Orange)**
+**Prerequisites:** PR #302
+**Time:** 6–8 hours
 
 ### Tasks:
-- [ ] Save clip metadata  
-- [ ] Update progress in Redis  
-- [ ] Maintain clip ordering  
+- [x] Save clip metadata
+- [x] Update progress in Redis
+- [x] Maintain clip ordering
 
 ### Testing:
-- [ ] Unit: DB writes  
-- [ ] Integration: full clip generation pipeline  
+- [x] Unit: DB writes
+- [x] Integration: full clip generation pipeline  
 
 ---
 
-## BLOCK C Integration PR – PR #304  
-**Time:** 3–4 hours  
+## PR #304: Block C Integration PR **(COMPLETED - QC)**
+**Time:** 3–4 hours
 
 ### Tests:
-- [ ] scenes → prompts → clips  
-- [ ] model failure simulation  
+- [x] scenes → prompts → clips
+- [x] model failure simulation  
 
 ---
 
@@ -317,52 +317,52 @@
 
 ---
 
-## PR #501: Style Vector Builder  
-**Time:** 4 hours  
+## PR #501: Style Vector Builder **(COMPLETED - White)**
+**Time:** 4 hours
 
 ### Tasks:
-- [ ] Derive style vector from prompt metadata  
-- [ ] Normalize descriptor structure  
+- [x] Derive style vector from prompt metadata
+- [x] Normalize descriptor structure
 
 ### Testing:
-- [ ] Unit: style extraction  
+- [x] Unit: style extraction
 
 ---
 
-## PR #502: Brand Harmony Module  
-**Prerequisites:** PR #501  
-**Time:** 4–5 hours  
+## PR #502: Brand Harmony Module **(COMPLETED - White)**
+**Prerequisites:** PR #501
+**Time:** 4–5 hours
 
 ### Tasks:
-- [ ] Combine palette + style vector  
-- [ ] Detect conflicts  
+- [x] Combine palette + style vector
+- [x] Detect conflicts
 
 ### Testing:
-- [ ] Unit: conflict detection  
+- [x] Unit: conflict detection
 
 ---
 
-## PR #503: Consistency Enforcement Layer  
-**Prerequisites:** PR #502  
-**Time:** 5–7 hours  
+## PR #503: Consistency Enforcement Layer **(COMPLETED - White)**
+**Prerequisites:** PR #502
+**Time:** 5–7 hours
 
 ### Tasks:
-- [ ] Inject visual anchors into micro-prompts  
-- [ ] Detect style inconsistencies  
-- [ ] Integrate with clip generation pipeline  
+- [x] Inject visual anchors into micro-prompts
+- [x] Detect style inconsistencies
+- [x] Integrate with clip generation pipeline
 
 ### Testing:
-- [ ] Unit: anchor correctness  
-- [ ] Integration: scenes → prompts (consistent)  
+- [x] Unit: anchor correctness
+- [x] Integration: scenes → prompts (consistent)  
 
 ---
 
-## BLOCK E Integration PR – PR #504  
-**Time:** 3 hours  
+## PR #504: Block E Integration PR **(COMPLETED - QC)**
+**Time:** 3 hours
 
 ### Tests:
-- [ ] scene → prompt consistency  
-- [ ] brand alignment  
+- [x] scene → prompt consistency
+- [x] brand alignment  
 
 ---
 

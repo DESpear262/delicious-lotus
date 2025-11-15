@@ -1,5 +1,6 @@
 # AI Processing Dependencies - BLOCK A
 openai>=1.0.0
+replicate>=0.31.0
 tenacity>=8.2.0
 pydantic>=2.5.0
 

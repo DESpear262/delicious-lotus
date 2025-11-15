@@ -1,0 +1,8 @@
+docs/QC/block0-qc-report.md
+docs/QC/blocka-qc-report.md
+docs/QC/blockc-qc-report.md
+docs/QC/blocke-qc-report.md
+docs/ai-backend-tasks-list.md
+docs/memory/progress.md
+fastapi/app/main.py
+fastapi/app/api/routes/v1.py

@@ -73,7 +73,7 @@ class Settings(BaseSettings):
 
     # Media processing settings
     temp_dir: str = Field(
-        default="/tmp/ffmpeg",  # noqa: S108
+        default="/tmp/ffmpeg",  # noqa: S108  # nosec B108
         description="Temporary directory for processing",
     )
     max_upload_size: int = Field(

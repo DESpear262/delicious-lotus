@@ -2,7 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
-**Last Updated:** 2025-11-14 by QC Agent
+**Last Updated:** 2025-11-14 by QC Agent (Block A QC Complete)
 
 ---
 
@@ -22,8 +22,10 @@
 
 ### Backend/AI
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)
+- ✅ Block A Complete: Prompt processing, brand analysis, and scene decomposition (PRs #101-#104)
 - ✅ Comprehensive test suite (20/21 tests passing, 95.2% success rate)
 - ✅ API contracts validated for frontend and FFmpeg integration
+- ✅ End-to-end prompt → analysis → scene planning pipeline working
 
 ### FFmpeg/Video Processing
 - ❓ Status unknown
@@ -73,7 +75,7 @@
 - ⏸️ PR-D007: Load Testing - Blocked (needs deployment)
 - ⏸️ PR-D008: Security Hardening - Blocked (needs infrastructure)
 
-### AI Backend Track (7/17+ complete)
+### AI Backend Track (9/17+ complete)
 - ✅ Block 0 PR 1: FastAPI Project Bootstrap & Routing Structure - Complete (Orange)
 - ✅ Block 0 PR 2: Error Handling, Validation, and Response Models - Complete (Orange)
 - ✅ Block 0 PR 3: Generation Lifecycle API Skeleton - Complete (White)
@@ -81,6 +83,8 @@
 - ✅ Block 0 PR 5: Integration & QC - Complete (QC Agent)
 - ✅ Block A PR 101: Prompt Parsing Module (OpenAI Integration) - Complete (Orange)
 - ✅ Block A PR 102: Brand & Metadata Extraction Layer - Complete (Orange)
+- ✅ Block A PR 103: Scene Decomposition (Ads & Music) - Complete (Orange)
+- ✅ Block A PR 104: Integration & QC - Complete (QC Agent)
 
 ### Frontend Track (1/16+ complete)
 - ✅ PR-F001: Project Initialization - Complete (commit 68eee3f)

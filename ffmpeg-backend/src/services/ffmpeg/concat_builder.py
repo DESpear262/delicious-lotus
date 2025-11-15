@@ -211,7 +211,7 @@ class ConcatDemuxerBuilder:
             try:
                 if file_path.exists():
                     file_path.unlink()
-            except Exception as e:  # noqa: S110
+            except Exception as e:
                 # Ignore cleanup errors - best effort cleanup
                 logger.debug(f"Failed to cleanup file {file_path}: {e}")
 

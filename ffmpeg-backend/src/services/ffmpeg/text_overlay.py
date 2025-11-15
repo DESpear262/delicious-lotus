@@ -7,10 +7,8 @@ advanced positioning, styling, animations, and special effects.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 
@@ -155,7 +153,7 @@ class TextOverlayBuilder:
         end_time: float,
         base_x: str,
         base_y: str,
-    ) -> tuple[str, str | None]:
+    ) -> tuple[tuple[str, str], str | None]:
         """
         Build animation expressions for x, y coordinates and alpha.
 
@@ -167,14 +165,16 @@ class TextOverlayBuilder:
             base_y: Base Y expression
 
         Returns:
-            Tuple of (position_expression, alpha_expression)
+            Tuple of ((x_expression, y_expression), alpha_expression)
         """
         duration = end_time - start_time
 
         if animation == TextAnimation.FADE_IN:
             # Fade in over first 0.5 seconds
             fade_duration = min(0.5, duration / 4)
-            alpha_expr = f"if(lt(t,{start_time + fade_duration}),(t-{start_time})/{fade_duration},1)"
+            alpha_expr = (
+                f"if(lt(t,{start_time + fade_duration}),(t-{start_time})/{fade_duration},1)"
+            )
             return (base_x, base_y), alpha_expr
 
         elif animation == TextAnimation.FADE_OUT:
@@ -207,7 +207,7 @@ class TextOverlayBuilder:
         # No animation
         return (base_x, base_y), None
 
-    def create_text_overlay(
+    def create_text_overlay(  # noqa: C901
         self,
         input_index: int,
         text: str,
@@ -293,8 +293,8 @@ class TextOverlayBuilder:
             params.append("box=1")
             params.append(f"boxcolor={style.background_color}")
             # Convert opacity to hex alpha (0.0-1.0 to 00-FF)
-            alpha_hex = format(int(style.background_opacity * 255), "02X")
-            params.append(f"boxborderw=5")
+            alpha_hex = format(int(style.background_opacity * 255), "02X")  # noqa: F841
+            params.append("boxborderw=5")
 
         # Alpha animation
         if alpha_expr is not None:
@@ -436,10 +436,7 @@ class TextOverlayBuilder:
 
         for i, overlay_config in enumerate(overlays):
             # Determine output label
-            if i == len(overlays) - 1:
-                current_output = output_label
-            else:
-                current_output = f"v{i}"
+            current_output = output_label if i == len(overlays) - 1 else f"v{i}"
 
             # Create overlay
             overlay_expr = self.create_text_overlay(
@@ -450,9 +447,7 @@ class TextOverlayBuilder:
 
             # For subsequent overlays, replace input index with previous output label
             if i > 0:
-                overlay_expr = overlay_expr.replace(
-                    f"[{current_input}:v]", f"[v{i-1}]", 1
-                )
+                overlay_expr = overlay_expr.replace(f"[{current_input}:v]", f"[v{i-1}]", 1)
 
             filter_parts.append(overlay_expr)
 

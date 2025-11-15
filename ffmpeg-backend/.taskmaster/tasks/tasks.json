@@ -720,7 +720,7 @@
               4
             ],
             "details": "Build TextOverlayProcessor using FFmpeg drawtext filter for dynamic text rendering. Support multiple text elements with different styles, positions, and animations. Implement timing control for text appearance/disappearance. Handle font management and text styling (size, color, shadow). Support both static and animated text overlays.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test text rendering with various fonts and styles. Verify proper positioning across different video resolutions. Test timing accuracy for text appearance. Validate special character handling."
           },
           {
@@ -731,7 +731,7 @@
               5
             ],
             "details": "Develop AudioMixer class for multi-track audio processing using FFmpeg amix and volume filters. Implement audio ducking for voiceover priority. Support volume normalization and fade effects. Handle audio sync with video timeline. Process different audio formats and sample rates. Implement proper audio channel mapping.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test mixing multiple audio tracks with different volumes. Verify audio sync remains accurate. Test ducking behavior with voiceover tracks. Validate output audio quality and levels."
           },
           {
@@ -1081,7 +1081,7 @@
     ],
     "metadata": {
       "created": "2025-11-14T21:27:16.741Z",
-      "updated": "2025-11-15T01:06:21.008Z",
+      "updated": "2025-11-15T01:21:54.505Z",
       "description": "Tasks for master context"
     }
   }

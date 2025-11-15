@@ -375,14 +375,28 @@ async def get_websocket_stats() -> dict:
     Returns:
         Dictionary with connection statistics
     """
+    # Get basic connection stats (doesn't require async)
     stats = await connection_manager.get_stats()
-    subscriber = await get_redis_subscriber()
-    heartbeat = await get_heartbeat_manager()
 
-    return {
-        **stats,
-        "redis_subscriptions": await subscriber.get_subscription_count(),
-        "redis_connected": subscriber.is_connected,
-        "redis_listening": subscriber.is_running,
-        "heartbeat": await heartbeat.get_stats(),
-    }
+    # Only include Redis/heartbeat stats if they're already initialized
+    # Don't trigger initialization on this endpoint to avoid hanging
+    result = {**stats}
+
+    if redis_subscriber is not None:
+        result["redis_subscriptions"] = await redis_subscriber.get_subscription_count()
+        result["redis_connected"] = redis_subscriber.is_connected
+        result["redis_listening"] = redis_subscriber.is_running
+    else:
+        result["redis_subscriptions"] = 0
+        result["redis_connected"] = False
+        result["redis_listening"] = False
+
+    if heartbeat_manager is not None:
+        result["heartbeat"] = await heartbeat_manager.get_stats()
+    else:
+        result["heartbeat"] = {
+            "active": False,
+            "total_connections": 0,
+        }
+
+    return result

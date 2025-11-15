@@ -46,6 +46,7 @@ class FFmpegCommandBuilder:
         output_file: Path,
         resolution: str = "1920x1080",
         fps: int = 30,
+        composition_config: dict[str, Any] | None = None,
     ) -> list[str]:
         """Build a simple FFmpeg command for concatenating videos.
 
@@ -54,6 +55,7 @@ class FFmpegCommandBuilder:
             output_file: Output video file path
             resolution: Output resolution (WxH)
             fps: Output frame rate
+            composition_config: Optional composition configuration for trimming
 
         Returns:
             list[str]: FFmpeg command arguments
@@ -74,14 +76,46 @@ class FFmpegCommandBuilder:
         for input_file in input_files:
             cmd.extend(["-i", str(input_file)])
 
+        # Get asset timing information for trimming
+        assets = composition_config.get("assets", []) if composition_config else []
+
+        # Track whether output will have audio
+        output_has_audio = False
+
         # Build filter complex for concatenation
         if len(input_files) > 1:
-            # Scale and concatenate inputs
-            filter_parts = []
-            for i in range(len(input_files)):
-                filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+            # For multi-file, assume all have audio (current behavior)
+            # TODO: Enhance this to check each file and handle mixed audio/no-audio
+            output_has_audio = True
 
-            concat_inputs = "".join([f"[v{i}][{i}:a]" for i in range(len(input_files))])
+            # Scale, trim, and concatenate inputs
+            filter_parts = []
+            for i, asset in enumerate(assets[: len(input_files)]):
+                start_time = asset.get("start_time", 0)
+                end_time = asset.get("end_time")
+
+                if start_time or end_time:
+                    # Apply trim filter for video
+                    trim_filter = f"[{i}:v]trim=start={start_time}"
+                    if end_time:
+                        duration = end_time - start_time
+                        trim_filter += f":duration={duration}"
+                    trim_filter += (
+                        f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v{i}]"
+                    )
+                    filter_parts.append(trim_filter)
+
+                    # Apply trim filter for audio
+                    audio_trim = f"[{i}:a]atrim=start={start_time}"
+                    if end_time:
+                        audio_trim += f":duration={duration}"
+                    audio_trim += f",asetpts=PTS-STARTPTS[a{i}]"
+                    filter_parts.append(audio_trim)
+                else:
+                    filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+                    filter_parts.append(f"[{i}:a]acopy[a{i}]")
+
+            concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(len(input_files))])
             filter_parts.append(f"{concat_inputs}concat=n={len(input_files)}:v=1:a=1[outv][outa]")
 
             filter_complex = ";".join(filter_parts)
@@ -97,13 +131,56 @@ class FFmpegCommandBuilder:
                 ]
             )
         else:
-            # Single file - just scale
-            cmd.extend(
-                [
-                    "-vf",
-                    f"scale={resolution},setsar=1,fps={fps}",
-                ]
-            )
+            # Single file - scale and optionally trim
+            asset = assets[0] if assets else {}
+            start_time = asset.get("start_time", 0)
+            end_time = asset.get("end_time")
+
+            # Check if the input file has audio
+            has_audio = self.has_audio_stream(input_files[0])
+            output_has_audio = has_audio
+
+            if start_time or end_time:
+                # Apply trim filter for single file
+                duration = end_time - start_time if end_time else None
+
+                video_trim = f"[0:v]trim=start={start_time}"
+                if duration:
+                    video_trim += f":duration={duration}"
+                video_trim += f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v]"
+
+                if has_audio:
+                    # Video has audio - apply audio trim as well
+                    audio_trim = f"[0:a]atrim=start={start_time}"
+                    if duration:
+                        audio_trim += f":duration={duration}"
+                    audio_trim += ",asetpts=PTS-STARTPTS[a]"
+
+                    filter_complex = f"{video_trim};{audio_trim}"
+
+                    cmd.extend(
+                        [
+                            "-filter_complex",
+                            filter_complex,
+                            "-map",
+                            "[v]",
+                            "-map",
+                            "[a]",
+                        ]
+                    )
+                else:
+                    # Video has no audio - only trim video
+                    cmd.extend(
+                        [
+                            "-filter_complex",
+                            video_trim,
+                            "-map",
+                            "[v]",
+                        ]
+                    )
+            else:
+                # Just scale
+                cmd.extend(["-vf", f"scale={resolution},setsar=1,fps={fps}"])
 
         # Output settings
         cmd.extend(
@@ -114,10 +191,22 @@ class FFmpegCommandBuilder:
                 "medium",  # Encoding preset
                 "-crf",
                 "23",  # Constant Rate Factor (quality)
-                "-c:a",
-                "aac",  # AAC audio codec
-                "-b:a",
-                "192k",  # Audio bitrate
+            ]
+        )
+
+        # Only add audio codec settings if output has audio
+        if output_has_audio:
+            cmd.extend(
+                [
+                    "-c:a",
+                    "aac",  # AAC audio codec
+                    "-b:a",
+                    "192k",  # Audio bitrate
+                ]
+            )
+
+        cmd.extend(
+            [
                 "-movflags",
                 "+faststart",  # Enable fast start for MP4
                 "-threads",
@@ -201,6 +290,7 @@ class FFmpegCommandBuilder:
                     output_file=output_file,
                     resolution=resolution,
                     fps=fps,
+                    composition_config=composition_config,
                 )
         else:
             raise ValueError("No video assets found in composition")
@@ -326,6 +416,43 @@ class FFmpegCommandBuilder:
         )
 
         return cmd
+
+    def has_audio_stream(self, video_path: Path) -> bool:
+        """Check if video file has an audio stream.
+
+        Args:
+            video_path: Path to video file
+
+        Returns:
+            bool: True if video has audio stream, False otherwise
+        """
+        try:
+            cmd = [
+                settings.ffprobe_path,
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(video_path),
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,  # Don't raise on non-zero exit
+            )
+
+            # If there's output and it contains "audio", the file has audio
+            return "audio" in result.stdout.strip().lower()
+
+        except Exception as e:
+            logger.warning(f"Failed to check audio stream: {e}")
+            return False  # Assume no audio on error
 
 
 class FFmpegProgressParser:

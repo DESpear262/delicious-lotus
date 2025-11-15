@@ -1,0 +1,9 @@
+# AI Processing Dependencies - BLOCK A
+openai>=1.0.0
+replicate>=0.31.0
+tenacity>=8.2.0
+pydantic>=2.5.0
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

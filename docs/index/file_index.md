@@ -48,6 +48,38 @@ This index tracks all files created during the AI Backend development process.
 ### Setup and Deployment
 - `docs/local-setup.md` - Local development environment setup
 
+## AI Processing Backend Files
+
+### Core Services
+- `ai/core/openai_client.py` - OpenAI API client wrapper
+- `ai/services/brand_analysis_service.py` - Brand configuration analysis (PR #102)
+- `ai/services/prompt_analysis_service.py` - User prompt semantic analysis (PR #101)
+- `ai/services/scene_decomposition_service.py` - Video scene planning (PR #103)
+- `ai/services/style_vector_builder_service.py` - Style vector generation (PR #501)
+- `ai/services/brand_harmony_service.py` - Brand color harmony analysis (PR #502)
+- `ai/services/timeline_edit_planner_service.py` - Timeline edit planning (PR #402)
+- `ai/services/micro_prompt_builder_service.py` - Micro-prompt generation for clips
+
+### Data Models
+- `ai/models/brand_config.py` - Brand configuration models (PR #102)
+- `ai/models/brand_style_vector.py` - Style vector models (PR #102)
+- `ai/models/brand_harmony.py` - Brand harmony analysis models (PR #502)
+- `ai/models/prompt_analysis.py` - Prompt analysis result models (PR #101)
+- `ai/models/scene_decomposition.py` - Scene planning models (PR #103)
+
+### Tests
+- `ai/tests/test_prompt_analysis.py` - Prompt analysis service tests
+- `ai/tests/test_scene_decomposition.py` - Scene decomposition tests
+- `ai/tests/test_scene_integration.py` - End-to-end integration tests
+- `ai/tests/test_style_vector_builder.py` - Style vector builder tests (PR #501)
+- `ai/tests/test_brand_harmony.py` - Brand harmony analysis tests (PR #502)
+- `ai/tests/test_timeline_edit_planner.py` - Timeline edit planner tests (PR #402)
+- `ai/tests/test_consistency_enforcement.py` - Consistency enforcement tests (PR #503)
+
+### Configuration
+- `ai/requirements.txt` - Python dependencies for AI processing
+- `ai/README.md` - AI processing module documentation
+
 ## Infrastructure Files
 
 ### Docker

@@ -33,6 +33,8 @@
 - ✅ Block 0 PR 4: Internal Service Contract & Callouts (Blonde) - Complete
 - ✅ Block C PR 301: Micro-Prompt Builder (Replicate Integration) (Orange)
 - ✅ Block C PR 303: Clip Assembly & DB/Redis Integration (Orange)
+- ✅ Block D PR 401: Edit Intent Classifier (OpenAI) (Orange)
+- ✅ Block D PR 402: Timeline Edit Planner (White) - Complete
 - ✅ Block E PR 501: Style Vector Builder (White) - Complete
 - ✅ Block E PR 502: Brand Harmony Module (White) - Complete
 - ✅ Block E PR 503: Consistency Enforcement Layer (White) - Complete
@@ -112,3 +114,4 @@
 **2025-11-14 16:45** - Orange completed Block A PR 102: Brand & metadata extraction layer with GPT-4o-mini brand completion, flexible BrandConfig schema, and intelligent brand-prompt analysis merging.
 **2025-11-14 17:15** - Orange completed Block C PR 301: Micro-prompt builder with Replicate-optimized prompts, brand-style vector integration, scene-to-prompt conversion, and comprehensive testing suite.
 **2025-11-14 18:00** - Orange completed Block C PR 303: Clip assembly & DB/Redis integration with PostgreSQL storage, Redis progress tracking, clip ordering maintenance, and full API integration for persistent clip management.
+**2025-11-14 18:45** - Orange completed Block D PR 401: Edit intent classifier with strict LLM-based parsing using OpenAI tool calls, structured FFmpeg operation output, minimal safety guardrails, and comprehensive API integration for natural language video editing.

@@ -57,6 +57,7 @@ This index tracks all files created during the AI Backend development process.
 - `ai/services/scene_decomposition_service.py` - Video scene planning (PR #103)
 - `ai/services/style_vector_builder_service.py` - Style vector generation (PR #501)
 - `ai/services/brand_harmony_service.py` - Brand color harmony analysis (PR #502)
+- `ai/services/timeline_edit_planner_service.py` - Timeline edit planning (PR #402)
 - `ai/services/micro_prompt_builder_service.py` - Micro-prompt generation for clips
 
 ### Data Models
@@ -72,6 +73,7 @@ This index tracks all files created during the AI Backend development process.
 - `ai/tests/test_scene_integration.py` - End-to-end integration tests
 - `ai/tests/test_style_vector_builder.py` - Style vector builder tests (PR #501)
 - `ai/tests/test_brand_harmony.py` - Brand harmony analysis tests (PR #502)
+- `ai/tests/test_timeline_edit_planner.py` - Timeline edit planner tests (PR #402)
 - `ai/tests/test_consistency_enforcement.py` - Consistency enforcement tests (PR #503)
 
 ### Configuration

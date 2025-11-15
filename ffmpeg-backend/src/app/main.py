@@ -80,17 +80,11 @@ def create_app() -> FastAPI:
         logger.info(f"Environment: {settings.environment}")
         logger.info(f"Debug mode: {settings.debug}")
 
-        # Initialize WebSocket services
-        try:
-            from .api.v1.websocket import get_heartbeat_manager, get_redis_subscriber
+        # WebSocket services use lazy initialization - they'll be created
+        # when the first WebSocket connection is established
+        logger.info("WebSocket services will initialize on first connection")
 
-            await get_redis_subscriber()
-            logger.info("WebSocket Redis subscriber initialized")
-
-            await get_heartbeat_manager()
-            logger.info("WebSocket heartbeat manager initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize WebSocket services: {e}")
+        logger.info("Application startup complete")
 
     @app.on_event("shutdown")
     async def shutdown_event() -> None:

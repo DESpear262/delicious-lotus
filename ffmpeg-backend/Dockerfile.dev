@@ -33,10 +33,12 @@ RUN ffmpeg -version && ffprobe -version
 
 # Install Python dependencies
 COPY pyproject.toml ./
-COPY src/ ./src/
+# Create empty src directory for package structure
+RUN mkdir -p src/app
+# Install in editable mode so mounted src/ takes precedence
+# hadolint ignore=DL3013
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install . \
-    && pip install ".[dev]"
+    && pip install -e ".[dev]"
 
 # Create temporary directory for FFmpeg processing
 RUN mkdir -p /tmp/ffmpeg && chmod 777 /tmp/ffmpeg

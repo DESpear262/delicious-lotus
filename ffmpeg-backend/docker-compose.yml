@@ -48,8 +48,10 @@ services:
       ENVIRONMENT: development
       DEBUG: "true"
     volumes:
-      - ./src:/app/src:ro
+      - ./src:/app/src
       - ./tests:/app/tests:ro
+      - ./migrations:/app/migrations:ro
+      - ./alembic.ini:/app/alembic.ini:ro
       - media_data:/app/media
     ports:
       - "${API_PORT:-8000}:8000"

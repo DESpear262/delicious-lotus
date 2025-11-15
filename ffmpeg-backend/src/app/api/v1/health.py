@@ -269,28 +269,8 @@ def get_system_metrics() -> dict[str, Any]:
         return {"error": str(e)}
 
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check(response: Response) -> HealthResponse:
-    """Basic health check endpoint.
-
-    Returns HTTP 200 if the service is running, HTTP 503 if unhealthy.
-
-    Returns:
-        HealthResponse: Application health status
-    """
-    try:
-        # Quick check - just verify the service is running
-        # For basic health, we don't check dependencies
-        return HealthResponse(status="healthy", version="0.1.0")
-    except Exception as e:
-        logger.error(f"Health check failed: {e}", exc_info=True)
-        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return HealthResponse(status="unhealthy", version="0.1.0")
-
-
-@router.get("/healthz", response_model=DetailedHealthResponse)
-async def detailed_health_check(response: Response) -> DetailedHealthResponse:
-    """Detailed health check endpoint with component status.
+async def _detailed_health_check_impl(response: Response) -> DetailedHealthResponse:
+    """Internal implementation of detailed health check.
 
     Checks:
     - PostgreSQL database connection and queries
@@ -389,6 +369,51 @@ async def detailed_health_check(response: Response) -> DetailedHealthResponse:
             ],
             system={},
         )
+
+
+# Health check endpoints
+# NOTE: Order matters in FastAPI - more specific routes must come before general ones
+
+
+@router.get("/health/detailed", response_model=DetailedHealthResponse)
+async def detailed_health(response: Response) -> DetailedHealthResponse:
+    """Detailed health check endpoint with component status.
+
+    Checks all system components including:
+    - PostgreSQL database connection and queries
+    - Redis connectivity and operations
+    - S3 bucket access (if configured)
+    - FFmpeg binary availability
+    - System resource usage (CPU, memory, disk)
+
+    Returns HTTP 200 if all components are healthy,
+    HTTP 503 if any critical component is unhealthy,
+    HTTP 200 with degraded status if only non-critical components fail.
+
+    Returns:
+        DetailedHealthResponse: Detailed component health status
+    """
+    return await _detailed_health_check_impl(response)
+
+
+@router.get("/health", response_model=HealthResponse)
+async def health_check(response: Response) -> HealthResponse:
+    """Basic health check endpoint.
+
+    Returns HTTP 200 if the service is running, HTTP 503 if unhealthy.
+    This is a simple liveness check that doesn't verify dependencies.
+
+    Returns:
+        HealthResponse: Application health status
+    """
+    try:
+        # Quick check - just verify the service is running
+        # For basic health, we don't check dependencies
+        return HealthResponse(status="healthy", version="0.1.0")
+    except Exception as e:
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return HealthResponse(status="unhealthy", version="0.1.0")
 
 
 @router.get("/metrics")

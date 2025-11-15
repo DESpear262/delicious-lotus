@@ -15,28 +15,36 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     """Create all tables and triggers."""
-    # Create enum types
+    # Create enum types (with IF NOT EXISTS)
     op.execute(
-        "CREATE TYPE composition_status AS ENUM ('pending', 'queued', 'processing', 'completed', 'failed', 'cancelled')"
+        "DO $$ BEGIN "
+        "CREATE TYPE composition_status AS ENUM ('pending', 'queued', 'processing', 'completed', 'failed', 'cancelled'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
     )
     op.execute(
-        "CREATE TYPE job_type AS ENUM ('composition_render', 'video_transcode', 'audio_process', 'thumbnail_generate')"
+        "DO $$ BEGIN "
+        "CREATE TYPE job_type AS ENUM ('composition_render', 'video_transcode', 'audio_process', 'thumbnail_generate'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
     )
     op.execute(
-        "CREATE TYPE job_status AS ENUM ('pending', 'queued', 'running', 'completed', 'failed', 'cancelled', 'retrying')"
+        "DO $$ BEGIN "
+        "CREATE TYPE job_status AS ENUM ('pending', 'queued', 'running', 'completed', 'failed', 'cancelled', 'retrying'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
     )
     op.execute(
-        "CREATE TYPE metric_type AS ENUM ('processing_duration', 'file_size', 'bitrate', 'frame_rate', 'resolution', 'queue_wait_time', 'memory_usage', 'cpu_usage')"
+        "DO $$ BEGIN "
+        "CREATE TYPE metric_type AS ENUM ('processing_duration', 'file_size', 'bitrate', 'frame_rate', 'resolution', 'queue_wait_time', 'memory_usage', 'cpu_usage'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
     )
 
-    # Create updated_at trigger function
+    # Create updated_at trigger function (idempotent with CREATE OR REPLACE)
     op.execute(
         """
         CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -46,7 +54,7 @@ def upgrade() -> None:
             RETURN NEW;
         END;
         $$ language 'plpgsql';
-    """
+        """
     )
 
     # Create compositions table
@@ -65,6 +73,7 @@ def upgrade() -> None:
                 "failed",
                 "cancelled",
                 name="composition_status",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -129,6 +138,7 @@ def upgrade() -> None:
                 "audio_process",
                 "thumbnail_generate",
                 name="job_type",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -143,6 +153,7 @@ def upgrade() -> None:
                 "cancelled",
                 "retrying",
                 name="job_status",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -227,6 +238,7 @@ def upgrade() -> None:
                 "memory_usage",
                 "cpu_usage",
                 name="metric_type",
+                create_type=False,
             ),
             nullable=False,
         ),

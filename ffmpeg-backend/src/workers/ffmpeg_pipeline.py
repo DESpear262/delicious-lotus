@@ -51,7 +51,7 @@ class FFmpegCommandBuilder:
         """Build a simple FFmpeg command for concatenating videos.
 
         Args:
-            input_files: List of input video file paths
+            input_files: List of input video file paths or dict mapping asset IDs to paths
             output_file: Output video file path
             resolution: Output resolution (WxH)
             fps: Output frame rate
@@ -63,6 +63,12 @@ class FFmpegCommandBuilder:
         if not input_files:
             raise ValueError("No input files provided")
 
+        # Normalize input_files to dict format for consistent handling
+        if isinstance(input_files, list):
+            input_files_dict = {f"asset_{i}": path for i, path in enumerate(input_files)}
+        else:
+            input_files_dict = input_files
+
         cmd = [
             self.ffmpeg_path,
             "-y",  # Overwrite output file
@@ -73,8 +79,8 @@ class FFmpegCommandBuilder:
         ]
 
         # Add input files
-        for input_file in input_files:
-            cmd.extend(["-i", str(input_file)])
+        for file_path in input_files_dict.values():
+            cmd.extend(["-i", str(file_path)])
 
         # Get asset timing information for trimming
         assets = composition_config.get("assets", []) if composition_config else []
@@ -83,75 +89,109 @@ class FFmpegCommandBuilder:
         output_has_audio = False
 
         # Build filter complex for concatenation
-        if len(input_files) > 1:
-            # For multi-file, assume all have audio (current behavior)
-            # TODO: Enhance this to check each file and handle mixed audio/no-audio
-            output_has_audio = True
+        if len(input_files_dict) > 1:
+            # Check which files have audio streams
+            files_with_audio = []
+            for i, (file_id, file_path) in enumerate(input_files_dict.items()):
+                has_audio = self.has_audio_stream(file_path)
+                files_with_audio.append(has_audio)
+
+                logger.debug(
+                    f"Input {i} ({file_id}): has_audio={has_audio}",
+                    extra={"input_index": i, "file_id": file_id, "has_audio": has_audio},
+                )
+
+            # Determine if output should have audio (at least one input has audio)
+            any_has_audio = any(files_with_audio)
+            output_has_audio = any_has_audio
 
             # Scale, trim, and concatenate inputs
             filter_parts = []
-            for i, asset in enumerate(assets[: len(input_files)]):
-                start_time = asset.get("start_time", 0)
-                end_time = asset.get("end_time")
+            for i, asset in enumerate(assets[: len(input_files_dict)]):
+                # Use trim_start/trim_end for extracting from source video
+                trim_start = asset.get("trim_start", 0)
+                trim_end = asset.get("trim_end")
+                has_audio = files_with_audio[i] if i < len(files_with_audio) else False
 
-                if start_time or end_time:
+                if trim_start or trim_end:
                     # Apply trim filter for video
-                    trim_filter = f"[{i}:v]trim=start={start_time}"
-                    if end_time:
-                        duration = end_time - start_time
+                    duration = trim_end - trim_start if trim_end else None
+                    trim_filter = f"[{i}:v]trim=start={trim_start}"
+                    if trim_end:
                         trim_filter += f":duration={duration}"
                     trim_filter += (
                         f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v{i}]"
                     )
                     filter_parts.append(trim_filter)
 
-                    # Apply trim filter for audio
-                    audio_trim = f"[{i}:a]atrim=start={start_time}"
-                    if end_time:
-                        audio_trim += f":duration={duration}"
-                    audio_trim += f",asetpts=PTS-STARTPTS[a{i}]"
-                    filter_parts.append(audio_trim)
+                    # Only apply audio trim if this file has audio
+                    if has_audio:
+                        audio_trim = f"[{i}:a]atrim=start={trim_start}"
+                        if trim_end:
+                            audio_trim += f":duration={duration}"
+                        audio_trim += f",asetpts=PTS-STARTPTS[a{i}]"
+                        filter_parts.append(audio_trim)
+                    elif any_has_audio:
+                        # File has no audio but we need audio for concat - generate silence
+                        silence_duration = duration if duration else 10  # Default 10s if no end
+                        filter_parts.append(
+                            f"anullsrc=channel_layout=stereo:sample_rate=48000:duration={silence_duration}[a{i}]"
+                        )
                 else:
+                    # No trimming - just scale video
                     filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
-                    filter_parts.append(f"[{i}:a]acopy[a{i}]")
 
-            concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(len(input_files))])
-            filter_parts.append(f"{concat_inputs}concat=n={len(input_files)}:v=1:a=1[outv][outa]")
+                    # Handle audio
+                    if has_audio:
+                        filter_parts.append(f"[{i}:a]acopy[a{i}]")
+                    elif any_has_audio:
+                        # Generate silence to match other streams (10 seconds default)
+                        filter_parts.append(
+                            f"anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[a{i}]"
+                        )
+
+            # Build concat filter based on whether we have audio
+            if any_has_audio:
+                concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(len(input_files_dict))])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={len(input_files_dict)}:v=1:a=1[outv][outa]"
+                )
+                map_args = ["-map", "[outv]", "-map", "[outa]"]
+            else:
+                # No audio in any file - video-only concat
+                concat_inputs = "".join([f"[v{i}]" for i in range(len(input_files_dict))])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={len(input_files_dict)}:v=1:a=0[outv]"
+                )
+                map_args = ["-map", "[outv]"]
 
             filter_complex = ";".join(filter_parts)
 
-            cmd.extend(
-                [
-                    "-filter_complex",
-                    filter_complex,
-                    "-map",
-                    "[outv]",
-                    "-map",
-                    "[outa]",
-                ]
-            )
+            cmd.extend(["-filter_complex", filter_complex] + map_args)
         else:
             # Single file - scale and optionally trim
             asset = assets[0] if assets else {}
-            start_time = asset.get("start_time", 0)
-            end_time = asset.get("end_time")
+            # Use trim_start/trim_end for extracting from source video
+            trim_start = asset.get("trim_start", 0)
+            trim_end = asset.get("trim_end")
 
             # Check if the input file has audio
-            has_audio = self.has_audio_stream(input_files[0])
+            first_file = next(iter(input_files_dict.values()))
+            has_audio = self.has_audio_stream(first_file)
             output_has_audio = has_audio
 
-            if start_time or end_time:
+            if trim_start or trim_end:
                 # Apply trim filter for single file
-                duration = end_time - start_time if end_time else None
+                duration = trim_end - trim_start if trim_end else None
 
-                video_trim = f"[0:v]trim=start={start_time}"
+                video_trim = f"[0:v]trim=start={trim_start}"
                 if duration:
                     video_trim += f":duration={duration}"
                 video_trim += f",setpts=PTS-STARTPTS,scale={resolution},setsar=1,fps={fps}[v]"
 
                 if has_audio:
                     # Video has audio - apply audio trim as well
-                    audio_trim = f"[0:a]atrim=start={start_time}"
+                    audio_trim = f"[0:a]atrim=start={trim_start}"
                     if duration:
                         audio_trim += f":duration={duration}"
                     audio_trim += ",asetpts=PTS-STARTPTS[a]"
@@ -218,7 +258,7 @@ class FFmpegCommandBuilder:
         logger.info(
             "Built FFmpeg command",
             extra={
-                "input_count": len(input_files),
+                "input_count": len(input_files_dict),
                 "output": str(output_file),
                 "resolution": resolution,
                 "fps": fps,
@@ -341,21 +381,61 @@ class FFmpegCommandBuilder:
         # Build filter complex
         filter_parts = []
 
+        # Check which video files have audio streams
+        files_with_audio = []
+        for i, video_file in enumerate(video_files):
+            has_audio = self.has_audio_stream(video_file)
+            files_with_audio.append(has_audio)
+            logger.debug(
+                f"Video input {i}: has_audio={has_audio}",
+                extra={"input_index": i, "video_file": str(video_file), "has_audio": has_audio},
+            )
+
+        any_has_audio = any(files_with_audio)
+
         # Process video clips (concatenate if multiple)
         if video_input_count > 1:
-            # Scale each video
+            # Scale each video and handle audio
             for i in range(video_input_count):
                 filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
 
+                # Handle audio for each video
+                if files_with_audio[i]:
+                    filter_parts.append(f"[{i}:a]acopy[a{i}]")
+                elif any_has_audio:
+                    # Generate silence for videos without audio
+                    filter_parts.append(
+                        f"anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[a{i}]"
+                    )
+
             # Concatenate videos with their audio
-            concat_inputs = "".join([f"[v{i}][{i}:a]" for i in range(video_input_count)])
-            filter_parts.append(
-                f"{concat_inputs}concat=n={video_input_count}:v=1:a=1[video_out][video_audio]"
-            )
+            if any_has_audio:
+                concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(video_input_count)])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={video_input_count}:v=1:a=1[video_out][video_audio]"
+                )
+            else:
+                # No audio in any video - video-only concat, then generate silence
+                concat_inputs = "".join([f"[v{i}]" for i in range(video_input_count)])
+                filter_parts.append(
+                    f"{concat_inputs}concat=n={video_input_count}:v=1:a=0[video_out]"
+                )
+                # Generate silence for mixing with background audio
+                filter_parts.append(
+                    "anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[video_audio]"
+                )
         else:
             # Single video - just scale
             filter_parts.append(f"[0:v]scale={resolution},setsar=1,fps={fps}[video_out]")
-            filter_parts.append("[0:a]acopy[video_audio]")
+
+            # Handle audio for single video
+            if files_with_audio[0]:
+                filter_parts.append("[0:a]acopy[video_audio]")
+            else:
+                # Generate silence for video without audio
+                filter_parts.append(
+                    "anullsrc=channel_layout=stereo:sample_rate=48000:duration=10[video_audio]"
+                )
 
         # Mix background audio with video audio
         # Adjust volumes and mix

@@ -4,11 +4,14 @@ Block 0: API Skeleton & Core Infrastructure
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.logging import RequestIDMiddleware, setup_logging, get_request_logger
@@ -31,6 +34,35 @@ app.add_exception_handler(Exception, global_exception_handler)
 # Register API routers immediately (not in lifespan)
 app.include_router(api_v1_router)
 app.include_router(internal_v1_router)
+
+# Mount static files for frontend (Option B deployment)
+# Check if frontend/dist directory exists before mounting
+FRONTEND_DIST_PATH = Path(__file__).parent.parent / "frontend" / "dist"
+FRONTEND_ASSETS_PATH = FRONTEND_DIST_PATH / "assets"
+FRONTEND_INDEX_PATH = FRONTEND_DIST_PATH / "index.html"
+
+# Only set up frontend serving if index.html exists (frontend is built)
+if FRONTEND_INDEX_PATH.exists() and FRONTEND_INDEX_PATH.is_file():
+    # Mount assets directory if it exists
+    if FRONTEND_ASSETS_PATH.exists() and FRONTEND_ASSETS_PATH.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS_PATH)), name="static-assets")
+
+    # Serve index.html for SPA routing (catch-all for non-API routes)
+    # NOTE: This catch-all route MUST be defined after all API routes
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve frontend SPA, with fallback to index.html for client-side routing"""
+        # Skip API routes and health checks (they're already handled)
+        if full_path.startswith("api/") or full_path.startswith("health") or full_path == "health":
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Try to serve the requested file
+        file_path = FRONTEND_DIST_PATH / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+
+        # Fallback to index.html for SPA routing
+        return FileResponse(FRONTEND_INDEX_PATH)
 
 
 @asynccontextmanager

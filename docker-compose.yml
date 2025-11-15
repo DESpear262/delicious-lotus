@@ -38,11 +38,11 @@ services:
     networks:
       - ai-video-network
 
-  # Backend (FastAPI + FFmpeg) - Placeholder until backend team provides structure
+  # Backend (FastAPI + FFmpeg) - PR-D002
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+      context: ./fastapi
+      dockerfile: Dockerfile
     container_name: ai-video-backend
     environment:
       # Database
@@ -57,18 +57,17 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       # Application
-      ENVIRONMENT: development
-      DEBUG: ${DEBUG:-true}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      # CORS (for development)
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      APP_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # CORS (for development - Option B deployment)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8000}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - ./backend:/app
-      - /app/.venv  # Prevent overwriting virtual environment
+      # Note: For development, you can mount code for hot reload
+      # - ./fastapi/app:/app/app
       - backend_uploads:/app/uploads
-      - backend_outputs:/app/outputs
+      - backend_temp:/app/temp
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,7 +116,7 @@ volumes:
     driver: local
   backend_uploads:
     driver: local
-  backend_outputs:
+  backend_temp:
     driver: local
 
 networks:

@@ -1,0 +1,141 @@
+/* Step Indicator Container */
+.container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-8);
+  position: relative;
+}
+
+/* Individual Step */
+.step {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+}
+
+.stepButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: default;
+  text-align: center;
+  width: 100%;
+}
+
+.stepClickable .stepButton {
+  cursor: pointer;
+}
+
+.stepButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Step Number Circle */
+.stepNumber {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  transition: all var(--transition-base);
+  border: 2px solid transparent;
+}
+
+.stepNumberActive {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.stepNumberComplete {
+  background: var(--color-success);
+  color: white;
+  border-color: var(--color-success);
+}
+
+.stepClickable:hover .stepNumber {
+  transform: scale(1.05);
+}
+
+/* Step Content */
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  max-width: 120px;
+}
+
+.stepTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.stepDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-tight);
+}
+
+.stepActive .stepTitle {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Connector Line */
+.connector {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border);
+  z-index: -1;
+}
+
+.stepComplete + .step .connector {
+  background: var(--color-success);
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+  .container {
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+
+  .step {
+    width: 100%;
+  }
+
+  .stepButton {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    gap: var(--spacing-3);
+  }
+
+  .stepContent {
+    max-width: none;
+    align-items: flex-start;
+  }
+
+  .connector {
+    display: none;
+  }
+}

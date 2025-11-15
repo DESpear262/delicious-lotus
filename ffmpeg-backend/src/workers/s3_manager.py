@@ -3,6 +3,7 @@
 import logging
 import os
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -250,13 +251,15 @@ class S3Manager:
         assets: list[dict[str, str]],
         temp_dir: str | Path,
         progress_callback: Callable[[str, int, int], None] | None = None,
+        max_workers: int = 5,
     ) -> dict[str, Path]:
-        """Download multiple assets from S3.
+        """Download multiple assets from S3 in parallel.
 
         Args:
             assets: List of asset dictionaries with 's3_key' and optional 'id'
             temp_dir: Temporary directory to download assets to
             progress_callback: Optional callback (asset_id, bytes_downloaded, total_bytes)
+            max_workers: Maximum number of parallel downloads (default: 5)
 
         Returns:
             dict: Mapping of asset ID to local path
@@ -267,29 +270,28 @@ class S3Manager:
         temp_dir = Path(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
 
-        downloaded_files = {}
-
         logger.info(
-            f"Downloading {len(assets)} assets",
+            f"Downloading {len(assets)} assets in parallel (max_workers={max_workers})",
             extra={"asset_count": len(assets), "temp_dir": str(temp_dir)},
         )
 
-        for i, asset in enumerate(assets):
+        def download_single_asset(asset: dict[str, str], index: int) -> tuple[str, Path]:
+            """Download a single asset (called by ThreadPoolExecutor)."""
             s3_key = asset.get("s3_key")
-            asset_id = asset.get("id", f"asset_{i}")
+            asset_id = asset.get("id", f"asset_{index}")
 
             if not s3_key:
                 logger.warning(f"Asset {asset_id} missing s3_key, skipping")
-                continue
+                raise ValueError(f"Asset {asset_id} missing s3_key")
 
             # Generate local filename from S3 key
             filename = os.path.basename(s3_key)
             local_path = temp_dir / f"{asset_id}_{filename}"
 
             # Create progress callback for this asset
-            def asset_progress(bytes_down: int, total_bytes: int, aid: str = asset_id) -> None:
+            def asset_progress(bytes_down: int, total_bytes: int) -> None:
                 if progress_callback:
-                    progress_callback(aid, bytes_down, total_bytes)
+                    progress_callback(asset_id, bytes_down, total_bytes)
 
             try:
                 downloaded_path = self.download_file(
@@ -297,12 +299,13 @@ class S3Manager:
                     local_path=local_path,
                     progress_callback=asset_progress,
                 )
-                downloaded_files[asset_id] = downloaded_path
 
                 logger.debug(
                     f"Downloaded asset {asset_id}",
                     extra={"asset_id": asset_id, "path": str(downloaded_path)},
                 )
+
+                return asset_id, downloaded_path
 
             except Exception as e:
                 logger.exception(
@@ -310,6 +313,31 @@ class S3Manager:
                     extra={"asset_id": asset_id, "s3_key": s3_key, "error": str(e)},
                 )
                 raise
+
+        # Download assets in parallel using ThreadPoolExecutor
+        downloaded_files = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all download tasks
+            future_to_asset = {
+                executor.submit(download_single_asset, asset, i): asset
+                for i, asset in enumerate(assets)
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_asset):
+                try:
+                    asset_id, local_path = future.result()
+                    downloaded_files[asset_id] = local_path
+                except Exception as e:
+                    # If any download fails, cancel remaining tasks and raise
+                    logger.error(
+                        "Download failed, cancelling remaining downloads",
+                        extra={"error": str(e)},
+                    )
+                    # Cancel all pending futures
+                    for f in future_to_asset:
+                        f.cancel()
+                    raise
 
         logger.info(
             f"Downloaded all {len(downloaded_files)} assets successfully",

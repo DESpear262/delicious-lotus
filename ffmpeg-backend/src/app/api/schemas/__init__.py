@@ -8,8 +8,11 @@ from .composition import (
     CompositionResponse,
     CompositionStatusResponse,
     DownloadResponse,
+    InputFileInfo,
+    OutputFileInfo,
     OutputSettings,
     OverlayConfig,
+    ProcessingStage,
     ProcessingStageInfo,
     ResourceMetrics,
 )
@@ -26,8 +29,11 @@ __all__ = [
     "CompositionStatusResponse",
     "CompositionMetadataResponse",
     "DownloadResponse",
+    "ProcessingStage",
     "ProcessingStageInfo",
     "ResourceMetrics",
+    "InputFileInfo",
+    "OutputFileInfo",
     # Error schemas
     "ErrorResponse",
     "ErrorDetail",

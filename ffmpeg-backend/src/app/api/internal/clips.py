@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from workers.redis_pool import get_redis_connection
 
+from ...dependencies import require_internal_auth
 from ..schemas.internal import (
     ProcessClipsRequest,
     ProcessClipsResponse,
     ProcessingJobInfo,
     ProcessingJobStatus,
 )
-from ...dependencies import require_internal_auth
 
 logger = logging.getLogger(__name__)
 

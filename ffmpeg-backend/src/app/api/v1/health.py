@@ -203,7 +203,7 @@ async def check_ffmpeg() -> ComponentStatus:
             )
 
         # Get FFmpeg version
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [settings.ffmpeg_path, "-version"],
             capture_output=True,
             text=True,

@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MainLayout } from './layouts/MainLayout';
-import { Home } from './pages/Home';
+import { PipelineSelection } from './pages/PipelineSelection';
 import { History } from './pages/History';
+import { VideoPreview } from './pages/VideoPreview';
+import { GenerationProgress } from './pages/GenerationProgress';
 import { NotFound } from './pages/NotFound';
 
 /**
@@ -15,8 +17,10 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
+          <Route index element={<PipelineSelection />} />
           <Route path="history" element={<History />} />
+          <Route path="generation/:id" element={<GenerationProgress />} />
+          <Route path="preview/:id" element={<VideoPreview />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

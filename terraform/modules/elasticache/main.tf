@@ -11,14 +11,14 @@ resource "aws_elasticache_subnet_group" "main" {
 resource "aws_elasticache_cluster" "redis" {
   cluster_id           = var.cluster_id
   engine               = "redis"
-  engine_version       = "7.1"  # Redis 7 as per requirements
+  engine_version       = "7.1" # Redis 7 as per requirements
   node_type            = var.node_type
   num_cache_nodes      = var.num_cache_nodes
   parameter_group_name = "default.redis7"
   port                 = 6379
 
-  subnet_group_name    = aws_elasticache_subnet_group.main.name
-  security_group_ids   = [var.security_group_id]
+  subnet_group_name  = aws_elasticache_subnet_group.main.name
+  security_group_ids = [var.security_group_id]
 
   # Snapshot and backup configuration
   snapshot_retention_limit = 5

@@ -11,7 +11,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier        = var.identifier
   engine            = "postgres"
-  engine_version    = "16.3"  # PostgreSQL 16 as per requirements
+  engine_version    = "17" # PostgreSQL 17
   instance_class    = var.instance_class
   allocated_storage = var.allocated_storage
   storage_type      = "gp3"
@@ -27,12 +27,12 @@ resource "aws_db_instance" "postgres" {
 
   # Backup configuration
   backup_retention_period = 7
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "Mon:04:00-Mon:05:00"
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "Mon:04:00-Mon:05:00"
 
   # Performance Insights for troubleshooting
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  performance_insights_enabled    = false  # Disabled for cost savings on t4g.micro
+  performance_insights_enabled    = false # Disabled for cost savings on t4g.micro
 
   # Skip final snapshot for dev/testing (change in production)
   skip_final_snapshot       = var.environment != "prod"

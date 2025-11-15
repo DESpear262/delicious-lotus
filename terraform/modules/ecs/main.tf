@@ -78,14 +78,12 @@ resource "aws_ecs_service" "backend" {
   network_configuration {
     subnets          = var.subnet_ids
     security_groups  = [var.security_group_id]
-    assign_public_ip = true  # Required for Fargate to pull images from ECR
+    assign_public_ip = true # Required for Fargate to pull images from ECR
   }
 
-  # Wait for task definition to be stable before marking service as created
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
-  }
+  # Deployment configuration
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
 
   # Enable ECS Exec for debugging
   enable_execute_command = true

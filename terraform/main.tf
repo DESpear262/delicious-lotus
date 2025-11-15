@@ -75,33 +75,33 @@ module "security" {
 module "rds" {
   source = "./modules/rds"
 
-  identifier          = var.db_identifier
-  database_name       = var.db_name
-  master_username     = var.db_username
-  master_password     = var.db_password
-  instance_class      = var.db_instance_class
-  allocated_storage   = var.db_allocated_storage
+  identifier        = var.db_identifier
+  database_name     = var.db_name
+  master_username   = var.db_username
+  master_password   = var.db_password
+  instance_class    = var.db_instance_class
+  allocated_storage = var.db_allocated_storage
 
-  vpc_id              = data.aws_vpc.default.id
-  subnet_ids          = data.aws_subnets.default.ids
-  security_group_id   = module.security.rds_security_group_id
+  vpc_id            = data.aws_vpc.default.id
+  subnet_ids        = data.aws_subnets.default.ids
+  security_group_id = module.security.rds_security_group_id
 
-  environment         = var.environment
+  environment = var.environment
 }
 
 # ElastiCache - Redis
 module "elasticache" {
   source = "./modules/elasticache"
 
-  cluster_id         = var.redis_cluster_id
-  node_type          = var.redis_node_type
-  num_cache_nodes    = var.redis_num_nodes
+  cluster_id      = var.redis_cluster_id
+  node_type       = var.redis_node_type
+  num_cache_nodes = var.redis_num_nodes
 
-  vpc_id             = data.aws_vpc.default.id
-  subnet_ids         = data.aws_subnets.default.ids
-  security_group_id  = module.security.redis_security_group_id
+  vpc_id            = data.aws_vpc.default.id
+  subnet_ids        = data.aws_subnets.default.ids
+  security_group_id = module.security.redis_security_group_id
 
-  environment        = var.environment
+  environment = var.environment
 }
 
 # CloudWatch - Logging
@@ -116,37 +116,37 @@ module "cloudwatch" {
 module "ecs" {
   source = "./modules/ecs"
 
-  cluster_name            = var.ecs_cluster_name
-  service_name            = var.ecs_service_name
-  task_family             = var.ecs_task_family
+  cluster_name = var.ecs_cluster_name
+  service_name = var.ecs_service_name
+  task_family  = var.ecs_task_family
 
-  ecr_repository_url      = module.ecr.repository_url
-  container_image_tag     = var.container_image_tag
+  ecr_repository_url  = module.ecr.repository_url
+  container_image_tag = var.container_image_tag
 
-  task_cpu                = var.task_cpu
-  task_memory             = var.task_memory
-  desired_count           = var.desired_count
+  task_cpu      = var.task_cpu
+  task_memory   = var.task_memory
+  desired_count = var.desired_count
 
-  vpc_id                  = data.aws_vpc.default.id
-  subnet_ids              = data.aws_subnets.default.ids
-  security_group_id       = module.security.ecs_security_group_id
+  vpc_id            = data.aws_vpc.default.id
+  subnet_ids        = data.aws_subnets.default.ids
+  security_group_id = module.security.ecs_security_group_id
 
   task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   task_role_arn           = module.iam.ecs_task_role_arn
 
-  log_group_name          = module.cloudwatch.log_group_name
-  aws_region              = var.aws_region
+  log_group_name = module.cloudwatch.log_group_name
+  aws_region     = var.aws_region
 
   # Environment variables for the container
   environment_variables = {
-    APP_ENV                 = var.environment
-    LOG_LEVEL              = "INFO"
-    DATABASE_URL           = "postgresql://${var.db_username}:${var.db_password}@${module.rds.endpoint}/${var.db_name}"
-    REDIS_URL              = "redis://${module.elasticache.endpoint}:6379/0"
-    S3_BUCKET              = module.s3.bucket_name
-    AWS_REGION             = var.aws_region
-    CORS_ORIGINS           = var.cors_origins
-    REPLICATE_API_TOKEN    = var.replicate_api_token
+    APP_ENV             = var.environment
+    LOG_LEVEL           = "INFO"
+    DATABASE_URL        = "postgresql://${var.db_username}:${var.db_password}@${module.rds.endpoint}/${var.db_name}"
+    REDIS_URL           = "redis://${module.elasticache.endpoint}:6379/0"
+    S3_BUCKET           = module.s3.bucket_name
+    AWS_REGION          = var.aws_region
+    CORS_ORIGINS        = var.cors_origins
+    REPLICATE_API_TOKEN = var.replicate_api_token
   }
 
   environment = var.environment

@@ -84,6 +84,7 @@ output "cloudwatch_log_group" {
 # Deployment Instructions
 output "deployment_instructions" {
   description = "Next steps for deployment"
+  sensitive   = true
   value       = <<-EOT
 
   ========================================

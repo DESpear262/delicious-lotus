@@ -2,7 +2,7 @@
 variable "aws_region" {
   description = "AWS region for all resources"
   type        = string
-  default     = "us-east-2"  # CRITICAL: User specified us-east-2, NOT us-east-1
+  default     = "us-east-2" # CRITICAL: User specified us-east-2, NOT us-east-1
 }
 
 variable "environment" {
@@ -54,13 +54,13 @@ variable "db_password" {
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.t4g.micro"  # Cheapest option ~$12/month
+  default     = "db.t4g.micro" # Cheapest option ~$12/month
 }
 
 variable "db_allocated_storage" {
   description = "Allocated storage in GB"
   type        = number
-  default     = 20  # Minimum for gp3
+  default     = 20 # Minimum for gp3
 }
 
 # ElastiCache Configuration
@@ -73,13 +73,13 @@ variable "redis_cluster_id" {
 variable "redis_node_type" {
   description = "ElastiCache node type"
   type        = string
-  default     = "cache.t4g.micro"  # Cheapest option ~$11/month
+  default     = "cache.t4g.micro" # Cheapest option ~$11/month
 }
 
 variable "redis_num_nodes" {
   description = "Number of cache nodes"
   type        = number
-  default     = 1  # Single node for MVP
+  default     = 1 # Single node for MVP
 }
 
 # ECS Configuration
@@ -110,19 +110,19 @@ variable "container_image_tag" {
 variable "task_cpu" {
   description = "Task CPU units (1024 = 1 vCPU)"
   type        = string
-  default     = "1024"  # 1 vCPU
+  default     = "1024" # 1 vCPU
 }
 
 variable "task_memory" {
   description = "Task memory in MB"
   type        = string
-  default     = "2048"  # 2 GB
+  default     = "2048" # 2 GB
 }
 
 variable "desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 1  # Single instance for MVP
+  default     = 1 # Single instance for MVP
 }
 
 # Application Configuration
@@ -136,5 +136,5 @@ variable "replicate_api_token" {
   description = "Replicate API token for AI services"
   type        = string
   sensitive   = true
-  default     = ""  # Must be provided
+  default     = "" # Must be provided
 }

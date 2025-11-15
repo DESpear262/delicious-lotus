@@ -75,8 +75,7 @@ services:
         condition: service_healthy
     networks:
       - ai-video-network
-    # Placeholder command - will be replaced when backend team provides structure
-    command: echo "Backend placeholder - waiting for FastAPI structure from backend team"
+    # Uses CMD from Dockerfile: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   # Celery Worker for async tasks (placeholder)
   celery-worker:
@@ -117,6 +116,8 @@ volumes:
   backend_uploads:
     driver: local
   backend_temp:
+    driver: local
+  backend_outputs:
     driver: local
 
 networks:

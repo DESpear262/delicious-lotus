@@ -92,11 +92,30 @@ class Settings(BaseSettings):
         description="Supported image file formats",
     )
 
+    # Internal API Authentication settings
+    internal_api_keys: Annotated[list[str], NoDecode] = Field(
+        default_factory=list,
+        description="Comma-separated list of valid internal API keys",
+    )
+    jwt_secret_key: str = Field(
+        default="",
+        description="Secret key for JWT token validation (service-to-service auth)",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT token algorithm",
+    )
+    jwt_expiration_minutes: int = Field(
+        default=60,
+        description="JWT token expiration time in minutes",
+    )
+
     @field_validator(
         "allowed_origins",
         "supported_video_formats",
         "supported_audio_formats",
         "supported_image_formats",
+        "internal_api_keys",
         mode="before",
     )
     @classmethod

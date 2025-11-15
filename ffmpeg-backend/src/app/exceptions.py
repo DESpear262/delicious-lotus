@@ -163,3 +163,15 @@ class ProcessingError(FFmpegBackendError):
         """
         super().__init__(message=message, error_code="processing_error")
         self.composition_id = composition_id
+
+
+class UnauthorizedError(FFmpegBackendError):
+    """Raised when authentication fails or is missing."""
+
+    def __init__(self, message: str = "Unauthorized") -> None:
+        """Initialize with authentication error details.
+
+        Args:
+            message: Description of the authentication error
+        """
+        super().__init__(message=message, error_code="unauthorized")

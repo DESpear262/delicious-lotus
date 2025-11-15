@@ -22,6 +22,7 @@ from app.exceptions import (
     ProcessingError,
     RateLimitExceededError,
     S3Error,
+    UnauthorizedError,
     UnsupportedFormatError,
 )
 
@@ -73,6 +74,7 @@ async def ffmpeg_backend_exception_handler(
         DurationExceededError: status.HTTP_400_BAD_REQUEST,
         UnsupportedFormatError: status.HTTP_400_BAD_REQUEST,
         InvalidURLError: status.HTTP_400_BAD_REQUEST,
+        UnauthorizedError: status.HTTP_401_UNAUTHORIZED,
         RateLimitExceededError: status.HTTP_429_TOO_MANY_REQUESTS,
         DatabaseError: status.HTTP_500_INTERNAL_SERVER_ERROR,
         S3Error: status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -88,6 +90,7 @@ async def ffmpeg_backend_exception_handler(
         DurationExceededError: "Reduce the total duration of clips to 3 minutes or less",
         UnsupportedFormatError: "Use one of the supported video formats (mp4, mov, avi)",
         InvalidURLError: "Ensure all media URLs are accessible and valid",
+        UnauthorizedError: "Provide valid authentication credentials (X-API-Key header or Bearer token)",
         RateLimitExceededError: "Wait before making more requests",
         DatabaseError: "Retry the request. If the problem persists, contact support",
         S3Error: "Retry the request. If the problem persists, contact support",

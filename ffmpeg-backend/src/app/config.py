@@ -114,9 +114,9 @@ class Settings(BaseSettings):
     )
 
     # FFmpeg settings
-    ffmpeg_path: str = Field(default="/usr/local/bin/ffmpeg", description="Path to FFmpeg binary")
+    ffmpeg_path: str = Field(default="/usr/bin/ffmpeg", description="Path to FFmpeg binary")
     ffprobe_path: str = Field(
-        default="/usr/local/bin/ffprobe", description="Path to ffprobe binary"
+        default="/usr/bin/ffprobe", description="Path to ffprobe binary"
     )
     ffmpeg_threads: int = Field(default=0, description="Number of threads for FFmpeg (0 = auto)")
     max_concurrent_jobs: int = Field(default=4, description="Maximum concurrent FFmpeg jobs")

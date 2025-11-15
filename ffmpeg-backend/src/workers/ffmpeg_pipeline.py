@@ -165,6 +165,19 @@ class FFmpegCommandBuilder:
                 )
                 map_args = ["-map", "[outv]"]
 
+            # Add text overlays if provided
+            overlays = composition_config.get("overlays", []) if composition_config else []
+            if overlays:
+                video_label = "outv"
+                for i, overlay in enumerate(overlays):
+                    next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_outv"
+                    overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                    filter_parts.append(overlay_filter)
+                    video_label = next_label
+
+                # Update map to use final overlay output
+                map_args = ["-map", f"[{video_label}]", "-map", "[outa]"] if any_has_audio else ["-map", f"[{video_label}]"]
+
             filter_complex = ";".join(filter_parts)
 
             cmd.extend(["-filter_complex", filter_complex] + map_args)
@@ -196,31 +209,81 @@ class FFmpegCommandBuilder:
                         audio_trim += f":duration={duration}"
                     audio_trim += ",asetpts=PTS-STARTPTS[a]"
 
-                    filter_complex = f"{video_trim};{audio_trim}"
+                    filter_parts = [video_trim, audio_trim]
+
+                    # Add text overlays if provided
+                    overlays = composition_config.get("overlays", []) if composition_config else []
+                    video_label = "v"
+                    if overlays:
+                        for i, overlay in enumerate(overlays):
+                            next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                            overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                            filter_parts.append(overlay_filter)
+                            video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
 
                     cmd.extend(
                         [
                             "-filter_complex",
                             filter_complex,
                             "-map",
-                            "[v]",
+                            f"[{video_label}]",
                             "-map",
                             "[a]",
                         ]
                     )
                 else:
                     # Video has no audio - only trim video
+                    filter_parts = [video_trim]
+
+                    # Add text overlays if provided
+                    overlays = composition_config.get("overlays", []) if composition_config else []
+                    video_label = "v"
+                    if overlays:
+                        for i, overlay in enumerate(overlays):
+                            next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                            overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                            filter_parts.append(overlay_filter)
+                            video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
+
                     cmd.extend(
                         [
                             "-filter_complex",
-                            video_trim,
+                            filter_complex,
                             "-map",
-                            "[v]",
+                            f"[{video_label}]",
                         ]
                     )
             else:
-                # Just scale
-                cmd.extend(["-vf", f"scale={resolution},setsar=1,fps={fps}"])
+                # Just scale (no trimming)
+                overlays = composition_config.get("overlays", []) if composition_config else []
+                if overlays:
+                    # Use filter_complex for scale + overlays
+                    scale_filter = f"[0:v]scale={resolution},setsar=1,fps={fps}[v]"
+                    filter_parts = [scale_filter]
+
+                    if has_audio:
+                        filter_parts.append("[0:a]acopy[a]")
+
+                    video_label = "v"
+                    for i, overlay in enumerate(overlays):
+                        next_label = f"overlay{i}" if i < len(overlays) - 1 else "final_v"
+                        overlay_filter = self._build_overlay_filter(overlay, video_label, next_label)
+                        filter_parts.append(overlay_filter)
+                        video_label = next_label
+
+                    filter_complex = ";".join(filter_parts)
+
+                    cmd.extend(["-filter_complex", filter_complex])
+                    cmd.extend(["-map", f"[{video_label}]"])
+                    if has_audio:
+                        cmd.extend(["-map", "[a]"])
+                else:
+                    # Just scale, no overlays
+                    cmd.extend(["-vf", f"scale={resolution},setsar=1,fps={fps}"])
 
         # Output settings
         cmd.extend(
@@ -533,6 +596,67 @@ class FFmpegCommandBuilder:
         except Exception as e:
             logger.warning(f"Failed to check audio stream: {e}")
             return False  # Assume no audio on error
+
+    def _build_overlay_filter(
+        self, overlay: dict[str, Any], input_label: str, output_label: str
+    ) -> str:
+        """Build drawtext filter for text overlay.
+
+        Args:
+            overlay: Overlay configuration with text, position, timing, font settings
+            input_label: Input video stream label
+            output_label: Output video stream label
+
+        Returns:
+            str: FFmpeg drawtext filter string
+        """
+        text = overlay.get("text", "")
+        position = overlay.get("position", "bottom_center")
+        start_time = overlay.get("start_time", 0)
+        end_time = overlay.get("end_time")
+        font_size = overlay.get("font_size", 24)
+        font_color = overlay.get("font_color", "#FFFFFF")
+
+        # Convert hex color to FFmpeg format (remove #)
+        if font_color.startswith("#"):
+            font_color = font_color[1:]
+
+        # Map position to x,y coordinates
+        position_map = {
+            "top_left": "x=10:y=10",
+            "top_center": "x=(w-text_w)/2:y=10",
+            "top_right": "x=w-text_w-10:y=10",
+            "center_left": "x=10:y=(h-text_h)/2",
+            "center": "x=(w-text_w)/2:y=(h-text_h)/2",
+            "center_right": "x=w-text_w-10:y=(h-text_h)/2",
+            "bottom_left": "x=10:y=h-text_h-10",
+            "bottom_center": "x=(w-text_w)/2:y=h-text_h-10",
+            "bottom_right": "x=w-text_w-10:y=h-text_h-10",
+        }
+        xy_coords = position_map.get(position, position_map["bottom_center"])
+
+        # Escape text for FFmpeg (escape special characters)
+        text_escaped = text.replace(":", "\\:").replace("'", "\\'")
+
+        # Build enable expression for timing
+        if end_time is not None:
+            enable_expr = f"enable='between(t,{start_time},{end_time})'"
+        else:
+            enable_expr = f"enable='gte(t,{start_time})'"
+
+        # Build drawtext filter
+        drawtext = (
+            f"[{input_label}]drawtext="
+            f"text='{text_escaped}':"
+            f"{xy_coords}:"
+            f"fontsize={font_size}:"
+            f"fontcolor=0x{font_color}:"
+            f"box=1:boxcolor=0x000000@0.5:boxborderw=5:"
+            f"{enable_expr}"
+            f"[{output_label}]"
+        )
+
+        return drawtext
 
 
 class FFmpegProgressParser:

@@ -20,6 +20,12 @@ resource "aws_elasticache_cluster" "redis" {
   subnet_group_name  = aws_elasticache_subnet_group.main.name
   security_group_ids = [var.security_group_id]
 
+  # Security: Encryption in transit (TLS)
+  # Note: cache.t3.micro and cache.t4g.micro do NOT support transit encryption
+  # Requires cache.t3.small or larger for production
+  transit_encryption_enabled = var.transit_encryption_enabled
+  auth_token                 = var.transit_encryption_enabled ? var.auth_token : null
+
   # Snapshot and backup configuration
   snapshot_retention_limit = 5
   snapshot_window          = "03:00-05:00"

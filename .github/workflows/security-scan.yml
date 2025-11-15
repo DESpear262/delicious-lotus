@@ -1,0 +1,413 @@
+name: Security Scanning
+
+on:
+  # Run on every pull request
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+  # Run on push to main branch
+  push:
+    branches:
+      - main
+      - master
+
+  # Weekly scheduled scan (Sunday at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install scanning tools
+        run: |
+          pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Run safety check
+        id: safety
+        continue-on-error: true
+        run: |
+          safety check --file=fastapi/requirements.txt --json > safety-report.json || true
+          cat safety-report.json
+
+          # Check if vulnerabilities found
+          if [ -s safety-report.json ] && [ "$(cat safety-report.json)" != "[]" ]; then
+            echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+            echo "::warning::Vulnerabilities found by safety. See job logs for details."
+          fi
+
+      - name: Run pip-audit
+        id: pip-audit
+        continue-on-error: true
+        run: |
+          pip-audit --requirement=fastapi/requirements.txt --format=json > pip-audit-report.json || true
+          cat pip-audit-report.json
+
+          # Check if vulnerabilities found
+          if [ -s pip-audit-report.json ] && [ "$(cat pip-audit-report.json)" != "[]" ]; then
+            echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+            echo "::warning::Vulnerabilities found by pip-audit. See job logs for details."
+          fi
+
+      - name: Upload safety report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-report
+          path: safety-report.json
+          retention-days: 30
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: 30
+
+      - name: Fail on critical vulnerabilities
+        if: steps.safety.outputs.vulnerabilities_found == 'true' || steps.pip-audit.outputs.vulnerabilities_found == 'true'
+        run: |
+          echo "::error::Critical vulnerabilities found in dependencies. Please review and update."
+          exit 1
+
+  code-security-scan:
+    name: Code Security Scan (Bandit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit
+        id: bandit
+        continue-on-error: true
+        run: |
+          bandit -r fastapi/app/ -f json -o bandit-report.json || true
+          cat bandit-report.json | jq '.'
+
+      - name: Check for critical/high issues
+        id: bandit-check
+        run: |
+          if [ -f bandit-report.json ]; then
+            CRITICAL_HIGH=$(cat bandit-report.json | jq '[.results[] | select(.issue_severity=="HIGH" or .issue_severity=="CRITICAL")] | length')
+            echo "critical_high_count=$CRITICAL_HIGH" >> $GITHUB_OUTPUT
+
+            if [ "$CRITICAL_HIGH" -gt 0 ]; then
+              echo "::warning::Found $CRITICAL_HIGH critical/high severity issues"
+              cat bandit-report.json | jq -r '.results[] | select(.issue_severity=="HIGH" or .issue_severity=="CRITICAL") | "::warning file=\(.filename),line=\(.line_number)::\(.issue_text)"'
+            fi
+          fi
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 30
+
+      - name: Fail on critical/high issues
+        if: steps.bandit-check.outputs.critical_high_count > 0
+        run: |
+          echo "::error::Found ${{ steps.bandit-check.outputs.critical_high_count }} critical/high security issues"
+          exit 1
+
+  docker-image-scan:
+    name: Docker Image Scan (Trivy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./fastapi
+          file: ./fastapi/Dockerfile
+          push: false
+          load: true
+          tags: delicious-lotus-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: delicious-lotus-backend:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the build yet
+
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy for JSON report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: delicious-lotus-backend:${{ github.sha }}
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Check for critical vulnerabilities
+        id: trivy-check
+        run: |
+          if [ -f trivy-results.json ]; then
+            CRITICAL=$(cat trivy-results.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length')
+            HIGH=$(cat trivy-results.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length')
+
+            echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high_count=$HIGH" >> $GITHUB_OUTPUT
+
+            echo "Found $CRITICAL critical and $HIGH high severity vulnerabilities"
+
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "::warning::Found $CRITICAL critical vulnerabilities in Docker image"
+              cat trivy-results.json | jq -r '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | .[:5] | .[] | "::warning::\(.VulnerabilityID): \(.PkgName) \(.InstalledVersion) (Fix: \(.FixedVersion // "no fix available"))"'
+            fi
+          fi
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-results.json
+          retention-days: 30
+
+      - name: Fail on critical vulnerabilities
+        if: steps.trivy-check.outputs.critical_count > 0
+        run: |
+          echo "::error::Found ${{ steps.trivy-check.outputs.critical_count }} critical vulnerabilities in Docker image"
+          exit 1
+
+  terraform-security-scan:
+    name: Terraform Security Scan (tfsec)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
+          format: json
+          additional_args: --out tfsec-results.json
+
+      - name: Check for critical/high issues
+        id: tfsec-check
+        run: |
+          if [ -f tfsec-results.json ]; then
+            CRITICAL=$(cat tfsec-results.json | jq '[.results[] | select(.severity=="CRITICAL")] | length')
+            HIGH=$(cat tfsec-results.json | jq '[.results[] | select(.severity=="HIGH")] | length')
+
+            echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high_count=$HIGH" >> $GITHUB_OUTPUT
+
+            echo "Found $CRITICAL critical and $HIGH high severity issues"
+
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "::warning::Found security issues in Terraform"
+              cat tfsec-results.json | jq -r '.results[] | select(.severity=="CRITICAL" or .severity=="HIGH") | "::warning file=\(.location.filename),line=\(.location.start_line)::\(.description)"'
+            fi
+          fi
+
+      - name: Upload tfsec report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfsec-report
+          path: tfsec-results.json
+          retention-days: 30
+
+      - name: Fail on critical issues
+        if: steps.tfsec-check.outputs.critical_count > 0
+        run: |
+          echo "::error::Found ${{ steps.tfsec-check.outputs.critical_count }} critical Terraform security issues"
+          exit 1
+
+  secret-detection:
+    name: Secret Detection (Gitleaks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, code-security-scan, docker-image-scan, terraform-security-scan, secret-detection]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate summary
+        run: |
+          echo "# Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Dependency scan results
+          echo "### 1. Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          if [ -f safety-report/safety-report.json ]; then
+            SAFETY_COUNT=$(cat safety-report/safety-report.json | jq 'length // 0')
+            echo "- Safety: $SAFETY_COUNT vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f pip-audit-report/pip-audit-report.json ]; then
+            PIP_AUDIT_COUNT=$(cat pip-audit-report/pip-audit-report.json | jq 'length // 0')
+            echo "- pip-audit: $PIP_AUDIT_COUNT vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Code security results
+          echo "### 2. Code Security Issues (Bandit)" >> $GITHUB_STEP_SUMMARY
+          if [ -f bandit-report/bandit-report.json ]; then
+            CRITICAL_HIGH=$(cat bandit-report/bandit-report.json | jq '[.results[] | select(.issue_severity=="HIGH" or .issue_severity=="CRITICAL")] | length')
+            TOTAL=$(cat bandit-report/bandit-report.json | jq '.results | length')
+            echo "- Critical/High: $CRITICAL_HIGH issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Total: $TOTAL issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Docker image results
+          echo "### 3. Docker Image Vulnerabilities (Trivy)" >> $GITHUB_STEP_SUMMARY
+          if [ -f trivy-report/trivy-results.json ]; then
+            CRITICAL=$(cat trivy-report/trivy-results.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length')
+            HIGH=$(cat trivy-report/trivy-results.json | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length')
+            echo "- Critical: $CRITICAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+            echo "- High: $HIGH vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Terraform results
+          echo "### 4. Terraform Security (tfsec)" >> $GITHUB_STEP_SUMMARY
+          if [ -f tfsec-report/tfsec-results.json ]; then
+            CRITICAL=$(cat tfsec-report/tfsec-results.json | jq '[.results[] | select(.severity=="CRITICAL")] | length')
+            HIGH=$(cat tfsec-report/tfsec-results.json | jq '[.results[] | select(.severity=="HIGH")] | length')
+            echo "- Critical: $CRITICAL issues" >> $GITHUB_STEP_SUMMARY
+            echo "- High: $HIGH issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review all critical and high severity findings" >> $GITHUB_STEP_SUMMARY
+          echo "2. Update vulnerable dependencies immediately" >> $GITHUB_STEP_SUMMARY
+          echo "3. Address code security issues in the next iteration" >> $GITHUB_STEP_SUMMARY
+          echo "4. Review Terraform security recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "For detailed reports, download the artifacts from this workflow run." >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔒 Security Scan Results\n\n';
+
+            // Add dependency scan results
+            comment += '### Dependency Vulnerabilities\n';
+            if (fs.existsSync('safety-report/safety-report.json')) {
+              const safetyData = JSON.parse(fs.readFileSync('safety-report/safety-report.json', 'utf8'));
+              const safetyCount = Array.isArray(safetyData) ? safetyData.length : 0;
+              comment += `- **Safety**: ${safetyCount} vulnerabilities found\n`;
+            }
+
+            if (fs.existsSync('pip-audit-report/pip-audit-report.json')) {
+              const pipAuditData = JSON.parse(fs.readFileSync('pip-audit-report/pip-audit-report.json', 'utf8'));
+              const pipAuditCount = Array.isArray(pipAuditData) ? pipAuditData.length : 0;
+              comment += `- **pip-audit**: ${pipAuditCount} vulnerabilities found\n`;
+            }
+
+            comment += '\n### Code Security (Bandit)\n';
+            if (fs.existsSync('bandit-report/bandit-report.json')) {
+              const banditData = JSON.parse(fs.readFileSync('bandit-report/bandit-report.json', 'utf8'));
+              const criticalHigh = banditData.results?.filter(r => r.issue_severity === 'HIGH' || r.issue_severity === 'CRITICAL').length || 0;
+              const total = banditData.results?.length || 0;
+              comment += `- **Critical/High**: ${criticalHigh} issues\n`;
+              comment += `- **Total**: ${total} issues\n`;
+            }
+
+            comment += '\n### Docker Image (Trivy)\n';
+            if (fs.existsSync('trivy-report/trivy-results.json')) {
+              const trivyData = JSON.parse(fs.readFileSync('trivy-report/trivy-results.json', 'utf8'));
+              const vulns = trivyData.Results?.flatMap(r => r.Vulnerabilities || []) || [];
+              const critical = vulns.filter(v => v.Severity === 'CRITICAL').length;
+              const high = vulns.filter(v => v.Severity === 'HIGH').length;
+              comment += `- **Critical**: ${critical} vulnerabilities\n`;
+              comment += `- **High**: ${high} vulnerabilities\n`;
+            }
+
+            comment += '\n### Terraform (tfsec)\n';
+            if (fs.existsSync('tfsec-report/tfsec-results.json')) {
+              const tfsecData = JSON.parse(fs.readFileSync('tfsec-report/tfsec-results.json', 'utf8'));
+              const critical = tfsecData.results?.filter(r => r.severity === 'CRITICAL').length || 0;
+              const high = tfsecData.results?.filter(r => r.severity === 'HIGH').length || 0;
+              comment += `- **Critical**: ${critical} issues\n`;
+              comment += `- **High**: ${high} issues\n`;
+            }
+
+            comment += '\n---\n';
+            comment += '📊 **Download detailed reports from the workflow artifacts**\n';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

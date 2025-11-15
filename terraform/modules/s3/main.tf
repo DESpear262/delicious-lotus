@@ -37,14 +37,17 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "storage" {
   }
 }
 
-# CORS configuration for direct uploads
+# CORS configuration for direct uploads (only if enabled)
 resource "aws_s3_bucket_cors_configuration" "storage" {
+  count  = var.enable_cors ? 1 : 0
   bucket = aws_s3_bucket.storage.id
 
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
-    allowed_origins = ["*"] # Restrict this in production
+    # Security: Use specific domains in production (e.g., ["https://delicious-lotus.vercel.app"])
+    # For same-origin deployment (Option B), disable CORS entirely by setting enable_cors = false
+    allowed_origins = var.cors_allowed_origins
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }

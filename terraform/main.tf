@@ -104,12 +104,25 @@ module "elasticache" {
   environment = var.environment
 }
 
-# CloudWatch - Logging
+# CloudWatch - Logging and Monitoring
 module "cloudwatch" {
   source = "./modules/cloudwatch"
 
   log_group_name = "/ecs/${var.environment}/ai-video-backend"
   environment    = var.environment
+  aws_region     = var.aws_region
+
+  # Resources to monitor
+  ecs_cluster_name        = module.ecs.cluster_name
+  ecs_service_name        = module.ecs.service_name
+  rds_instance_id         = module.rds.instance_id
+  elasticache_cluster_id  = module.elasticache.cluster_id
+  s3_bucket_name          = module.s3.bucket_name
+
+  # Alarm configuration
+  alarm_email              = var.alarm_email
+  monthly_cost_threshold   = var.monthly_cost_threshold
+  s3_storage_threshold_gb  = var.s3_storage_threshold_gb
 }
 
 # ECS - Container Orchestration

@@ -32,3 +32,16 @@ variable "environment" {
   description = "Environment name"
   type        = string
 }
+
+variable "auth_token" {
+  description = "AUTH token for Redis (required when transit_encryption_enabled = true). Min 16 chars, alphanumeric."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "transit_encryption_enabled" {
+  description = "Enable encryption in transit for Redis"
+  type        = bool
+  default     = false
+}

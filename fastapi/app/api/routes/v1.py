@@ -16,6 +16,15 @@ from app.models.schemas import (
 )
 from app.core.errors import NotFoundError
 
+# Import AI services (BLOCK A)
+try:
+    from ai.services.prompt_analysis_service import PromptAnalysisService
+    from ai.services.brand_analysis_service import BrandAnalysisService
+    from ai.models.prompt_analysis import AnalysisRequest
+    AI_SERVICES_AVAILABLE = True
+except ImportError:
+    AI_SERVICES_AVAILABLE = False
+
 # Create API v1 router
 api_v1_router = APIRouter(prefix="/api/v1", tags=["api-v1"])
 
@@ -39,9 +48,53 @@ async def create_generation(
 
     This endpoint accepts a generation request and creates a new job for processing.
     The job is initially queued and will be processed asynchronously.
+
+    Includes prompt analysis for consistent video generation.
     """
     logger = get_request_logger(request)
     logger.info(f"Creating new generation with prompt: {generation_request.prompt[:50]}...")
+
+    # PR 101: Analyze the prompt for consistency
+    prompt_analysis = None
+    brand_config = None
+
+    if AI_SERVICES_AVAILABLE:
+        try:
+            logger.info("Starting prompt analysis...")
+            # Initialize service with mock mode for MVP (will be configured with real OpenAI key later)
+            analysis_service = PromptAnalysisService(openai_api_key="dummy_key", use_mock=True)
+            analysis_request = AnalysisRequest(prompt=generation_request.prompt)
+            analysis_response = await analysis_service.analyze_prompt(analysis_request)
+            prompt_analysis = analysis_response.analysis.dict()
+            logger.info(f"Prompt analysis completed (confidence: {prompt_analysis.get('confidence_score', 0)})")
+
+            # PR 102: Analyze brand configuration if available
+            if generation_request.parameters.brand:
+                logger.info("Starting brand analysis...")
+                brand_service = BrandAnalysisService(openai_api_key="dummy_key", use_mock=True)
+                brand_config = await brand_service.analyze_brand(
+                    analysis_response.analysis,
+                    generation_request.parameters.brand
+                )
+                logger.info(f"Brand analysis completed for: {brand_config.name}")
+            elif prompt_analysis.get('product_focus'):
+                # Even if no explicit brand config, check if prompt contains brand info
+                logger.info("Checking prompt for implicit brand information...")
+                brand_service = BrandAnalysisService(openai_api_key="dummy_key", use_mock=True)
+                brand_config = await brand_service.analyze_brand(analysis_response.analysis)
+                if brand_config.name != "Corporate Brand":  # Not using default
+                    logger.info(f"Found implicit brand info: {brand_config.name}")
+                else:
+                    brand_config = None
+            else:
+                logger.info("No brand configuration needed for this generation")
+
+        except Exception as e:
+            logger.error(f"AI analysis failed: {str(e)}")
+            # For MVP: fail the entire request as specified
+            raise HTTPException(status_code=500, detail=f"Failed to analyze content: {str(e)}")
+    else:
+        logger.warning("AI services not available, proceeding without analysis")
 
     # Generate unique ID for the generation
     generation_id = f"gen_{uuid.uuid4().hex[:16]}"
@@ -68,6 +121,8 @@ async def create_generation(
         "id": generation_id,
         "status": GenerationStatus.QUEUED,
         "request": generation_request.dict(),
+        "prompt_analysis": prompt_analysis,  # PR 101: Store analysis results
+        "brand_config": brand_config.dict() if brand_config else None,  # PR 102: Store brand config
         "created_at": response.created_at,
         "updated_at": response.created_at,
         "progress": None

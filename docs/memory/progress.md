@@ -73,12 +73,14 @@
 - ⏸️ PR-D007: Load Testing - Blocked (needs deployment)
 - ⏸️ PR-D008: Security Hardening - Blocked (needs infrastructure)
 
-### AI Backend Track (5/17+ complete)
+### AI Backend Track (7/17+ complete)
 - ✅ Block 0 PR 1: FastAPI Project Bootstrap & Routing Structure - Complete (Orange)
 - ✅ Block 0 PR 2: Error Handling, Validation, and Response Models - Complete (Orange)
 - ✅ Block 0 PR 3: Generation Lifecycle API Skeleton - Complete (White)
 - ✅ Block 0 PR 4: Internal Service Contract & Callouts - Complete (Blonde)
 - ✅ Block 0 PR 5: Integration & QC - Complete (QC Agent)
+- ✅ Block A PR 101: Prompt Parsing Module (OpenAI Integration) - Complete (Orange)
+- ✅ Block A PR 102: Brand & Metadata Extraction Layer - Complete (Orange)
 
 ### Frontend Track (1/16+ complete)
 - ✅ PR-F001: Project Initialization - Complete (commit 68eee3f)

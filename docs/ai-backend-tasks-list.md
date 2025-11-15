@@ -126,35 +126,35 @@
 
 ---
 
-## PR #101: Prompt Parsing Module (OpenAI Integration)  
-**Time:** 6 hours  
+## PR #101: Prompt Parsing Module (OpenAI Integration) **(COMPLETED - Orange)**
+**Time:** 6 hours
 **Purpose:** Convert raw user prompt into structured semantic info
 
 ### Tasks:
-- [ ] Implement `PromptAnalysisService`  
-- [ ] Extract tone, style, product focus, narrative intent  
-- [ ] Implement OpenAI call + retry policy  
-- [ ] Add guardrails (max tokens, safety filters)  
+- [x] Implement `PromptAnalysisService`
+- [x] Extract tone, style, product focus, narrative intent
+- [x] Implement OpenAI call + retry policy
+- [x] Add guardrails (max tokens, ~~safety filters~~)  
 
 ### Testing:
-- [ ] Unit: LLM request  
-- [ ] Unit: Parsed response schema  
-- [ ] Integration: Mock OpenAI and test failures  
+- [x] Unit: LLM request
+- [x] Unit: Parsed response schema
+- [x] Integration: Mock OpenAI and test failures  
 
 ---
 
-## PR #102: Brand & Metadata Extraction Layer  
-**Prerequisites:** PR #101  
+## PR #102: Brand & Metadata Extraction Layer **(COMPLETED - Orange)**
+**Prerequisites:** PR #101
 **Time:** 4 hours  
 
 ### Tasks:
-- [ ] Parse branding JSON  
-- [ ] Merge with LLM descriptors  
-- [ ] Establish style vector placeholder  
+- [x] Parse branding JSON
+- [x] Merge with LLM descriptors
+- [x] Establish style vector placeholder  
 
 ### Testing:
-- [ ] Unit: brand extraction  
-- [ ] Unit: fallback defaults  
+- [x] Unit: brand extraction
+- [x] Unit: fallback defaults  
 
 ---
 

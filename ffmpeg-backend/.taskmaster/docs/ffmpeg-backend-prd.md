@@ -414,7 +414,7 @@ s3_client = boto3.client('s3')
 
 def process_composition(composition_id: str, config: dict):
     """Main composition processing function"""
-    
+
     def update_progress(stage: str, percentage: int, message: str):
         """Update progress in Redis and publish to WebSocket channel"""
         progress_data = {
@@ -423,7 +423,7 @@ def process_composition(composition_id: str, config: dict):
             "message": message,
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         # Store current state
         redis_client.hset(
             f"composition:{composition_id}",
@@ -432,7 +432,7 @@ def process_composition(composition_id: str, config: dict):
                 "progress": json.dumps(progress_data)
             }
         )
-        
+
         # Publish for WebSocket subscribers
         redis_client.publish(
             f"composition:{composition_id}",
@@ -441,23 +441,23 @@ def process_composition(composition_id: str, config: dict):
                 "data": progress_data
             })
         )
-    
+
     try:
         # Processing pipeline
         update_progress("initializing", 0, "Starting composition")
-        
+
         # Create temp directory
         temp_dir = Path(f"/tmp/videogen/{composition_id}")
         temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Download assets
         update_progress("downloading", 10, "Downloading clips")
         # ... download logic ...
-        
+
         # Build FFmpeg command
         update_progress("processing", 30, "Processing video")
         ffmpeg_cmd = build_ffmpeg_command(config, temp_dir)
-        
+
         # Execute FFmpeg with progress parsing
         process = subprocess.Popen(
             ffmpeg_cmd,
@@ -465,7 +465,7 @@ def process_composition(composition_id: str, config: dict):
             stderr=subprocess.PIPE,
             universal_newlines=True
         )
-        
+
         # Parse FFmpeg progress output
         for line in process.stderr:
             if "time=" in line:
@@ -474,11 +474,11 @@ def process_composition(composition_id: str, config: dict):
                 total_duration = config.get('duration', 30)
                 percentage = min(int((current_time / total_duration) * 60) + 40, 90)
                 update_progress("encoding", percentage, f"Encoding video")
-        
+
         # Upload to S3
         update_progress("uploading", 95, "Uploading to storage")
         output_url = upload_to_s3(temp_dir / "output.mp4", composition_id)
-        
+
         # Success
         update_progress("completed", 100, "Composition complete")
         redis_client.hset(
@@ -488,20 +488,20 @@ def process_composition(composition_id: str, config: dict):
                 "output_url": output_url
             }
         )
-        
+
     except Exception as e:
         # Error handling
         logger.error(f"Composition failed: {str(e)}", extra={
             "composition_id": composition_id,
             "error": str(e)
         })
-        
+
         redis_client.hset(
             f"composition:{composition_id}",
             "status", "failed",
             "error", str(e)
         )
-        
+
         redis_client.publish(
             f"composition:{composition_id}",
             json.dumps({
@@ -513,7 +513,7 @@ def process_composition(composition_id: str, config: dict):
             })
         )
         raise
-    
+
     finally:
         # Cleanup
         if not os.getenv('KEEP_TEMP_FILES', 'false').lower() == 'true':
@@ -537,21 +537,21 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
         self.redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-        
+
     async def connect(self, websocket: WebSocket, composition_id: str):
         """Accept WebSocket connection and subscribe to Redis channel"""
         await websocket.accept()
-        
+
         # Add to active connections
         if composition_id not in self.active_connections:
             self.active_connections[composition_id] = []
         self.active_connections[composition_id].append(websocket)
-        
+
         # Create Redis connection for this WebSocket
         redis_client = await redis.from_url(self.redis_url)
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(f"composition:{composition_id}")
-        
+
         try:
             # Send current status immediately
             current_status = await redis_client.hgetall(f"composition:{composition_id}")
@@ -563,7 +563,7 @@ class ConnectionManager:
                         "progress": json.loads(current_status.get(b"progress", b"{}").decode())
                     }
                 })
-            
+
             # Listen for updates
             async for message in pubsub.listen():
                 if message['type'] == 'message':
@@ -571,13 +571,13 @@ class ConnectionManager:
                     if isinstance(data, bytes):
                         data = data.decode('utf-8')
                     await websocket.send_text(data)
-                    
+
         except WebSocketDisconnect:
             self.disconnect(websocket, composition_id)
         finally:
             await pubsub.unsubscribe(f"composition:{composition_id}")
             await redis_client.close()
-    
+
     def disconnect(self, websocket: WebSocket, composition_id: str):
         """Remove WebSocket from active connections"""
         if composition_id in self.active_connections:
@@ -655,10 +655,10 @@ class FeatureFlags:
             'gpu_encoding': os.getenv('ENABLE_GPU_ENCODING', 'false').lower() == 'true',
             '4k_output': os.getenv('ENABLE_4K_OUTPUT', 'false').lower() == 'true'
         }
-    
+
     def is_enabled(self, feature: str) -> bool:
         return self.flags.get(feature, False)
-    
+
     def require_feature(self, feature: str):
         """Decorator to check feature flag"""
         def decorator(func):
@@ -694,14 +694,14 @@ from pythonjsonlogger import jsonlogger
 
 def setup_logging(log_level: str = "INFO"):
     """Configure structured JSON logging"""
-    
+
     # Create logger
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, log_level.upper()))
-    
+
     # Remove default handlers
     logger.handlers = []
-    
+
     # Create JSON formatter
     formatter = jsonlogger.JsonFormatter(
         fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -711,12 +711,12 @@ def setup_logging(log_level: str = "INFO"):
             "name": "logger"
         }
     )
-    
+
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-    
+
     # File handler for production
     if os.getenv('ENVIRONMENT') == 'production':
         file_handler = logging.handlers.RotatingFileHandler(
@@ -726,18 +726,18 @@ def setup_logging(log_level: str = "INFO"):
         )
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-    
+
     # Add request ID to all logs
     import contextvars
     request_id_var = contextvars.ContextVar('request_id', default=None)
-    
+
     class RequestIdFilter(logging.Filter):
         def filter(self, record):
             record.request_id = request_id_var.get()
             return True
-    
+
     logger.addFilter(RequestIdFilter())
-    
+
     return logger
 
 # Initialize on startup
@@ -877,18 +877,18 @@ async def test_full_composition_flow(client: TestClient, mock_s3):
     })
     assert response.status_code == 202
     comp_id = response.json()["composition_id"]
-    
+
     # Check status
     response = client.get(f"/api/v1/compositions/{comp_id}")
     assert response.json()["status"] in ["queued", "processing"]
-    
+
     # Wait for completion (with timeout)
     for _ in range(30):
         response = client.get(f"/api/v1/compositions/{comp_id}")
         if response.json()["status"] == "completed":
             break
         await asyncio.sleep(1)
-    
+
     assert response.json()["status"] == "completed"
     assert response.json()["output_url"].startswith("https://")
 ```
@@ -910,7 +910,7 @@ def test_concurrent_load():
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(create_composition, i) for i in range(10)]
         results = [f.result() for f in futures]
-        
+
     assert all(r.get("composition_id") for r in results)
 ```
 
@@ -1350,27 +1350,27 @@ mypy .
 ## 18. Acceptance Criteria
 
 ### 18.1 Functional Requirements
-✓ All API endpoints operational and documented in Swagger  
-✓ End-to-end composition workflow functional  
-✓ WebSocket real-time updates working  
-✓ Error handling with proper status codes  
-✓ S3 integration for storage  
-✓ RQ worker processing  
-✓ PostgreSQL persistence  
+✓ All API endpoints operational and documented in Swagger
+✓ End-to-end composition workflow functional
+✓ WebSocket real-time updates working
+✓ Error handling with proper status codes
+✓ S3 integration for storage
+✓ RQ worker processing
+✓ PostgreSQL persistence
 
 ### 18.2 Performance Requirements
-✓ Handle 5 concurrent jobs  
-✓ < 2x real-time processing for 720p  
-✓ < 5 second API response times  
-✓ 99% uptime for health endpoints  
+✓ Handle 5 concurrent jobs
+✓ < 2x real-time processing for 720p
+✓ < 5 second API response times
+✓ 99% uptime for health endpoints
 
 ### 18.3 Quality Requirements
-✓ Unit test coverage > 80%  
-✓ Integration tests passing  
-✓ No memory leaks in workers  
-✓ Proper cleanup of temp files  
-✓ Structured JSON logging  
-✓ Metrics reporting  
+✓ Unit test coverage > 80%
+✓ Integration tests passing
+✓ No memory leaks in workers
+✓ Proper cleanup of temp files
+✓ Structured JSON logging
+✓ Metrics reporting
 
 ---
 
@@ -1413,25 +1413,25 @@ class FFmpegCommandBuilder:
         self.filters = []
         self.outputs = []
         self.global_options = []
-        
+
     def add_input(self, filepath: str, options: dict = None):
         if options:
             for key, value in options.items():
                 self.inputs.append(f"-{key} {value}")
         self.inputs.append(f"-i {filepath}")
         return self
-    
+
     def add_filter(self, filter_string: str):
         self.filters.append(filter_string)
         return self
-    
+
     def add_text_overlay(self, text: str, x: str = "center", y: int = 50):
         if x == "center":
             x = "(w-text_w)/2"
         filter_str = f"drawtext=text='{text}':x={x}:y={y}:fontsize=40:fontcolor=white"
         self.filters.append(filter_str)
         return self
-    
+
     def build(self) -> list:
         cmd = ["ffmpeg"]
         cmd.extend(self.global_options)

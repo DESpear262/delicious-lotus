@@ -23,8 +23,8 @@ resource "aws_elasticache_cluster" "redis" {
   # Security: Encryption in transit (TLS)
   # Note: cache.t3.micro and cache.t4g.micro do NOT support transit encryption
   # Requires cache.t3.small or larger for production
-  transit_encryption_enabled = var.transit_encryption_enabled
-  auth_token                 = var.transit_encryption_enabled ? var.auth_token : null
+  # transit_encryption_enabled = false (not supported on t4g.micro)
+  # auth_token is only valid when transit_encryption_enabled = true
 
   # Snapshot and backup configuration
   snapshot_retention_limit = 5

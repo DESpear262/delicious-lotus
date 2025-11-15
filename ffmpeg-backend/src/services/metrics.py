@@ -449,50 +449,80 @@ class JobMetricsContext:
         self.start_cpu_time: float = 0.0
 
     async def __aenter__(self) -> "JobMetricsContext":
-        """Start metrics collection."""
-        self.start_time = datetime.now(UTC)
-        process = psutil.Process()
-        self.start_cpu_time = process.cpu_times().user + process.cpu_times().system
+        """Start metrics collection.
 
-        # Record initial memory usage
-        await self.collector.record_memory_usage(
-            composition_id=self.composition_id,
-            processing_job_id=self.processing_job_id,
-        )
+        Catches and logs any errors to ensure metrics failures don't impact job processing.
+        """
+        try:
+            self.start_time = datetime.now(UTC)
+            process = psutil.Process()
+            self.start_cpu_time = process.cpu_times().user + process.cpu_times().system
+
+            # Record initial memory usage
+            await self.collector.record_memory_usage(
+                composition_id=self.composition_id,
+                processing_job_id=self.processing_job_id,
+            )
+        except Exception as e:
+            # Log error but don't fail the job
+            logger.error(
+                "Failed to initialize job metrics",
+                extra={
+                    "composition_id": str(self.composition_id),
+                    "processing_job_id": str(self.processing_job_id),
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
 
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """End metrics collection and record final metrics."""
+        """End metrics collection and record final metrics.
+
+        Catches and logs any errors to ensure metrics failures don't impact job processing.
+        """
         if self.start_time is None:
             return
 
-        end_time = datetime.now(UTC)
+        try:
+            end_time = datetime.now(UTC)
 
-        # Record job duration
-        await self.collector.record_job_duration(
-            composition_id=self.composition_id,
-            processing_job_id=self.processing_job_id,
-            start_time=self.start_time,
-            end_time=end_time,
-        )
+            # Record job duration
+            await self.collector.record_job_duration(
+                composition_id=self.composition_id,
+                processing_job_id=self.processing_job_id,
+                start_time=self.start_time,
+                end_time=end_time,
+            )
 
-        # Record CPU usage
-        process = psutil.Process()
-        end_cpu_time = process.cpu_times().user + process.cpu_times().system
-        cpu_seconds = end_cpu_time - self.start_cpu_time
+            # Record CPU usage
+            process = psutil.Process()
+            end_cpu_time = process.cpu_times().user + process.cpu_times().system
+            cpu_seconds = end_cpu_time - self.start_cpu_time
 
-        await self.collector.record_cpu_usage(
-            composition_id=self.composition_id,
-            cpu_seconds=cpu_seconds,
-            processing_job_id=self.processing_job_id,
-        )
+            await self.collector.record_cpu_usage(
+                composition_id=self.composition_id,
+                cpu_seconds=cpu_seconds,
+                processing_job_id=self.processing_job_id,
+            )
 
-        # Record final memory usage
-        await self.collector.record_memory_usage(
-            composition_id=self.composition_id,
-            processing_job_id=self.processing_job_id,
-        )
+            # Record final memory usage
+            await self.collector.record_memory_usage(
+                composition_id=self.composition_id,
+                processing_job_id=self.processing_job_id,
+            )
 
-        # Flush any batched metrics
-        await self.collector.flush_batch()
+            # Flush any batched metrics
+            await self.collector.flush_batch()
+        except Exception as e:
+            # Log error but don't fail the job
+            logger.error(
+                "Failed to finalize job metrics",
+                extra={
+                    "composition_id": str(self.composition_id),
+                    "processing_job_id": str(self.processing_job_id),
+                    "error": str(e),
+                },
+                exc_info=True,
+            )

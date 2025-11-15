@@ -29,15 +29,16 @@ def mock_settings():
 
 
 @pytest.fixture
-def app_with_auth(mock_settings):
+def app_with_auth(mock_settings, mock_redis):
     """Create FastAPI app with authentication middleware."""
     app = FastAPI()
 
-    # Mock get_settings to return our test settings
-    with patch("app.middleware.internal_auth.get_settings", return_value=mock_settings):
-        app.add_middleware(InternalAuthMiddleware, rate_limit_per_key=10)
+    # Set up exception handlers for the test app
+    from app.middleware.exception_handlers import setup_exception_handlers
 
-    # Add test endpoints
+    setup_exception_handlers(app)
+
+    # Add test endpoints first
     @app.get("/internal/v1/test")
     async def internal_endpoint():
         return {"message": "Internal API endpoint"}
@@ -50,13 +51,29 @@ def app_with_auth(mock_settings):
     async def public_endpoint():
         return {"message": "Public endpoint"}
 
+    # Patch get_settings and Redis connection before adding middleware
+    settings_patcher = patch(
+        "app.middleware.internal_auth.get_settings", return_value=mock_settings
+    )
+    redis_patcher = patch(
+        "app.middleware.internal_auth.get_redis_connection", return_value=mock_redis
+    )
+
+    settings_patcher.start()
+    redis_patcher.start()
+
+    # Add middleware after patching
+    app.add_middleware(InternalAuthMiddleware, rate_limit_per_key=10)
+
     return app
 
 
 @pytest.fixture
 def client(app_with_auth):
-    """Create test client."""
-    return TestClient(app_with_auth)
+    """Create test client with proper exception handling for Python 3.13."""
+    # Use raise_server_exceptions=False to properly handle exceptions in middleware
+    # This is needed for Python 3.13 where exceptions in anyio TaskGroups get wrapped in ExceptionGroup
+    return TestClient(app_with_auth, raise_server_exceptions=False)
 
 
 @pytest.fixture

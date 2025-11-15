@@ -2,16 +2,20 @@
 
 import logging
 import time
+import uuid
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import jwt
-from fastapi import Request, Response
+from fastapi import Request, Response, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from workers.redis_pool import get_redis_connection
 
+from app.api.schemas.errors import ErrorCode, ErrorResponse
 from app.config import get_settings
-from app.exceptions import UnauthorizedError
+from app.exceptions import RateLimitExceededError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +175,43 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
             # On Redis failure, allow the request (fail open)
             return True, 0, 0
 
+    def _create_error_response(
+        self,
+        request: Request,
+        error_code: ErrorCode,
+        message: str,
+        status_code: int,
+        retry_after: int | None = None,
+    ) -> JSONResponse:
+        """Create a standardized error response.
+
+        Args:
+            request: FastAPI request
+            error_code: Error code
+            message: Error message
+            status_code: HTTP status code
+            retry_after: Optional retry-after seconds
+
+        Returns:
+            JSONResponse: Error response
+        """
+        request_id = getattr(request.state, "request_id", f"req_{uuid.uuid4().hex[:16]}")
+
+        error_response = ErrorResponse(
+            error_code=error_code,
+            message=message,
+            request_id=request_id,
+            timestamp=datetime.utcnow(),
+        )
+
+        headers = {"Retry-After": str(retry_after)} if retry_after else None
+
+        return JSONResponse(
+            status_code=status_code,
+            content=error_response.model_dump(mode="json"),
+            headers=headers,
+        )
+
     async def dispatch(
         self,
         request: Request,
@@ -183,10 +224,7 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
             call_next: Next middleware/endpoint
 
         Returns:
-            Response: HTTP response
-
-        Raises:
-            UnauthorizedError: If authentication fails
+            Response: HTTP response or error response
         """
         # Check if this endpoint requires authentication
         if not self._should_authenticate(request):
@@ -204,7 +242,12 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
                         "api_key_prefix": api_key[:8] if api_key else None,
                     },
                 )
-                raise UnauthorizedError(message="Invalid API key")
+                return self._create_error_response(
+                    request,
+                    ErrorCode.UNAUTHORIZED,
+                    "Invalid API key",
+                    status.HTTP_401_UNAUTHORIZED,
+                )
 
             # Check rate limit for this API key
             endpoint = f"{request.method}:{request.url.path}"
@@ -220,11 +263,11 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
                         "limit": self.rate_limit_per_key,
                     },
                 )
-                from app.exceptions import RateLimitExceededError
-
-                raise RateLimitExceededError(
-                    limit=self.rate_limit_per_key,
-                    window=self.window_seconds,
+                return self._create_error_response(
+                    request,
+                    ErrorCode.RATE_LIMIT_EXCEEDED,
+                    f"Rate limit exceeded: {self.rate_limit_per_key} requests per {self.window_seconds} seconds",
+                    status.HTTP_429_TOO_MANY_REQUESTS,
                     retry_after=retry_after,
                 )
 
@@ -252,7 +295,12 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
                     "Invalid JWT token",
                     extra={"path": request.url.path, "method": request.method},
                 )
-                raise UnauthorizedError(message="Invalid or expired JWT token")
+                return self._create_error_response(
+                    request,
+                    ErrorCode.UNAUTHORIZED,
+                    "Invalid or expired JWT token",
+                    status.HTTP_401_UNAUTHORIZED,
+                )
 
             # Store authenticated info in request state
             request.state.auth_method = "jwt"
@@ -265,6 +313,9 @@ class InternalAuthMiddleware(BaseHTTPMiddleware):
             "Missing authentication",
             extra={"path": request.url.path, "method": request.method},
         )
-        raise UnauthorizedError(
-            message="Authentication required. Provide X-API-Key header or Bearer token"
+        return self._create_error_response(
+            request,
+            ErrorCode.UNAUTHORIZED,
+            "Authentication required. Provide X-API-Key header or Bearer token",
+            status.HTTP_401_UNAUTHORIZED,
         )

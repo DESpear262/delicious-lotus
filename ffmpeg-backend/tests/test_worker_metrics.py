@@ -95,7 +95,7 @@ async def test_worker_handles_metrics_failure_gracefully(
     sample_job_id: uuid.UUID,
 ) -> None:
     """Test that worker handles metrics collection failures gracefully."""
-    from src.services.metrics import JobMetricsContext, MetricsCollector
+    from services.metrics import JobMetricsContext, MetricsCollector
 
     # Create session that fails on flush
     failing_session = AsyncMock(spec=AsyncSession)
@@ -124,8 +124,8 @@ async def test_metrics_collector_batch_operations(
     sample_composition_id: uuid.UUID,
 ) -> None:
     """Test batch metric collection for multiple operations."""
-    from src.db.models.job import MetricType
-    from src.services.metrics import MetricsCollector
+    from db.models.job import MetricType
+    from services.metrics import MetricsCollector
 
     metrics_collector = MetricsCollector(mock_session)
 

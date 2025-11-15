@@ -878,7 +878,7 @@
             "description": "Configure pytest with fixtures for mocking PostgreSQL, Redis, S3, and FFmpeg dependencies to enable isolated testing",
             "dependencies": [],
             "details": "Install pytest, pytest-asyncio, pytest-mock, and pytest-cov. Create conftest.py with fixtures for database sessions using SQLAlchemy test transactions, Redis mock using fakeredis, S3 mock using moto library, and FFmpeg command mocking. Set up temporary directory fixtures for file operations. Configure pytest.ini with coverage settings targeting 80% minimum coverage. Implement fixture scopes (function, class, module, session) appropriately for performance.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify fixtures work by creating simple test cases that use each fixture. Ensure database rollback works correctly. Test that S3 mock operations don't affect real AWS resources."
           },
           {
@@ -889,7 +889,7 @@
               1
             ],
             "details": "Write unit tests for FFmpeg command builder covering all composition scenarios (multiple clips, audio mixing, overlays, transitions). Test validator functions for request payloads, file formats, and timeline logic. Create tests for composition service methods including create, update status, and retrieve. Test S3 service methods for upload, download, and presigned URL generation. Test Redis queue job handlers and status updates. Use parameterized tests for multiple input scenarios. Ensure proper mocking of external dependencies.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run tests with coverage report to verify >80% line coverage. Use mutation testing to ensure test quality. Verify all edge cases and error conditions are tested."
           },
           {
@@ -1081,7 +1081,7 @@
     ],
     "metadata": {
       "created": "2025-11-14T21:27:16.741Z",
-      "updated": "2025-11-15T03:29:51.583Z",
+      "updated": "2025-11-15T04:49:56.553Z",
       "description": "Tasks for master context"
     }
   }

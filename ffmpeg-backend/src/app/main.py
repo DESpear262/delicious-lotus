@@ -80,6 +80,23 @@ def create_app() -> FastAPI:
         logger.info(f"Environment: {settings.environment}")
         logger.info(f"Debug mode: {settings.debug}")
 
+        # Log feature flags
+        feature_flags = settings.get_feature_flags()
+        enabled_flags = [k for k, v in feature_flags.items() if v]
+        if enabled_flags:
+            logger.info(f"Enabled features: {', '.join(enabled_flags)}")
+
+        # Start configuration watcher in development/staging
+        if settings.is_development or settings.is_staging:
+            try:
+                from .config_reloader import get_config_watcher
+
+                watcher = get_config_watcher()
+                await watcher.start()
+                logger.info("Configuration hot-reloading enabled")
+            except Exception as e:
+                logger.warning(f"Failed to start config watcher: {e}")
+
         # WebSocket services use lazy initialization - they'll be created
         # when the first WebSocket connection is established
         logger.info("WebSocket services will initialize on first connection")
@@ -90,6 +107,17 @@ def create_app() -> FastAPI:
     async def shutdown_event() -> None:
         """Run on application shutdown."""
         logger.info(f"Shutting down {settings.app_name}")
+
+        # Stop configuration watcher
+        if settings.is_development or settings.is_staging:
+            try:
+                from .config_reloader import get_config_watcher
+
+                watcher = get_config_watcher()
+                await watcher.stop()
+                logger.info("Configuration watcher shut down")
+            except Exception as e:
+                logger.error(f"Error shutting down config watcher: {e}")
 
         # Cleanup WebSocket services
         try:

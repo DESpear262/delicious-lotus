@@ -16,16 +16,18 @@ from app.models.schemas import (
 )
 from app.core.errors import NotFoundError
 
-# Import AI services (BLOCK A & C)
+# Import AI services (BLOCK A, C & D)
 try:
     from ai.services.prompt_analysis_service import PromptAnalysisService
     from ai.services.brand_analysis_service import BrandAnalysisService
     from ai.services.micro_prompt_builder_service import MicroPromptBuilderService
     from ai.services.clip_assembly_service import ClipAssemblyService
+    from ai.services.edit_intent_classifier_service import EditIntentClassifierService
     from ai.models.prompt_analysis import AnalysisRequest
     from ai.models.micro_prompt import MicroPromptRequest
     from ai.models.scene_decomposition import SceneDecompositionRequest, SceneDecompositionResponse
     from ai.models.clip_assembly import ClipAssemblyRequest, ClipRetrievalRequest
+    from ai.models.edit_intent import EditRequest, EditResponse
     AI_SERVICES_AVAILABLE = True
 except ImportError:
     AI_SERVICES_AVAILABLE = False
@@ -35,11 +37,20 @@ api_v1_router = APIRouter(prefix="/api/v1", tags=["api-v1"])
 
 # Initialize services
 clip_assembly_service = None
+edit_classifier_service = None
 if AI_SERVICES_AVAILABLE:
     try:
         clip_assembly_service = ClipAssemblyService()
     except Exception as e:
         logger.warning(f"Failed to initialize clip assembly service: {str(e)}")
+
+    try:
+        edit_classifier_service = EditIntentClassifierService(
+            openai_api_key="dummy_key",  # Will be configured with real key later
+            use_mock=True  # Use mock for MVP
+        )
+    except Exception as e:
+        logger.warning(f"Failed to initialize edit classifier service: {str(e)}")
 
 # Placeholder storage (will be replaced with Redis/Postgres)
 _generation_store = {}
@@ -345,3 +356,55 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
 
     logger.info(f"Generation {generation_id} retrieved successfully")
     return response
+
+
+@api_v1_router.post("/generations/{generation_id}/edit", response_model=EditResponse)
+async def classify_edit_intent(
+    generation_id: str,
+    edit_request: EditRequest,
+    request: Request
+):
+    """
+    Classify a natural language edit request and generate an edit plan.
+
+    This endpoint uses AI to interpret user edit requests and convert them
+    into structured FFmpeg operations that can be executed by the video processing backend.
+    """
+    logger = get_request_logger(request)
+    logger.info(f"Classifying edit intent for generation {generation_id}")
+
+    if not edit_classifier_service:
+        logger.error("Edit classifier service not available")
+        raise HTTPException(status_code=503, detail="Edit classification service unavailable")
+
+    # Validate that the generation exists
+    if clip_assembly_service:
+        try:
+            # Check if generation exists in persistent storage
+            retrieval_request = ClipRetrievalRequest(generation_id=generation_id)
+            clips_response = clip_assembly_service.retrieve_clips(retrieval_request)
+            if clips_response.total_clips > 0:
+                # Use clip count from persistent storage
+                edit_request.current_clip_count = clips_response.total_clips
+                edit_request.total_duration_seconds = sum(
+                    clip.duration_seconds for clip in clips_response.clips
+                )
+        except Exception as e:
+            logger.warning(f"Could not retrieve generation data: {str(e)}")
+
+    # Ensure generation_id matches
+    edit_request.generation_id = generation_id
+
+    try:
+        response = await edit_classifier_service.classify_edit_intent(edit_request)
+
+        if not response.success:
+            logger.warning(f"Edit classification failed: {response.error_message}")
+            raise HTTPException(status_code=400, detail=response.error_message)
+
+        logger.info(f"Edit classification completed for generation {generation_id}: {len(response.edit_plan.operations)} operations")
+        return response
+
+    except Exception as e:
+        logger.error(f"Failed to classify edit intent for generation {generation_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to classify edit request: {str(e)}")

@@ -2,7 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
-**Last Updated:** 2025-11-14 by QC Agent (Block C QC Complete)
+**Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
 
 ---
 
@@ -24,12 +24,14 @@
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)
 - ✅ Block A Complete: Prompt processing, brand analysis, and scene decomposition (PRs #101-#104)
 - ✅ Block C Complete: Micro-prompt building, Replicate API integration, and clip assembly (PRs #301-#304)
+- ✅ Block D Complete: Edit intent classification, timeline planning, and recomposition triggering (PRs #401-#404)
 - ✅ Block E Complete: Style vector building, brand harmony analysis, and consistency enforcement (PRs #501-#504)
 - ✅ Comprehensive test suite (20/21 tests passing, 95.2% success rate)
 - ✅ API contracts validated for frontend and FFmpeg integration
-- ✅ End-to-end prompt → analysis → scene planning → clip generation pipeline working
+- ✅ End-to-end prompt → analysis → scene planning → clip generation → editing pipeline working
 - ✅ Brand consistency engine with accessibility compliance and visual coherence
 - ✅ AI video generation orchestration with Google Veo 3.1 integration
+- ✅ Natural language video editing with safety guardrails and conflict resolution
 
 ### FFmpeg/Video Processing
 - ❓ Status unknown
@@ -93,6 +95,10 @@
 - ✅ Block C PR 302: Replicate Model Client - Complete (Orange)
 - ✅ Block C PR 303: Clip Assembly & DB/Redis Integration - Complete (Orange)
 - ✅ Block C PR 304: Integration & QC - Complete (QC Agent)
+- ✅ Block D PR 401: Edit Intent Classifier (OpenAI) - Complete (Orange)
+- ✅ Block D PR 402: Timeline Edit Planner - Complete (White)
+- ✅ Block D PR 403: Recomposition Trigger - Complete (Orange)
+- ✅ Block D PR 404: Integration & QC - Complete (QC Agent)
 - ✅ Block E PR 501: Style Vector Builder - Complete (White)
 - ✅ Block E PR 502: Brand Harmony Module - Complete (White)
 - ✅ Block E PR 503: Consistency Enforcement Layer - Complete (White)

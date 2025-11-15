@@ -15,6 +15,9 @@
 - [ ] Add analysis result validation and confidence scoring
 - [ ] Consider async processing for long-running analyses
 - [ ] Add analysis result compression for storage efficiency
+- [ ] Implement Redis locks for concurrent recomposition prevention (if concurrent edits become an issue during prototyping)
+- [ ] Add Redis pub/sub for real-time recomposition progress updates (if WebSocket-only approach proves insufficient)
+- [ ] **Timeline Edit Planner (PR #402) Performance**: Add Redis caching for operation plans and operation count limits IF AND ONLY IF the initial prototype has performance issues
 
 ## Monitoring & Observability
 - [ ] Add structured logging for analysis performance metrics

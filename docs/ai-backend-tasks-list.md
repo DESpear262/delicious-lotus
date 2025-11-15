@@ -30,13 +30,13 @@
 - `app/core/logging.py`
 
 ### Testing:
-- [ ] Unit: Router registration  
-- [ ] Unit: Health endpoints  
-- [ ] Unit: Logging middleware  
+- [x] Unit: Router registration  
+- [x] Unit: Health endpoints  
+- [x] Unit: Logging middleware  
 
 ### Validation:
-- [ ] cURL test of base routes  
-- [ ] Service boots cleanly with no errors  
+- [x] cURL test of base routes  
+- [x] Service boots cleanly with no errors  
 
 ---
 
@@ -56,12 +56,12 @@
 - `app/core/errors.py`  
 
 ### Testing:
-- [ ] Unit: Error handler returns correct format  
-- [ ] Unit: Validation rejects invalid prompts  
-- [ ] Integration: Endpoints return standardized errors  
+- [x] Unit: Error handler returns correct format  
+- [x] Unit: Validation rejects invalid prompts  
+- [x] Integration: Endpoints return standardized errors  
 
 ### Validation:
-- [ ] Test invalid/malformed requests from frontend  
+- [x] Test invalid/malformed requests from frontend  
 
 ---
 
@@ -92,17 +92,17 @@
 **Impact:** FFmpeg backend becomes unblocked
 
 ### Tasks:
-- [ ] Stub `/internal/v1/audio-analysis`  
-- [ ] Stub `/internal/v1/process-clips`  
-- [ ] Stub `/internal/v1/processing-complete`  
-- [ ] Define request/response schemas  
+- [x] Stub `/internal/v1/audio-analysis`  
+- [x] Stub `/internal/v1/process-clips`  
+- [x] Stub `/internal/v1/processing-complete`  
+- [x] Define request/response schemas  
 
 ### Testing:
-- [ ] Unit: Schema compliance  
-- [ ] Integration: Mock FFmpeg service call  
+- [x] Unit: Schema compliance  
+- [x] Integration: Mock FFmpeg service call  
 
 ### Validation:
-- [ ] FFmpeg team validates contract shape  
+- [x] FFmpeg team validates contract shape  
 
 ---
 
@@ -112,9 +112,9 @@
 **Impact:** Confirms full skeleton functionality
 
 ### Tests:
-- [ ] End-to-end API smoke test  
-- [ ] Contract validation with frontend & FFmpeg  
-- [ ] 100% test pass on skeleton  
+- [x] End-to-end API smoke test  
+- [x] Contract validation with frontend & FFmpeg  
+- [x] 100% test pass on skeleton  
 
 ---
 
@@ -255,57 +255,57 @@
 
 ---
 
-## PR #401: Edit Intent Classifier (OpenAI)  
-**Time:** 4–5 hours  
+## PR #401: Edit Intent Classifier (OpenAI) **(COMPLETED - Orange)**
+**Time:** 4–5 hours
 
 ### Tasks:
-- [ ] Trim/swap/reorder classification  
-- [ ] CTA timing detection  
-- [ ] Safety guardrails  
+- [x] Trim/swap/reorder classification
+- [x] CTA timing detection
+- [x] Safety guardrails
 
 ### Testing:
-- [ ] Unit: classifier logic  
-- [ ] Integration: mock OpenAI  
+- [x] Unit: classifier logic
+- [x] Integration: mock OpenAI  
 
 ---
 
-## PR #402: Timeline Edit Planner  
-**Prerequisites:** PR #401  
-**Time:** 6–8 hours  
+## PR #402: Timeline Edit Planner **(COMPLETED - White)**
+**Prerequisites:** PR #401
+**Time:** 6–8 hours
 
 ### Tasks:
-- [ ] Clip index mapping  
-- [ ] Implement trim logic  
-- [ ] Implement reorder logic  
-- [ ] Implement overlay timing changes  
+- [x] Clip index mapping
+- [x] Implement trim logic
+- [x] Implement reorder logic
+- [x] Implement overlay timing changes
 
 ### Testing:
-- [ ] Unit: timeline transforms  
-- [ ] Integration: edit → plan  
+- [x] Unit: timeline transforms
+- [x] Integration: edit → plan  
 
 ---
 
-## PR #403: Recomposition Trigger  
-**Prerequisites:** PR #402  
+## PR #403: Recomposition Trigger **(COMPLETED - Orange)**
+**Prerequisites:** PR #402
 **Time:** 4–6 hours  
 
 ### Tasks:
-- [ ] Build updated composition config  
-- [ ] Trigger FFmpeg job  
-- [ ] Persist recomposition record  
+- [x] Build updated composition config
+- [x] Trigger FFmpeg job
+- [x] Persist recomposition record
 
 ### Testing:
-- [ ] Unit: config generation  
-- [ ] Integration: plan → FFmpeg recomposition  
+- [x] Unit: config generation
+- [x] Integration: plan → FFmpeg recomposition  
 
 ---
 
-## BLOCK D Integration PR – PR #404  
-**Time:** 3 hours  
+## PR #404: Block D Integration PR **(COMPLETED - QC)**
+**Time:** 3 hours
 
 ### Tests:
-- [ ] Natural-language edit → recomposed job  
-- [ ] Validate behavior against PRD examples  
+- [x] Natural-language edit → recomposed job
+- [x] Validate behavior against PRD examples  
 
 ---
 

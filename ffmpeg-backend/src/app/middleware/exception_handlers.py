@@ -1,8 +1,13 @@
-"""Global exception handlers for FastAPI application."""
+"""Global exception handlers for FastAPI application with error tracking."""
 
+import hashlib
 import logging
+import platform
+import sys
+import traceback
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.schemas.errors import ErrorCode, ErrorDetail, ErrorResponse
+from app.config import get_settings
 from app.exceptions import (
     CompositionNotFoundError,
     DatabaseError,
@@ -27,6 +33,9 @@ from app.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Error occurrence tracking for fingerprinting
+error_occurrences: dict[str, int] = {}
 
 
 def get_request_id(request: Request) -> str:
@@ -52,11 +61,151 @@ def get_request_id(request: Request) -> str:
     return request_id
 
 
+def generate_error_fingerprint(
+    exc: Exception, request_path: str, include_line_number: bool = True
+) -> str:
+    """Generate a unique fingerprint for an error to group similar occurrences.
+
+    Args:
+        exc: Exception instance
+        request_path: Request path where error occurred
+        include_line_number: Whether to include line number in fingerprint
+
+    Returns:
+        str: MD5 hash fingerprint for the error
+    """
+    # Extract traceback information
+    tb = traceback.extract_tb(exc.__traceback__)
+    if tb:
+        last_frame = tb[-1]
+        file_name = last_frame.filename
+        func_name = last_frame.name
+        line_no = last_frame.lineno if include_line_number else 0
+    else:
+        file_name = "unknown"
+        func_name = "unknown"
+        line_no = 0
+
+    # Create fingerprint from error type, location, and message pattern
+    error_type = type(exc).__name__
+    error_msg_pattern = str(exc)[:100]  # First 100 chars to group similar errors
+
+    fingerprint_data = (
+        f"{error_type}:{file_name}:{func_name}:{line_no}:{error_msg_pattern}:{request_path}"
+    )
+    return hashlib.md5(fingerprint_data.encode(), usedforsecurity=False).hexdigest()
+
+
+def track_error_occurrence(fingerprint: str) -> int:
+    """Track and return the occurrence count for an error fingerprint.
+
+    Args:
+        fingerprint: Error fingerprint hash
+
+    Returns:
+        int: Number of times this error has occurred
+    """
+    error_occurrences[fingerprint] = error_occurrences.get(fingerprint, 0) + 1
+    return error_occurrences[fingerprint]
+
+
+def extract_error_context(request: Request, exc: Exception) -> dict[str, Any]:
+    """Extract comprehensive context information about an error.
+
+    Args:
+        request: FastAPI request
+        exc: Exception instance
+
+    Returns:
+        dict: Context information including request data, system state, and stack trace
+    """
+    # Extract traceback with local variables
+    tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    stack_trace = "".join(tb_lines)
+
+    # Get the settings
+    settings = get_settings()
+
+    # Build context
+    context = {
+        "exception": {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "module": exc.__class__.__module__,
+        },
+        "stack_trace": stack_trace,
+        "request": {
+            "method": request.method,
+            "path": request.url.path,
+            "query_params": dict(request.query_params),
+            "headers": {
+                k: v
+                for k, v in request.headers.items()
+                if k.lower() not in ["authorization", "cookie", "x-api-key", "x-auth-token"]
+            },
+            "client_host": request.client.host if request.client else None,
+        },
+        "system": {
+            "platform": platform.platform(),
+            "python_version": sys.version,
+            "environment": settings.environment,
+        },
+        "timing": {
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+    }
+
+    # Add user context if available
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        context["user"] = {"user_id": user_id}
+
+    # Add composition context if available
+    composition_id = getattr(request.state, "composition_id", None)
+    if composition_id:
+        context["composition"] = {"composition_id": composition_id}
+
+    return context
+
+
+def is_transient_error(exc: Exception) -> bool:
+    """Determine if an error is transient and retryable.
+
+    Args:
+        exc: Exception instance
+
+    Returns:
+        bool: True if error is likely transient
+    """
+    # List of transient error indicators
+    transient_errors = [
+        DatabaseError,
+        S3Error,
+    ]
+
+    transient_messages = [
+        "timeout",
+        "connection",
+        "temporary",
+        "unavailable",
+        "503",
+        "504",
+    ]
+
+    # Check if exception type is known to be transient
+    if any(isinstance(exc, err_type) for err_type in transient_errors):
+        return True
+
+    # Check if error message indicates transient issue
+    error_message = str(exc).lower()
+    return any(msg in error_message for msg in transient_messages)
+
+
 async def ffmpeg_backend_exception_handler(
     request: Request,
     exc: FFmpegBackendError,
 ) -> JSONResponse:
-    """Handle custom FFmpeg backend exceptions.
+    """Handle custom FFmpeg backend exceptions with enhanced tracking.
 
     Args:
         request: FastAPI request
@@ -99,7 +248,17 @@ async def ffmpeg_backend_exception_handler(
 
     suggested_action = suggested_actions.get(type(exc))
 
-    # Log the error
+    # Generate error fingerprint and track occurrences
+    fingerprint = generate_error_fingerprint(exc, request.url.path)
+    occurrence_count = track_error_occurrence(fingerprint)
+
+    # Extract error context for 5xx errors
+    extra_context = {}
+    if http_status >= 500:
+        error_context = extract_error_context(request, exc)
+        extra_context = error_context
+
+    # Log the error with enhanced context
     logger.error(
         f"Application error: {exc.error_code}",
         extra={
@@ -108,6 +267,9 @@ async def ffmpeg_backend_exception_handler(
             "error_message": exc.message,
             "exception_type": type(exc).__name__,
             "path": request.url.path,
+            "error_fingerprint": fingerprint,
+            "occurrence_count": occurrence_count,
+            **extra_context,
         },
         exc_info=http_status >= 500,  # Include traceback for 5xx errors
     )
@@ -121,9 +283,15 @@ async def ffmpeg_backend_exception_handler(
         suggested_action=suggested_action,
     )
 
+    # Add retry header for transient errors
+    headers = {}
+    if is_transient_error(exc):
+        headers["Retry-After"] = "5"
+
     return JSONResponse(
         status_code=http_status,
         content=error_response.model_dump(mode="json"),
+        headers=headers if headers else None,
     )
 
 
@@ -253,7 +421,7 @@ async def database_exception_handler(
     request: Request,
     exc: SQLAlchemyError,
 ) -> JSONResponse:
-    """Handle SQLAlchemy database errors.
+    """Handle SQLAlchemy database errors with context tracking.
 
     Args:
         request: FastAPI request
@@ -264,12 +432,20 @@ async def database_exception_handler(
     """
     request_id = get_request_id(request)
 
+    # Generate error fingerprint
+    fingerprint = generate_error_fingerprint(exc, request.url.path)
+    occurrence_count = track_error_occurrence(fingerprint)
+
+    # Extract error context
+    error_context = extract_error_context(request, exc)
+
     logger.exception(
         "Database error",
         extra={
             "request_id": request_id,
-            "path": request.url.path,
-            "error": str(exc),
+            "error_fingerprint": fingerprint,
+            "occurrence_count": occurrence_count,
+            **error_context,
         },
     )
 
@@ -278,12 +454,13 @@ async def database_exception_handler(
         message="A database error occurred",
         request_id=request_id,
         timestamp=datetime.utcnow(),
-        suggested_action="Retry the request. If the problem persists, contact support",
+        suggested_action="This appears to be a database connectivity issue. Please retry the request.",
     )
 
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content=error_response.model_dump(mode="json"),
+        headers={"Retry-After": "3"},  # Database errors are usually transient
     )
 
 
@@ -291,7 +468,7 @@ async def generic_exception_handler(
     request: Request,
     exc: Exception,
 ) -> JSONResponse:
-    """Handle unexpected exceptions.
+    """Handle unexpected exceptions with comprehensive error tracking.
 
     Args:
         request: FastAPI request
@@ -302,13 +479,33 @@ async def generic_exception_handler(
     """
     request_id = get_request_id(request)
 
+    # Generate error fingerprint for grouping
+    fingerprint = generate_error_fingerprint(exc, request.url.path)
+    occurrence_count = track_error_occurrence(fingerprint)
+
+    # Extract full error context
+    error_context = extract_error_context(request, exc)
+
+    # Check if error is transient
+    is_retryable = is_transient_error(exc)
+
+    # Log with comprehensive context
     logger.exception(
         "Unexpected error",
         extra={
             "request_id": request_id,
-            "path": request.url.path,
-            "exception_type": type(exc).__name__,
+            "error_fingerprint": fingerprint,
+            "occurrence_count": occurrence_count,
+            "is_retryable": is_retryable,
+            **error_context,
         },
+    )
+
+    # Provide retry suggestion for transient errors
+    suggested_action = (
+        "This appears to be a temporary issue. Please retry the request."
+        if is_retryable
+        else "Retry the request. If the problem persists, contact support"
     )
 
     error_response = ErrorResponse(
@@ -316,8 +513,16 @@ async def generic_exception_handler(
         message="An unexpected error occurred",
         request_id=request_id,
         timestamp=datetime.utcnow(),
-        suggested_action="Retry the request. If the problem persists, contact support",
+        suggested_action=suggested_action,
     )
+
+    # Add retry hint if transient
+    if is_retryable:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=error_response.model_dump(mode="json"),
+            headers={"Retry-After": "5"},  # Suggest retry after 5 seconds
+        )
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

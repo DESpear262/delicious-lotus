@@ -24,6 +24,53 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
 
+    # Logging middleware settings
+    log_request_body_size: bool = Field(default=True, description="Log request body size in bytes")
+    log_response_body_size: bool = Field(
+        default=True, description="Log response body size in bytes"
+    )
+    log_request_headers: bool = Field(
+        default=True, description="Log request headers (excluding sensitive ones)"
+    )
+    log_sampling_rate: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Sampling rate for request logging (0.0-1.0, 1.0 = log all)",
+    )
+    log_sampling_exclude_paths: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["/health", "/health/detailed", "/docs", "/redoc", "/openapi.json"],
+        description="Paths to exclude from sampling (always logged)",
+    )
+
+    # Log rotation and retention settings
+    log_rotation_when: str = Field(
+        default="midnight",
+        description="When to rotate logs (midnight, H, D, W0-W6)",
+    )
+    log_rotation_interval: int = Field(
+        default=1, description="Rotation interval (e.g., 1 for daily)"
+    )
+    log_retention_days: int = Field(
+        default=30, description="Number of days to keep logs before deletion"
+    )
+    log_max_bytes: int = Field(
+        default=100 * 1024 * 1024, description="Max log file size before rotation (100MB)"
+    )
+    log_backup_count: int = Field(default=30, description="Number of backup log files to keep")
+    log_compress_rotated: bool = Field(
+        default=True, description="Compress rotated log files with gzip"
+    )
+    log_s3_archive_enabled: bool = Field(
+        default=False, description="Enable archiving old logs to S3"
+    )
+    log_disk_usage_threshold: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description="Disk usage threshold for warnings (0.0-1.0)",
+    )
+
     # API settings
     api_v1_prefix: str = "/api/v1"
     allowed_origins: Annotated[list[str], NoDecode] = Field(
@@ -116,6 +163,7 @@ class Settings(BaseSettings):
         "supported_audio_formats",
         "supported_image_formats",
         "internal_api_keys",
+        "log_sampling_exclude_paths",
         mode="before",
     )
     @classmethod

@@ -7,6 +7,8 @@ from contextvars import ContextVar
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from ..logging_config import clear_context, set_request_id
+
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 
@@ -35,11 +37,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: HTTP response with X-Request-ID header
         """
+        # Clear previous request context
+        clear_context()
+
         # Try to get request ID from header, otherwise generate new one
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 
         # Store in context variable for use in logging and error handling
         request_id_var.set(request_id)
+
+        # Also set in logging context for structured logging
+        set_request_id(request_id)
 
         # Process request
         response = await call_next(request)

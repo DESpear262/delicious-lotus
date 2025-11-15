@@ -19,6 +19,13 @@ setup_logging(
     log_level=settings.log_level,
     log_dir="./logs",
     enable_file_logging=not settings.is_development,  # Only file logging in non-dev
+    rotation_when=settings.log_rotation_when,
+    rotation_interval=settings.log_rotation_interval,
+    max_bytes=settings.log_max_bytes,
+    backup_count=settings.log_backup_count,
+    compress_rotated=settings.log_compress_rotated,
+    retention_days=settings.log_retention_days,
+    disk_usage_threshold=settings.log_disk_usage_threshold,
 )
 logger = get_logger(__name__)
 

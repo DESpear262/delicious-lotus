@@ -27,3 +27,69 @@
 - [ ] Add analysis result versioning for A/B testing
 - [ ] Implement user feedback loop for analysis quality improvement
 - [ ] Add support for custom analysis templates per industry/brand
+
+## Non-MVP AI Backend Features (Phase 2)
+
+# 🟣 BLOCK B: Scene Planning & Beat-Aligned Timeline (Post-MVP)
+*(Beat integration and scene-time alignment)*
+**Dependencies:** MVP Complete
+**Parallelizable:** Yes
+**Total Time:** 18–25 hours
+**Status:** Phase 2 feature, not required for MVP
+
+---
+
+## PR #201: Audio Analysis Client (FFmpeg Consumer)  
+**Time:** 4–5 hours  
+
+### Tasks:
+- [ ] Implement `AudioAnalysisService`  
+- [ ] Call `/internal/v1/audio-analysis`  
+- [ ] Normalize beat/downbeat/energy structure  
+
+### Testing:
+- [ ] Unit: request formatting  
+- [ ] Integration: mock FFmpeg  
+
+---
+
+## PR #202: Beat-Aligned Scene Timing Module  
+**Prerequisites:** PR #201  
+**Time:** 6–7 hours  
+
+### Tasks:
+- [ ] Map scenes to downbeats  
+- [ ] Snap boundaries to musical structure  
+- [ ] Fallback timing if no beats  
+- [ ] Add intensity/energy hints  
+
+### Testing:
+- [ ] Unit: beat snapping  
+- [ ] Unit: fallback logic  
+- [ ] Integration: scene plan + beat data → timeline  
+
+---
+
+## PR #203: Combined Ad/Music Planner Interface  
+**Prerequisites:** PR #202  
+**Time:** 4–6 hours  
+
+### Tasks:
+- [ ] Unified planner interface  
+- [ ] Planner selection logic  
+- [ ] Metrics logging and debug mode  
+
+### Testing:
+- [ ] Unit: routing logic  
+- [ ] Integration: complete planner flow  
+
+---
+
+## BLOCK B Integration PR – PR #204  
+**Time:** 3–4 hours  
+
+### Tests:
+- [ ] audio → beats → aligned scenes  
+- [ ] ad planning smoke tests  
+
+---

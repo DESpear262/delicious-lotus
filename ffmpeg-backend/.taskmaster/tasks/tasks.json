@@ -742,7 +742,7 @@
               6
             ],
             "details": "Create FinalEncoder class implementing H.264 encoding with libx264 preset and CRF 21 for quality/size balance. Configure proper output container format (MP4). Set web-optimized encoding parameters including keyframe intervals and bitrate constraints. Implement two-pass encoding option for better quality. Add metadata injection for final output.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test encoding quality at CRF 21 across different content types. Verify web playback compatibility. Measure encoding speed and file sizes. Test streaming compatibility."
           },
           {
@@ -751,7 +751,7 @@
             "description": "Create comprehensive validation system using FFprobe for input file verification and output quality checks",
             "dependencies": [],
             "details": "Implement FFprobeValidator class for media file analysis and validation. Check input files for codec compatibility, corruption, and format support. Validate output files meet specifications (resolution, framerate, codec). Extract and verify metadata including duration, bitrate, and stream information. Implement detailed error reporting for validation failures.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test validation with corrupted and incompatible media files. Verify accurate metadata extraction. Test edge cases like missing audio streams or variable framerate content."
           },
           {
@@ -762,7 +762,7 @@
               7
             ],
             "details": "Create ProgressCalculator class that parses FFmpeg stderr output for progress information. Extract frame numbers, time codes, and processing speed. Calculate accurate completion percentages based on total duration. Implement ETA estimation using rolling average of processing speed. Handle multi-stage processing with weighted progress calculation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test progress parsing with various FFmpeg operations. Verify accuracy of completion percentage calculations. Test ETA estimation reliability. Validate progress updates are smooth and monotonic."
           },
           {
@@ -1081,7 +1081,7 @@
     ],
     "metadata": {
       "created": "2025-11-14T21:27:16.741Z",
-      "updated": "2025-11-15T01:21:54.505Z",
+      "updated": "2025-11-15T01:32:40.263Z",
       "description": "Tasks for master context"
     }
   }

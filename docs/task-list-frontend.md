@@ -14,8 +14,8 @@ This task list covers the React/Vite web application for the video generation pi
 
 ## PR Status Summary
 
-**Completed:** 2/16+
-**Unblocked (Ready to Start):** 3
+**Completed:** 3/16+
+**Unblocked (Ready to Start):** 2
 **Blocked (Dependencies Not Met):** 10+
 **Planned for Next Wave:** Multiple
 
@@ -67,37 +67,43 @@ This task list covers the React/Vite web application for the video generation pi
 - ✅ Accessibility: proper focus states, ARIA labels where needed
 
 ### PR-F003: API Client Setup (Task 3)
-**Status:** Unblocked | **Est:** 2 hours | **Agent:** Available
+**Status:** Complete ✅ | **Est:** 2 hours | **Completed by:** Orange
 **Dependencies:** PR-F001 (Complete ✅)
 **Description:** Configure Axios HTTP client with interceptors, error handling, and TypeScript interfaces for all backend API endpoints.
 
-**Files to Create:**
-- `frontend/src/api/client.ts` - Axios instance with configuration
-- `frontend/src/api/types.ts` - TypeScript interfaces for all API requests/responses
-- `frontend/src/api/services/generation.ts` - Video generation API calls
-- `frontend/src/api/services/composition.ts` - Video composition API calls
-- `frontend/src/api/services/assets.ts` - Asset upload/management API calls
-- `frontend/src/api/services/jobs.ts` - Job status and history API calls
-- `frontend/src/utils/errors.ts` - Error handling utilities
-- `frontend/src/utils/retry.ts` - Exponential backoff retry logic
+**Files Created (9 files):**
+- ✅ `frontend/src/api/client.ts` - Axios instance with configuration
+- ✅ `frontend/src/api/types.ts` - TypeScript interfaces for all API requests/responses
+- ✅ `frontend/src/api/services/generation.ts` - Video generation API calls
+- ✅ `frontend/src/api/services/composition.ts` - Video composition API calls
+- ✅ `frontend/src/api/services/assets.ts` - Asset upload/management API calls
+- ✅ `frontend/src/api/services/jobs.ts` - Job status and history API calls
+- ✅ `frontend/src/utils/errors.ts` - Error handling utilities
+- ✅ `frontend/src/utils/retry.ts` - Exponential backoff retry logic
+- ✅ `frontend/src/api/index.ts` - Centralized API exports
 
-**Acceptance Criteria:**
-- [ ] Axios instance with base URL from environment variable
-- [ ] Request interceptor for authentication (if needed)
-- [ ] Response interceptor for error handling
-- [ ] Retry logic with exponential backoff (3 retries, 1s/2s/4s)
-- [ ] TypeScript interfaces for all API endpoints:
-  - [ ] POST /api/generate - Create video generation job
-  - [ ] GET /api/jobs/{id} - Get job status
-  - [ ] GET /api/jobs - List job history
-  - [ ] POST /api/upload - Upload brand assets
-  - [ ] GET /api/download/{id} - Download completed video
-  - [ ] DELETE /api/jobs/{id} - Cancel/delete job
-  - [ ] POST /api/compose - Create video composition
-- [ ] Service modules organized by domain (generation, composition, assets)
-- [ ] Error handling utilities with user-friendly messages
-- [ ] TypeScript types for all parameters and responses
-- [ ] Timeout configuration (30s for API calls, 5min for uploads)
+**Acceptance Criteria (All Met):**
+- ✅ Axios instance with base URL from environment variable (VITE_API_BASE_URL, defaults to '/api')
+- ✅ Request interceptor with X-Request-ID header, client version, circuit breaker check
+- ✅ Response interceptor for error handling with structured ApiError class
+- ✅ Retry logic with exponential backoff (3 retries, 1s/2s/4s delays)
+- ✅ TypeScript interfaces for all API endpoints:
+  - ✅ POST /api/v1/generations - Create video generation job
+  - ✅ GET /api/v1/generations/{id} - Get generation status
+  - ✅ GET /api/v1/generations - List job history with pagination
+  - ✅ POST /api/v1/assets/upload - Upload brand assets
+  - ✅ GET /api/v1/compositions/{id}/download - Download completed video
+  - ✅ POST /api/v1/generations/{id}/cancel - Cancel job
+  - ✅ POST /api/v1/compositions - Create video composition
+  - ✅ All other endpoints from API specification
+- ✅ Service modules organized by domain (generation, composition, assets, jobs)
+- ✅ Error handling utilities with user-friendly messages
+- ✅ TypeScript types for all parameters and responses
+- ✅ Timeout configuration (30s for API calls, 5min for uploads)
+- ✅ Circuit breaker implementation (5 failures trigger open state)
+- ✅ Polling helpers for generation and composition status
+- ✅ File validation utilities for uploads
+- ✅ Updated .env.example with API configuration
 
 **Implementation Notes:**
 - Base URL should default to '/api' for same-origin (Option B deployment)

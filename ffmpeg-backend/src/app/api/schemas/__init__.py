@@ -17,6 +17,18 @@ from .composition import (
     ResourceMetrics,
 )
 from .errors import ErrorDetail, ErrorResponse
+from .websocket import (
+    ConnectionState,
+    WSBaseMessage,
+    WSClientMessage,
+    WSConnectedMessage,
+    WSErrorMessage,
+    WSHeartbeatMessage,
+    WSMessageType,
+    WSPongMessage,
+    WSProgressMessage,
+    WSStatusMessage,
+)
 
 __all__ = [
     # Composition schemas
@@ -37,4 +49,15 @@ __all__ = [
     # Error schemas
     "ErrorResponse",
     "ErrorDetail",
+    # WebSocket schemas
+    "WSMessageType",
+    "WSBaseMessage",
+    "WSProgressMessage",
+    "WSStatusMessage",
+    "WSErrorMessage",
+    "WSHeartbeatMessage",
+    "WSPongMessage",
+    "WSConnectedMessage",
+    "ConnectionState",
+    "WSClientMessage",
 ]

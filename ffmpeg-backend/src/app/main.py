@@ -66,10 +66,37 @@ def create_app() -> FastAPI:
         logger.info(f"Environment: {settings.environment}")
         logger.info(f"Debug mode: {settings.debug}")
 
+        # Initialize WebSocket services
+        try:
+            from .api.v1.websocket import get_heartbeat_manager, get_redis_subscriber
+
+            await get_redis_subscriber()
+            logger.info("WebSocket Redis subscriber initialized")
+
+            await get_heartbeat_manager()
+            logger.info("WebSocket heartbeat manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize WebSocket services: {e}")
+
     @app.on_event("shutdown")
     async def shutdown_event() -> None:
         """Run on application shutdown."""
         logger.info(f"Shutting down {settings.app_name}")
+
+        # Cleanup WebSocket services
+        try:
+            from .api.v1.websocket import heartbeat_manager, redis_subscriber
+
+            if heartbeat_manager:
+                await heartbeat_manager.stop()
+                logger.info("WebSocket heartbeat manager shut down")
+
+            if redis_subscriber:
+                await redis_subscriber.stop_listening()
+                await redis_subscriber.disconnect()
+                logger.info("WebSocket Redis subscriber shut down")
+        except Exception as e:
+            logger.error(f"Error shutting down WebSocket services: {e}")
 
     return app
 

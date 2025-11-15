@@ -115,7 +115,7 @@ class TestFFmpegCommandBuilder:
         builder.add_input("video1.mp4")
         builder.add_input("video2.mp4")
         builder.add_filter_complex("[0:v][1:v]concat=n=2:v=1:a=0[out]")
-        builder.set_output("output.mp4", codec="libx264", crf=21")
+        builder.set_output("output.mp4", codec="libx264", crf=21)
 
         command = builder.build()
 
@@ -126,7 +126,7 @@ class TestFFmpegCommandBuilder:
         """Test building command as argument list (for subprocess)."""
         builder = FFmpegCommandBuilder()
         builder.add_input("input.mp4")
-        builder.set_output("output.mp4", codec="libx264", crf=21")
+        builder.set_output("output.mp4", codec="libx264", crf=21)
 
         args = builder.build_args()
 

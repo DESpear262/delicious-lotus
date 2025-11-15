@@ -15,7 +15,7 @@ import pytest
 from faker import Faker
 from fastapi.testclient import TestClient
 from moto import mock_aws
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -488,7 +488,6 @@ def override_settings(test_settings, monkeypatch):
         test_settings: Test configuration
         monkeypatch: Pytest monkeypatch fixture
     """
-    from app.config import get_settings
 
     monkeypatch.setattr("app.config.get_settings", lambda: test_settings)
     return test_settings

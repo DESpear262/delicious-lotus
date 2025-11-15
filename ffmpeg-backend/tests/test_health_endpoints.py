@@ -50,7 +50,7 @@ async def test_detailed_health_check_all_healthy():
             "memory_percent": 60.2,
         }
 
-        response = client.get("/api/v1/healthz")
+        response = client.get("/api/v1/health/detailed")
 
         assert response.status_code == 200
         data = response.json()
@@ -89,7 +89,7 @@ async def test_detailed_health_check_critical_unhealthy():
         )
         mock_metrics.return_value = {"cpu_percent": 25.5}
 
-        response = client.get("/api/v1/healthz")
+        response = client.get("/api/v1/health/detailed")
 
         assert response.status_code == 503
         data = response.json()
@@ -126,7 +126,7 @@ async def test_detailed_health_check_non_critical_degraded():
         )
         mock_metrics.return_value = {"cpu_percent": 25.5}
 
-        response = client.get("/api/v1/healthz")
+        response = client.get("/api/v1/health/detailed")
 
         assert response.status_code == 200
         data = response.json()

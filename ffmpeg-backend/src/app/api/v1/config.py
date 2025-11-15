@@ -95,7 +95,7 @@ async def reload_configuration(request: ConfigReloadRequest) -> ConfigReloadResp
         logger.error("Failed to reload configuration", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Configuration reload failed: {str(e)}",
+            detail=f"Configuration reload failed: {e!s}",
         ) from e
 
 

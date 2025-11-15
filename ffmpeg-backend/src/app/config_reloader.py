@@ -1,12 +1,12 @@
 """Configuration hot-reloading system."""
 
 import asyncio
+import contextlib
 import logging
 import threading
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from app.config import Settings
 
@@ -17,7 +17,7 @@ class ConfigurationReloader:
     """Configuration hot-reloader for runtime config updates."""
 
     # Safe-to-reload configuration fields (non-critical settings)
-    SAFE_RELOAD_FIELDS = {
+    SAFE_RELOAD_FIELDS: ClassVar[set[str]] = {
         # Feature flags
         "feature_dev_api_enabled",
         "feature_beat_detection_enabled",
@@ -42,7 +42,7 @@ class ConfigurationReloader:
     }
 
     # Critical fields that require restart
-    CRITICAL_FIELDS = {
+    CRITICAL_FIELDS: ClassVar[set[str]] = {
         "database_url",
         "redis_url",
         "s3_bucket_name",
@@ -141,9 +141,7 @@ class ConfigurationReloader:
                     return None
 
                 # Check for critical field changes
-                critical_changes = [
-                    field for field in changes if field in self.CRITICAL_FIELDS
-                ]
+                critical_changes = [field for field in changes if field in self.CRITICAL_FIELDS]
 
                 if critical_changes:
                     logger.warning(
@@ -275,10 +273,8 @@ class ConfigWatcherService:
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
 
         logger.info("Configuration watcher stopped")
 

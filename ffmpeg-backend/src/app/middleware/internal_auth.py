@@ -15,7 +15,6 @@ from workers.redis_pool import get_redis_connection
 
 from app.api.schemas.errors import ErrorCode, ErrorResponse
 from app.config import get_settings
-from app.exceptions import RateLimitExceededError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 

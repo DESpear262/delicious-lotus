@@ -1,11 +1,11 @@
 """Feature flag management system."""
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 

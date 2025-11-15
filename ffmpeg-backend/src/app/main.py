@@ -30,7 +30,7 @@ setup_logging(
 logger = get_logger(__name__)
 
 
-def create_app() -> FastAPI:
+def create_app() -> FastAPI:  # noqa: C901
     """Create and configure the FastAPI application.
 
     Returns:

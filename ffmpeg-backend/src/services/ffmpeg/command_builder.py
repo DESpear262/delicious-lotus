@@ -207,11 +207,15 @@ class FFmpegCommandBuilder:
         if preset is not None:
             output_options["-preset"] = preset
 
-        # Merge with additional options
+        # Merge with additional options from kwargs
         output_options.update(options)
 
-        self._output = OutputFile(path=path, options=output_options)
-        self._additional_output_options = output_options
+        # Merge with any previously set options (e.g., from set_video_codec/set_audio_codec)
+        # Preserve existing options but allow new ones to override
+        merged_options = {**self._additional_output_options, **output_options}
+
+        self._output = OutputFile(path=path, options=merged_options)
+        self._additional_output_options = merged_options
         return self
 
     def add_filter_complex(self, filter_expression: str) -> FFmpegCommandBuilder:

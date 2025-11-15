@@ -17,6 +17,7 @@ from .composition import (
     ResourceMetrics,
 )
 from .errors import ErrorDetail, ErrorResponse
+from .job import JobCancelResponse, JobListResponse, JobResponse, JobStatus
 from .websocket import (
     ConnectionState,
     WSBaseMessage,
@@ -49,6 +50,11 @@ __all__ = [
     # Error schemas
     "ErrorResponse",
     "ErrorDetail",
+    # Job schemas
+    "JobStatus",
+    "JobResponse",
+    "JobListResponse",
+    "JobCancelResponse",
     # WebSocket schemas
     "WSMessageType",
     "WSBaseMessage",

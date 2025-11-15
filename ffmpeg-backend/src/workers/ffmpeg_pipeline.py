@@ -158,19 +158,174 @@ class FFmpegCommandBuilder:
         Returns:
             list[str]: FFmpeg command arguments
         """
-        # For now, use simple composition
-        # TODO: Implement complex filter graphs based on composition_config
+        # Separate video and audio-only assets
+        assets = composition_config.get("assets", [])
+        video_files = []
+        audio_files = []
+
+        for asset in assets:
+            asset_id = asset.get("id")
+            asset_type = asset.get("type", "video")
+
+            if asset_id in input_files:
+                if asset_type == "audio":
+                    audio_files.append(input_files[asset_id])
+                else:
+                    video_files.append(input_files[asset_id])
+
         logger.info(
-            "Building complex composition (using simple mode for now)",
-            extra={"config": composition_config, "input_count": len(input_files)},
+            "Building composition with separated assets",
+            extra={
+                "video_count": len(video_files),
+                "audio_count": len(audio_files),
+                "total_inputs": len(input_files),
+            },
         )
 
-        return self.build_simple_composition(
-            input_files=list(input_files.values()),
-            output_file=output_file,
-            resolution=resolution,
-            fps=fps,
+        # If we have video files, process them
+        if video_files:
+            # If we have background audio, we'll mix it in
+            if audio_files:
+                return self._build_video_with_audio(
+                    video_files=video_files,
+                    audio_files=audio_files,
+                    output_file=output_file,
+                    resolution=resolution,
+                    fps=fps,
+                    composition_config=composition_config,
+                )
+            else:
+                # Just video, no background audio
+                return self.build_simple_composition(
+                    input_files=video_files,
+                    output_file=output_file,
+                    resolution=resolution,
+                    fps=fps,
+                )
+        else:
+            raise ValueError("No video assets found in composition")
+
+    def _build_video_with_audio(
+        self,
+        video_files: list[Path],
+        audio_files: list[Path],
+        output_file: Path,
+        resolution: str,
+        fps: int,
+        composition_config: dict[str, Any],
+    ) -> list[str]:
+        """Build FFmpeg command for video with background audio mixing.
+
+        Args:
+            video_files: List of video file paths
+            audio_files: List of audio file paths (background music, etc.)
+            output_file: Output file path
+            resolution: Output resolution (WxH)
+            fps: Output frame rate
+            composition_config: Composition configuration with audio settings
+
+        Returns:
+            list[str]: FFmpeg command arguments
+        """
+        cmd = [
+            "ffmpeg",
+            "-y",  # Overwrite output
+            "-progress",
+            "pipe:1",  # Progress to stdout
+            "-loglevel",
+            "warning",  # Only show warnings/errors
+        ]
+
+        # Add all inputs (video files first, then audio files)
+        all_inputs = video_files + audio_files
+        for input_file in all_inputs:
+            cmd.extend(["-i", str(input_file)])
+
+        # Get audio settings
+        audio_config = composition_config.get("audio", {})
+        music_volume = audio_config.get("music_volume", 0.3)
+        original_audio_volume = audio_config.get("original_audio_volume", 0.7)
+
+        video_input_count = len(video_files)
+
+        # Build filter complex
+        filter_parts = []
+
+        # Process video clips (concatenate if multiple)
+        if video_input_count > 1:
+            # Scale each video
+            for i in range(video_input_count):
+                filter_parts.append(f"[{i}:v]scale={resolution},setsar=1,fps={fps}[v{i}]")
+
+            # Concatenate videos with their audio
+            concat_inputs = "".join([f"[v{i}][{i}:a]" for i in range(video_input_count)])
+            filter_parts.append(
+                f"{concat_inputs}concat=n={video_input_count}:v=1:a=1[video_out][video_audio]"
+            )
+        else:
+            # Single video - just scale
+            filter_parts.append(f"[0:v]scale={resolution},setsar=1,fps={fps}[video_out]")
+            filter_parts.append("[0:a]acopy[video_audio]")
+
+        # Mix background audio with video audio
+        # Adjust volumes and mix
+        if audio_files:
+            bg_audio_index = video_input_count  # First audio file after videos
+            filter_parts.append(
+                f"[video_audio]volume={original_audio_volume}[video_audio_adjusted]"
+            )
+            filter_parts.append(f"[{bg_audio_index}:a]volume={music_volume}[bg_audio_adjusted]")
+            filter_parts.append(
+                "[video_audio_adjusted][bg_audio_adjusted]amix=inputs=2:duration=first[audio_out]"
+            )
+        else:
+            filter_parts.append(f"[video_audio]volume={original_audio_volume}[audio_out]")
+
+        filter_complex = ";".join(filter_parts)
+
+        cmd.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[video_out]",
+                "-map",
+                "[audio_out]",
+            ]
         )
+
+        # Output settings
+        cmd.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "medium",
+                "-crf",
+                "23",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "-movflags",
+                "+faststart",
+                "-threads",
+                str(self.threads),
+                str(output_file),
+            ]
+        )
+
+        logger.info(
+            "Built video+audio mixing command",
+            extra={
+                "video_count": len(video_files),
+                "audio_count": len(audio_files),
+                "music_volume": music_volume,
+                "original_volume": original_audio_volume,
+            },
+        )
+
+        return cmd
 
 
 class FFmpegProgressParser:
@@ -382,6 +537,7 @@ class FFmpegPipeline:
                         progress_callback(current_progress)
 
             # Wait for completion with timeout
+            elapsed = time.time() - start_time
             try:
                 return_code = self.process.wait(timeout=max(10, timeout - elapsed))
             except subprocess.TimeoutExpired as timeout_err:

@@ -253,10 +253,10 @@ class S3Manager:
         progress_callback: Callable[[str, int, int], None] | None = None,
         max_workers: int = 5,
     ) -> dict[str, Path]:
-        """Download multiple assets from S3 in parallel.
+        """Download multiple assets from S3 or HTTP URLs in parallel.
 
         Args:
-            assets: List of asset dictionaries with 's3_key' and optional 'id'
+            assets: List of asset dictionaries with 's3_key' or 'url' and optional 'id'
             temp_dir: Temporary directory to download assets to
             progress_callback: Optional callback (asset_id, bytes_downloaded, total_bytes)
             max_workers: Maximum number of parallel downloads (default: 5)
@@ -267,6 +267,10 @@ class S3Manager:
         Raises:
             Exception: If any download fails
         """
+        from urllib.parse import urlparse
+
+        import requests
+
         temp_dir = Path(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -276,43 +280,82 @@ class S3Manager:
         )
 
         def download_single_asset(asset: dict[str, str], index: int) -> tuple[str, Path]:
-            """Download a single asset (called by ThreadPoolExecutor)."""
+            """Download a single asset from S3 or HTTP URL."""
             s3_key = asset.get("s3_key")
+            url = asset.get("url")
             asset_id = asset.get("id", f"asset_{index}")
 
-            if not s3_key:
-                logger.warning(f"Asset {asset_id} missing s3_key, skipping")
-                raise ValueError(f"Asset {asset_id} missing s3_key")
+            # Determine source: S3 or HTTP URL
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                # Download from HTTP URL
+                parsed_url = urlparse(url)
+                filename = os.path.basename(parsed_url.path) or f"{asset_id}.mp4"
+                local_path = temp_dir / f"{asset_id}_{filename}"
 
-            # Generate local filename from S3 key
-            filename = os.path.basename(s3_key)
-            local_path = temp_dir / f"{asset_id}_{filename}"
+                logger.info(f"Downloading {asset_id} from HTTP URL: {url}")
 
-            # Create progress callback for this asset
-            def asset_progress(bytes_down: int, total_bytes: int) -> None:
-                if progress_callback:
-                    progress_callback(asset_id, bytes_down, total_bytes)
+                try:
+                    response = requests.get(url, stream=True, timeout=60)
+                    response.raise_for_status()
 
-            try:
-                downloaded_path = self.download_file(
-                    s3_key=s3_key,
-                    local_path=local_path,
-                    progress_callback=asset_progress,
-                )
+                    total_size = int(response.headers.get("content-length", 0))
+                    downloaded = 0
 
-                logger.debug(
-                    f"Downloaded asset {asset_id}",
-                    extra={"asset_id": asset_id, "path": str(downloaded_path)},
-                )
+                    with open(local_path, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if progress_callback and total_size:
+                                    progress_callback(asset_id, downloaded, total_size)
 
-                return asset_id, downloaded_path
+                    logger.debug(
+                        f"Downloaded asset {asset_id} from HTTP",
+                        extra={"asset_id": asset_id, "path": str(local_path), "size": downloaded},
+                    )
 
-            except Exception as e:
-                logger.exception(
-                    f"Failed to download asset {asset_id}",
-                    extra={"asset_id": asset_id, "s3_key": s3_key, "error": str(e)},
-                )
-                raise
+                    return asset_id, local_path
+
+                except Exception as e:
+                    logger.exception(
+                        f"Failed to download asset {asset_id} from HTTP",
+                        extra={"asset_id": asset_id, "url": url, "error": str(e)},
+                    )
+                    raise
+
+            elif s3_key:
+                # Download from S3
+                filename = os.path.basename(s3_key)
+                local_path = temp_dir / f"{asset_id}_{filename}"
+
+                def asset_progress(bytes_down: int, total_bytes: int) -> None:
+                    if progress_callback:
+                        progress_callback(asset_id, bytes_down, total_bytes)
+
+                try:
+                    downloaded_path = self.download_file(
+                        s3_key=s3_key,
+                        local_path=local_path,
+                        progress_callback=asset_progress,
+                    )
+
+                    logger.debug(
+                        f"Downloaded asset {asset_id} from S3",
+                        extra={"asset_id": asset_id, "path": str(downloaded_path)},
+                    )
+
+                    return asset_id, downloaded_path
+
+                except Exception as e:
+                    logger.exception(
+                        f"Failed to download asset {asset_id} from S3",
+                        extra={"asset_id": asset_id, "s3_key": s3_key, "error": str(e)},
+                    )
+                    raise
+            else:
+                error_msg = f"Asset {asset_id} missing both 'url' and 's3_key'"
+                logger.warning(error_msg)
+                raise ValueError(error_msg)
 
         # Download assets in parallel using ThreadPoolExecutor
         downloaded_files = {}

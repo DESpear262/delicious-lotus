@@ -77,11 +77,13 @@ class ProcessingJob(BaseModel):
 
     # Job details
     job_type: Mapped[JobType] = mapped_column(
-        Enum(JobType, name="job_type"), nullable=False, index=True
+        Enum(JobType, name="job_type", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True,
     )
 
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status"),
+        Enum(JobStatus, name="job_status", values_callable=lambda x: [e.value for e in x]),
         default=JobStatus.PENDING,
         nullable=False,
         index=True,
@@ -175,7 +177,9 @@ class JobMetric(BaseModel):
 
     # Metric details
     metric_type: Mapped[MetricType] = mapped_column(
-        Enum(MetricType, name="metric_type"), nullable=False, index=True
+        Enum(MetricType, name="metric_type", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True,
     )
 
     metric_value: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)

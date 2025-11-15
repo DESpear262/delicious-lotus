@@ -64,7 +64,44 @@ async def create_composition(
     )
 
     # Build composition configuration for storage
+    # Create assets list from clips for worker processing
+    assets = []
+    for i, clip in enumerate(request.clips):
+        asset_id = f"clip_{i}"
+        assets.append(
+            {
+                "id": asset_id,
+                "url": str(clip.video_url),  # HTTP URL instead of s3_key
+                "type": "video",
+                "start_time": clip.start_time,
+                "end_time": clip.end_time,
+                "trim_start": clip.trim_start,
+                "trim_end": clip.trim_end,
+            }
+        )
+
+    # Add audio assets if provided
+    if request.audio.music_url:
+        assets.append(
+            {
+                "id": "music",
+                "url": str(request.audio.music_url),
+                "type": "audio",
+                "volume": request.audio.music_volume,
+            }
+        )
+    if request.audio.voiceover_url:
+        assets.append(
+            {
+                "id": "voiceover",
+                "url": str(request.audio.voiceover_url),
+                "type": "audio",
+                "volume": request.audio.voiceover_volume,
+            }
+        )
+
     composition_config = {
+        "assets": assets,  # For worker processing
         "clips": [
             {
                 "video_url": str(clip.video_url),
@@ -172,6 +209,7 @@ async def create_composition(
         # Update composition with queued status
         composition.status = CompositionStatus.QUEUED
         await db.commit()
+        await db.refresh(composition)
 
     except Exception as e:
         logger.exception(
@@ -180,6 +218,9 @@ async def create_composition(
         )
         # Don't fail the request - composition is created, job can be retried
         # Keep status as PENDING
+
+    # Refresh to ensure all attributes are loaded
+    await db.refresh(composition)
 
     # Return composition response
     return CompositionResponse.model_validate(composition)

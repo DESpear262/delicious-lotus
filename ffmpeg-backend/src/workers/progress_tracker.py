@@ -232,7 +232,7 @@ class ProgressTracker:
                 extra={
                     "job_id": self.job_id,
                     "status": status,
-                    "message": message,
+                    "status_message": message,
                 },
             )
 

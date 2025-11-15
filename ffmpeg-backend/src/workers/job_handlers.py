@@ -324,7 +324,7 @@ class CompositionJobHandler:
             async with JobMetricsContext(
                 collector=metrics_collector,
                 composition_id=validated_params.composition_id,
-                processing_job_id=UUID(self.job_id),
+                processing_job_id=None,  # ProcessingJob record not created yet
             ):
                 # Initialize progress tracker
                 from workers.progress_tracker import ProgressTracker

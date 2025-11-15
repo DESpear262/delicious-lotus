@@ -158,95 +158,33 @@
 
 ---
 
-## PR #103: Scene Decomposition (Ads & Music)  
-**Prerequisites:** PR #102  
+## PR #103: Scene Decomposition (Ads & Music) **(COMPLETED - Orange)**
+**Prerequisites:** PR #102
 **Time:** 6–8 hours
 
 ### Tasks:
-- [ ] Ads: 3–5 scene decomposition  
-- [ ] Music: 10–20 scene decomposition  
-- [ ] Duration & style heuristics  
+- [x] Ads: 3–5 scene decomposition
+- [x] Music: 10–20 scene decomposition
+- [x] Duration & style heuristics
 
 ### Testing:
-- [ ] Unit: scene distribution logic  
-- [ ] Integration: prompt → scene plan  
+- [x] Unit: scene distribution logic
+- [x] Integration: prompt → scene plan  
 
 ---
 
-## BLOCK A Integration PR – PR #104  
-**Prerequisites:** #101–#103  
-**Time:** 4 hours  
+## PR #104: Block A Integration PR **(COMPLETED - QC)**
+**Prerequisites:** #101–#103
+**Time:** 4 hours
 
 ### Tests:
-- [ ] Full flow: prompt → parsed → scenes  
-- [ ] Failure handling  
-- [ ] Schema validation  
+- [x] Full flow: prompt → parsed → scenes
+- [x] Failure handling
+- [x] Schema validation  
 
 ---
 
-# 🟣 BLOCK B: Scene Planning & Beat-Aligned Timeline (Post-MVP)
-*(Beat integration and scene-time alignment)*
-**Dependencies:** MVP Complete
-**Parallelizable:** Yes
-**Total Time:** 18–25 hours
-**Status:** Phase 2 feature, not required for MVP
 
----
-
-## PR #201: Audio Analysis Client (FFmpeg Consumer)  
-**Time:** 4–5 hours  
-
-### Tasks:
-- [ ] Implement `AudioAnalysisService`  
-- [ ] Call `/internal/v1/audio-analysis`  
-- [ ] Normalize beat/downbeat/energy structure  
-
-### Testing:
-- [ ] Unit: request formatting  
-- [ ] Integration: mock FFmpeg  
-
----
-
-## PR #202: Beat-Aligned Scene Timing Module  
-**Prerequisites:** PR #201  
-**Time:** 6–7 hours  
-
-### Tasks:
-- [ ] Map scenes to downbeats  
-- [ ] Snap boundaries to musical structure  
-- [ ] Fallback timing if no beats  
-- [ ] Add intensity/energy hints  
-
-### Testing:
-- [ ] Unit: beat snapping  
-- [ ] Unit: fallback logic  
-- [ ] Integration: scene plan + beat data → timeline  
-
----
-
-## PR #203: Combined Ad/Music Planner Interface  
-**Prerequisites:** PR #202  
-**Time:** 4–6 hours  
-
-### Tasks:
-- [ ] Unified planner interface  
-- [ ] Planner selection logic  
-- [ ] Metrics logging and debug mode  
-
-### Testing:
-- [ ] Unit: routing logic  
-- [ ] Integration: complete planner flow  
-
----
-
-## BLOCK B Integration PR – PR #204  
-**Time:** 3–4 hours  
-
-### Tests:
-- [ ] audio → beats → aligned scenes  
-- [ ] ad planning smoke tests  
-
----
 
 # 🟡 BLOCK C: Clip Generation Orchestration  
 *(Model calls, micro-prompts, clip metadata)*  
@@ -490,6 +428,4 @@ BLOCK 0 (P0) ── MVP Critical Path ──┐
 ├── BLOCK D (AI-Assisted Editing)     │
 │                                     │
 └── BLOCK E (Style/Brand Consistency) │
-                                      │
-BLOCK B (Beat + Scene Timing) ────────┘
-*(Post-MVP - Phase 2)*
+*(Post-MVP - Phase 2: BLOCK B - Beat + Scene Timing)*

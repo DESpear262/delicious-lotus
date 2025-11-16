@@ -65,3 +65,24 @@
 .navigationMobile .navigationLink:hover {
   background-color: var(--color-bg-secondary);
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Ensure touch-friendly links */
+  .navigationLink {
+    min-height: var(--touch-target-min);
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .navigationMobile .navigationLink {
+    min-height: var(--touch-target-comfortable);
+    padding: var(--spacing-4) var(--spacing-6);
+    font-size: var(--font-size-lg);
+  }
+
+  .navigationList {
+    gap: var(--spacing-1);
+  }
+}

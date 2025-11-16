@@ -178,3 +178,67 @@
 .footerLink:hover {
   color: var(--color-primary);
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Adjust header height for mobile */
+  .header {
+    height: 56px;
+  }
+
+  .headerContent {
+    padding: 0 var(--spacing-4);
+  }
+
+  /* Smaller logo on mobile */
+  .logoText {
+    font-size: var(--font-size-lg);
+  }
+
+  /* Ensure logo is touch-friendly */
+  .logo {
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2) 0;
+  }
+
+  /* Reduce content padding on mobile */
+  .content {
+    padding: var(--spacing-4);
+  }
+
+  /* Compact footer on mobile */
+  .footer {
+    padding: var(--spacing-4);
+  }
+
+  .footerContent {
+    font-size: var(--font-size-xs);
+    gap: var(--spacing-3);
+  }
+
+  /* Touch-friendly footer links */
+  .footerLink {
+    min-height: var(--touch-target-min);
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-2);
+  }
+
+  .footerInfo {
+    gap: var(--spacing-3);
+  }
+}
+
+@media (max-width: 375px) {
+  .headerContent {
+    padding: 0 var(--spacing-3);
+  }
+
+  .content {
+    padding: var(--spacing-3);
+  }
+
+  .logoText {
+    font-size: var(--font-size-base);
+  }
+}

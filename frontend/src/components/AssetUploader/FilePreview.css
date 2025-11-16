@@ -76,3 +76,75 @@
 .file-preview__remove:hover {
   background: rgba(0, 0, 0, 0.8);
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger drop zone for easy file selection */
+  .dropZone {
+    min-height: 140px;
+    padding: var(--spacing-6);
+  }
+
+  .dropZone__text {
+    font-size: var(--font-size-base);
+  }
+
+  .dropZone__button {
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-3) var(--spacing-6);
+  }
+
+  /* 2-column grid for file previews */
+  .filePreview__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+  }
+
+  .filePreview__item {
+    padding: var(--spacing-3);
+  }
+
+  .filePreview__thumbnail {
+    height: 80px;
+  }
+
+  /* Larger delete button for touch */
+  .filePreview__deleteButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    top: var(--spacing-1);
+    right: var(--spacing-1);
+  }
+
+  /* Full-width progress bars */
+  .uploadProgress {
+    width: 100%;
+  }
+
+  .uploadProgress__bar {
+    height: 8px;
+  }
+
+  /* Larger cancel button */
+  .uploadProgress__cancelButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Asset uploader container */
+  .assetUploader {
+    padding: var(--spacing-4);
+  }
+}
+
+@media (max-width: 375px) {
+  /* Single column for file previews on small phones */
+  .filePreview__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dropZone {
+    min-height: 120px;
+    padding: var(--spacing-4);
+  }
+}

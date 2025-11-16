@@ -61,3 +61,37 @@
 .videoPlayer:-ms-fullscreen {
   border-radius: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Full-width player on mobile */
+  .videoPlayer {
+    border-radius: var(--radius-md);
+    margin: 0;
+  }
+
+  /* Tap to play/pause overlay */
+  .videoPlayer__video {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Larger error message for mobile */
+  .videoPlayer__errorMessage {
+    font-size: 18px;
+    padding: 0 var(--spacing-4);
+    text-align: center;
+  }
+
+  /* Better loading state visibility */
+  .videoPlayer__loading {
+    gap: var(--spacing-6);
+  }
+
+  /* Remove border radius in fullscreen on mobile */
+  .videoPlayer:fullscreen,
+  .videoPlayer:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+  }
+}

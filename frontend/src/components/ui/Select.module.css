@@ -96,3 +96,39 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger select for touch */
+  .select {
+    padding: var(--spacing-3) var(--spacing-12) var(--spacing-3) var(--spacing-4);
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: var(--touch-target-min);
+  }
+
+  /* Larger dropdown icon */
+  .icon {
+    right: var(--spacing-4);
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* Make labels slightly larger on mobile */
+  .label {
+    font-size: var(--font-size-base);
+  }
+
+  /* Better spacing for error/helper text */
+  .errorMessage,
+  .helperText {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Small phones - adjust padding */
+@media (max-width: 375px) {
+  .select {
+    padding: var(--spacing-2) var(--spacing-10) var(--spacing-2) var(--spacing-3);
+  }
+}

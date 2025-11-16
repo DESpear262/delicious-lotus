@@ -162,3 +162,54 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger color swatch for touch */
+  .colorSwatch {
+    width: var(--touch-target-large);
+    height: var(--touch-target-large);
+  }
+
+  /* Larger hex input */
+  .hexInput {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: var(--touch-target-min);
+  }
+
+  /* Larger preset buttons for touch */
+  .presetButton {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Better spacing between presets */
+  .presets {
+    gap: var(--spacing-3);
+  }
+
+  /* Larger labels on mobile */
+  .label {
+    font-size: var(--font-size-base);
+  }
+
+  /* Better spacing in input group */
+  .inputGroup {
+    gap: var(--spacing-4);
+  }
+}
+
+/* Small phones - slightly reduce sizes */
+@media (max-width: 375px) {
+  .colorSwatch {
+    width: var(--touch-target-comfortable);
+    height: var(--touch-target-comfortable);
+  }
+
+  .presetButton {
+    width: 40px;
+    height: 40px;
+  }
+}

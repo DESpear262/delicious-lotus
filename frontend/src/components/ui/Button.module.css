@@ -185,3 +185,49 @@
 .content {
   flex: 1;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Ensure minimum touch target size */
+  .button {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+
+  /* Adjust size for better touch targets on mobile */
+  .button-sm {
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-sm);
+    min-height: var(--touch-target-min);
+  }
+
+  .button-md {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: var(--font-size-base);
+    min-height: var(--touch-target-comfortable);
+  }
+
+  .button-lg {
+    padding: var(--spacing-3) var(--spacing-6);
+    font-size: var(--font-size-lg);
+    min-height: var(--touch-target-large);
+  }
+
+  /* Make full-width more common on mobile for better UX */
+  .mobileFullWidth {
+    width: 100%;
+  }
+
+  /* Increase gap for better readability on mobile */
+  .button {
+    gap: var(--spacing-2);
+  }
+}
+
+/* Small phones - further optimize spacing */
+@media (max-width: 375px) {
+  .button-lg {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: var(--font-size-base);
+  }
+}

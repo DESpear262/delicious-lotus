@@ -117,6 +117,23 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* Mobile-Specific Variables */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  --touch-target-large: 56px;
+
+  /* Mobile spacing (smaller for compact UIs) */
+  --mobile-spacing-xs: 0.25rem;  /* 4px */
+  --mobile-spacing-sm: 0.5rem;   /* 8px */
+  --mobile-spacing-md: 0.75rem;  /* 12px */
+  --mobile-spacing-lg: 1rem;     /* 16px */
+
+  /* Safe areas for notched devices */
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
 }
 
 /* Base Reset */
@@ -247,4 +264,41 @@ a:hover {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* Mobile-Specific Styles */
+@media (max-width: 767px) {
+  /* Prevent iOS zoom on input focus - minimum 16px font size */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Touch-friendly base styles */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Smooth scrolling for touch devices */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Landscape mobile adjustments */
+@media (max-width: 767px) and (orientation: landscape) {
+  body {
+    font-size: 0.9rem;
+  }
 }

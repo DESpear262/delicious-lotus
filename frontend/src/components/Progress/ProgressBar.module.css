@@ -202,3 +202,63 @@
     display: none;
   }
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Stack elements vertically */
+  .container {
+    padding: var(--spacing-3);
+  }
+
+  /* Larger touch-friendly elements */
+  .progressBar {
+    height: 12px;
+  }
+
+  .progressIndicator {
+    width: 100%;
+  }
+
+  /* Better spacing for steps */
+  .stepIndicator {
+    gap: var(--spacing-3);
+  }
+
+  .step {
+    min-height: var(--touch-target-min);
+  }
+
+  /* Clip previews in 2-column grid */
+  .clipPreviewGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+  }
+
+  .clipPreview {
+    min-height: 100px;
+  }
+
+  /* Larger fonts for readability */
+  .statusText,
+  .percentage {
+    font-size: var(--font-size-lg);
+  }
+
+  .timeRemaining {
+    font-size: var(--font-size-base);
+  }
+
+  /* Cancel button touch-friendly */
+  .cancelButton {
+    min-height: var(--touch-target-min);
+    width: 100%;
+    margin-top: var(--spacing-3);
+  }
+}
+
+@media (max-width: 375px) {
+  /* Single column for clip previews on small phones */
+  .clipPreviewGrid {
+    grid-template-columns: 1fr;
+  }
+}

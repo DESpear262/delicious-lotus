@@ -102,3 +102,38 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger textarea for touch and better typing experience */
+  .textarea {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: 140px;
+    line-height: var(--line-height-relaxed);
+  }
+
+  /* Make labels slightly larger on mobile */
+  .label {
+    font-size: var(--font-size-base);
+  }
+
+  /* Better visibility for character counter */
+  .counter {
+    font-size: var(--font-size-base);
+  }
+
+  /* Better spacing for error/helper text */
+  .errorMessage,
+  .helperText {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Small phones - adjust min height */
+@media (max-width: 375px) {
+  .textarea {
+    min-height: 120px;
+  }
+}

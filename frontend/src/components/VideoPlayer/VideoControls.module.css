@@ -150,25 +150,73 @@
 }
 
 /* Mobile responsive */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .videoControls {
-    padding: 12px;
+    padding: var(--spacing-3);
   }
 
+  /* Larger touch targets for control buttons */
   .videoControls__button {
-    padding: 12px;
+    padding: var(--spacing-3);
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Hide advanced controls on mobile for cleaner UI */
+  .videoControls__speedButton,
+  .videoControls__settingsButton {
+    display: none;
+  }
+
+  /* Larger time display for readability */
+  .videoControls__time {
+    font-size: 14px;
+    min-width: 80px;
+  }
+
+  /* Better spacing for control groups */
+  .videoControls__left,
+  .videoControls__right {
+    gap: var(--spacing-2);
+  }
+
+  .videoControls__bar {
+    gap: var(--spacing-3);
+  }
+
+  /* Larger scrubber for touch */
+  .videoControls__scrubberThumb {
+    width: 16px;
+    height: 16px;
+  }
+
+  .videoControls__scrubberTrack {
+    height: 6px;
+  }
+
+  /* Larger volume slider */
+  .videoControls__volumeSlider {
+    width: 60px;
+  }
+
+  /* Make fullscreen button more prominent */
+  .videoControls__fullscreenButton {
+    padding: var(--spacing-3);
+  }
+}
+
+/* Small phones - simplify further */
+@media (max-width: 375px) {
+  .videoControls {
+    padding: var(--spacing-2);
   }
 
   .videoControls__time {
     font-size: 12px;
+    min-width: 70px;
   }
 
-  .videoControls__left,
-  .videoControls__right {
-    gap: 4px;
-  }
-
-  .videoControls__bar {
-    gap: 8px;
+  .videoControls__volumeSlider {
+    width: 50px;
   }
 }

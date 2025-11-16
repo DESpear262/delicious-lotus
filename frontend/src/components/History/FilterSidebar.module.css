@@ -115,3 +115,67 @@
     padding-bottom: var(--spacing-4);
   }
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Full-width cards on mobile */
+  .generationCard {
+    padding: var(--spacing-4);
+  }
+
+  .cardContent {
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .cardThumbnail {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* Larger touch targets for actions */
+  .cardAction,
+  .actionButton {
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2) var(--spacing-4);
+  }
+
+  /* Filter sidebar as slide-in on mobile */
+  .filterSidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 80%;
+    max-width: 300px;
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    z-index: var(--z-modal);
+    background: var(--color-bg-primary);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .filterSidebar.isOpen {
+    transform: translateX(0);
+  }
+
+  /* Filter toggle button */
+  .filterToggle {
+    min-height: var(--touch-target-min);
+    width: 100%;
+    margin-bottom: var(--spacing-3);
+  }
+
+  /* Single column grid for cards */
+  .historyGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-4);
+  }
+
+  /* Larger status badges */
+  .statusBadge {
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-sm);
+  }
+}

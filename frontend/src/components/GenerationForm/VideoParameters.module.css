@@ -85,4 +85,38 @@
   .estimateTime {
     font-size: var(--font-size-xl);
   }
+
+  /* Stack parameter sections vertically */
+  .parameterGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-4);
+  }
+
+  /* Larger touch targets for radio buttons and sliders */
+  .durationOption,
+  .aspectRatioOption {
+    padding: var(--spacing-4);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Better visibility for selects */
+  .select {
+    font-size: 16px; /* Prevent iOS zoom */
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  /* Slider should be easier to use on touch */
+  .slider {
+    height: var(--touch-target-min);
+  }
+
+  .sliderTrack {
+    height: 8px;
+  }
+
+  .sliderThumb {
+    width: var(--spacing-6);
+    height: var(--spacing-6);
+  }
 }

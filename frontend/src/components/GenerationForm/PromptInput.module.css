@@ -148,13 +148,39 @@
     font-size: var(--font-size-xl);
   }
 
+  /* Full-width textarea on mobile */
+  .textarea {
+    min-height: 160px;
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+
+  /* Better character counter visibility */
+  .charCounter {
+    font-size: var(--font-size-base);
+  }
+
+  /* Stack example prompts vertically */
   .exampleHeader {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--spacing-1);
+    gap: var(--spacing-2);
   }
 
   .exampleAction {
     opacity: 1;
+    min-height: var(--touch-target-min);
+  }
+
+  /* Better spacing for examples */
+  .exampleText {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Small phones - reduce text size slightly */
+@media (max-width: 375px) {
+  .textarea {
+    min-height: 140px;
   }
 }

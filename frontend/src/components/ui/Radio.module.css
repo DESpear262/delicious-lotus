@@ -161,8 +161,49 @@
   min-width: 150px;
 }
 
+/* Mobile Responsive Styles */
 @media (max-width: 767px) {
+  /* Stack horizontal options vertically on mobile */
   .optionsHorizontal {
     flex-direction: column;
+  }
+
+  /* Larger touch targets for radio options */
+  .option {
+    padding: var(--spacing-4);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Larger radio button for easier tapping */
+  .radioButton {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+  }
+
+  .radioButtonInner {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Larger label text on mobile */
+  .label {
+    font-size: var(--font-size-base);
+  }
+
+  .optionLabel {
+    font-size: var(--font-size-lg);
+  }
+
+  /* Better spacing between options */
+  .options {
+    gap: var(--spacing-3);
+  }
+}
+
+/* Small phones - reduce padding slightly */
+@media (max-width: 375px) {
+  .option {
+    padding: var(--spacing-3);
   }
 }

@@ -27,7 +27,7 @@
   font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
   color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
+  background-color: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   outline: none;
@@ -43,7 +43,8 @@
 
 .textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1), var(--glow-subtle);
+  background-color: rgba(17, 24, 32, 0.8);
 }
 
 /* States */
@@ -53,14 +54,15 @@
 
 .textareaError:focus {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.2), 0 0 8px rgba(255, 138, 61, 0.3);
 }
 
 .textareaDisabled {
-  background-color: var(--color-bg-secondary);
+  background-color: rgba(17, 24, 32, 0.3);
   color: var(--color-text-tertiary);
   cursor: not-allowed;
   resize: none;
+  opacity: 0.5;
 }
 
 .textareaDisabled::placeholder {

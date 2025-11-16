@@ -12,9 +12,8 @@ export const VALIDATION_RULES: Record<number, Record<string, ValidationRule>> = 
   1: {
     prompt: {
       required: true,
-      minLength: 500,
       maxLength: 2000,
-      message: 'Prompt must be between 500 and 2000 characters',
+      message: 'Prompt cannot exceed 2000 characters',
     },
   },
 

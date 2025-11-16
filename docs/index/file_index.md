@@ -102,6 +102,22 @@ This index tracks all files created during the AI Backend development process.
 - `frontend/vite.config.ts` - Vite build configuration
 - `frontend/tsconfig.json` - TypeScript configuration
 - `frontend/eslint.config.js` - ESLint configuration
+- `frontend/index.html` - HTML entry point with Google Fonts (Inter, Orbitron, JetBrains Mono)
+
+### Frontend Styling & Theme
+- `frontend/src/styles/globals.css` - Global CSS variables and cyberpunk theme tokens
+- `frontend/src/styles/components.css` - Base component styles with dark theme
+- `frontend/src/styles/animations.css` - Cyberpunk animations (neon glow, shimmer, scanlines)
+- `frontend/src/styles/responsive.css` - Responsive design breakpoints
+- `frontend/src/components/ui/Button.module.css` - Button component with neon styling
+- `frontend/src/components/ui/Card.module.css` - Card component with glassmorphism effects
+- `frontend/src/components/ui/Input.module.css` - Input component with dark theme
+- `frontend/src/components/ui/Textarea.module.css` - Textarea component with dark theme
+- `frontend/src/layouts/MainLayout.module.css` - Main layout with backdrop blur and neon borders
+
+### Frontend Form Validation
+- `frontend/src/utils/formValidation.ts` - Form validation rules (updated: removed 500-char minimum)
+- `frontend/src/components/GenerationForm/PromptInput.tsx` - Prompt input component (updated: removed character limit validation)
 
 ## Agent Coordination
 
@@ -112,9 +128,11 @@ This index tracks all files created during the AI Backend development process.
 - `commits/Orange/` - Orange agent commit records
 - `fastapi/commits/Orange/` - Backend-specific Orange commits
 - `commits/Blonde/` - Blonde agent commit records (PR #004)
+- `commits/Blue/` - Blue agent commit records (Frontend theme implementation, prompt validation fixes)
 
 ## Root Files
 
 - `requirements.txt` - Consolidated Python dependencies from all modules
 - `LICENSE` - Project license
 - `README.md` - Project overview (pending)
+- `bughunt.md` - Transcribed notes from the front-end bughunt on 2025-11-15

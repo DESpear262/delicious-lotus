@@ -22,8 +22,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   error,
 }) => {
   const charCount = value.length;
-  const isValid = charCount >= 500 && charCount <= 2000;
-  const isNearMin = charCount > 0 && charCount < 500;
+  const isValid = charCount > 0 && charCount <= 2000;
   const isNearMax = charCount > 1800;
 
   const handleUseExample = (example: string) => {
@@ -45,16 +44,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         onChange={(e) => onChange(e.target.value)}
         onBlur={(e) => onBlur(e.target.value)}
         error={error}
-        placeholder="Describe your video in detail (500-2000 characters)..."
-        minLength={500}
+        placeholder="Describe your video in detail (max 2000 characters)..."
         maxLength={2000}
         showCounter
         fullWidth
         rows={8}
         helperText={
-          isNearMin
-            ? `${500 - charCount} more characters needed`
-            : isNearMax
+          isNearMax
             ? `${2000 - charCount} characters remaining`
             : undefined
         }

@@ -1,4 +1,4 @@
-/* Animation Utilities */
+/* Animation Utilities - Cyberpunk Theme */
 
 /* Keyframe Animations */
 @keyframes fadeIn {
@@ -6,6 +6,50 @@
     opacity: 0;
   }
   to {
+    opacity: 1;
+  }
+}
+
+/* Neon Glow Pulse */
+@keyframes neonGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4), 0 0 16px rgba(0, 229, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.8), 0 0 24px rgba(0, 229, 255, 0.4);
+  }
+}
+
+/* Slow Neon Border Glow */
+@keyframes neonBorderGlow {
+  0%, 100% {
+    border-color: rgba(0, 229, 255, 0.3);
+    box-shadow: 0 0 4px rgba(0, 229, 255, 0.2);
+  }
+  50% {
+    border-color: rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  }
+}
+
+/* Holographic Shimmer */
+@keyframes holographicShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Scale Up with Fade */
+@keyframes scaleUpFade {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.02);
     opacity: 1;
   }
 }
@@ -243,12 +287,36 @@
   transform: scale(1.05);
 }
 
-/* Focus Ring */
+/* Focus Ring - Neon */
 .focus-ring {
   outline: none;
   transition: box-shadow var(--transition-fast);
 }
 
 .focus-ring:focus-visible {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.3), var(--glow-subtle);
+}
+
+/* Cyberpunk Animation Classes */
+.animate-neon-glow {
+  animation: neonGlow 2s ease-in-out infinite;
+}
+
+.animate-neon-border {
+  animation: neonBorderGlow 4s ease-in-out infinite;
+}
+
+.animate-holographic {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 229, 255, 0.1) 0%,
+    rgba(189, 89, 255, 0.1) 50%,
+    rgba(0, 229, 255, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: holographicShimmer 3s ease-in-out infinite;
+}
+
+.animate-scale-up-fade {
+  animation: scaleUpFade 0.3s ease-out;
 }

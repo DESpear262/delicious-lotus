@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+import socketio
 
 from app.core.config import settings
 from app.core.logging import RequestIDMiddleware, setup_logging, get_request_logger
@@ -20,6 +21,8 @@ from app.models.schemas import DetailedHealthResponse
 from app.api.routes.v1 import api_v1_router
 from app.api.routes.internal_v1 import internal_v1_router
 from app.api.routes.webhooks import webhook_router
+from app.api.routes.websocket import websocket_router, sio
+from app.services.websocket_manager import get_websocket_manager
 
 
 # Create FastAPI application
@@ -36,6 +39,12 @@ app.add_exception_handler(Exception, global_exception_handler)
 app.include_router(api_v1_router)
 app.include_router(internal_v1_router)
 app.include_router(webhook_router)
+app.include_router(websocket_router)
+
+# Mount Socket.io ASGI app for WebSocket support
+# This wraps the FastAPI app to handle Socket.io connections
+# The Socket.io server will handle /socket.io/* paths, and FastAPI handles everything else
+socketio_app = socketio.ASGIApp(sio, app)
 
 # Mount static files for frontend (Option B deployment)
 # Check if frontend/dist directory exists before mounting
@@ -75,6 +84,10 @@ async def lifespan(app: FastAPI):
     logger = logging.getLogger("app")
     logger.info("Starting AI Video Generation Pipeline API")
     logger.info("API routers registered")
+
+    # Initialize WebSocket manager
+    ws_manager = get_websocket_manager()
+    logger.info("WebSocket manager initialized")
 
     # Initialize core services (placeholders for future use)
     logger.info("Core services initialized")
@@ -147,7 +160,8 @@ async def detailed_health_check(request: Request):
 # Global exception handler registered above
 
 
-def create_application() -> FastAPI:
-    """Factory function to create and configure the FastAPI application"""
+def create_application():
+    """Factory function to create and configure the FastAPI application with Socket.io"""
     setup_logging()
-    return app
+    # Return the Socket.io wrapped app for uvicorn
+    return socketio_app

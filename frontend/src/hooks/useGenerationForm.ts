@@ -46,8 +46,9 @@ export function useGenerationForm() {
   /**
    * Handle form data restoration from localStorage
    */
-  const handleRestore = useCallback((data: AdCreativeFormData) => {
+  const handleRestore = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => {
     setFormData(data);
+    setCurrentStep(step);
   }, []);
 
   const {
@@ -55,7 +56,7 @@ export function useGenerationForm() {
     showRestoreDialog,
     handleResume,
     handleDiscard,
-  } = useFormPersistence(formData, handleRestore);
+  } = useFormPersistence(formData, currentStep, handleRestore);
 
   /**
    * Update a single field

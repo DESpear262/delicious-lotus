@@ -13,7 +13,8 @@ const FORM_VERSION = '1.0';
 
 export function useFormPersistence(
   formData: AdCreativeFormData,
-  onRestore?: (data: AdCreativeFormData) => void
+  currentStep: 1 | 2 | 3 | 4,
+  onRestore?: (data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => void
 ) {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMount = useRef(true);
@@ -22,10 +23,11 @@ export function useFormPersistence(
   /**
    * Save form data to localStorage
    */
-  const saveToStorage = useCallback((data: AdCreativeFormData) => {
+  const saveToStorage = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => {
     try {
       const draft: FormDraft = {
         data,
+        currentStep: step,
         timestamp: Date.now(),
         version: FORM_VERSION,
       };
@@ -38,29 +40,48 @@ export function useFormPersistence(
   /**
    * Load form data from localStorage
    */
-  const loadFromStorage = useCallback((): AdCreativeFormData | null => {
+  const loadFromStorage = useCallback((): FormDraft | null => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) {
         return null;
       }
 
-      const draft: FormDraft = JSON.parse(saved);
+      const parsed = JSON.parse(saved) as Partial<FormDraft>;
 
       // Check version compatibility
-      if (draft.version !== FORM_VERSION) {
+      if (parsed.version !== FORM_VERSION) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
       }
 
       // Check expiration
-      const ageHours = (Date.now() - draft.timestamp) / (1000 * 60 * 60);
+      if (!parsed.timestamp) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      const ageHours = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
       if (ageHours >= EXPIRY_HOURS) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
       }
 
-      return draft.data;
+      // Ensure we have the required data
+      if (!parsed.data) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      // Handle legacy drafts that don't have currentStep
+      const draft: FormDraft = {
+        data: parsed.data,
+        currentStep: parsed.currentStep || 1,
+        timestamp: parsed.timestamp,
+        version: parsed.version || FORM_VERSION,
+      };
+
+      return draft;
     } catch (error) {
       console.error('Failed to load form draft:', error);
       localStorage.removeItem(STORAGE_KEY);
@@ -93,7 +114,7 @@ export function useFormPersistence(
   const restoreDraft = useCallback(() => {
     const draft = loadFromStorage();
     if (draft && onRestore) {
-      onRestore(draft);
+      onRestore(draft.data, draft.currentStep);
       return true;
     }
     return false;
@@ -116,7 +137,7 @@ export function useFormPersistence(
 
     // Set new debounced save timer
     debounceTimerRef.current = setTimeout(() => {
-      saveToStorage(formData);
+      saveToStorage(formData, currentStep);
     }, DEBOUNCE_MS);
 
     // Cleanup
@@ -125,7 +146,7 @@ export function useFormPersistence(
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [formData, saveToStorage]);
+  }, [formData, currentStep, saveToStorage]);
 
   /**
    * Load draft on mount - show dialog instead of browser confirm

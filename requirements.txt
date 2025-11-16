@@ -6,6 +6,7 @@
 openai>=1.0.0
 replicate>=0.31.0
 tenacity>=9.1.2  # Highest version from ai/ (8.2.0) and ffmpeg-backend (9.1.2)
+requests>=2.31.0
 
 # FastAPI and Web Framework (from fastapi/ and ffmpeg-backend/requirements.txt)
 fastapi>=0.121.2  # Highest version from fastapi/ (0.104.0) and ffmpeg-backend (0.121.2)

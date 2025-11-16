@@ -17,7 +17,7 @@ export function MainLayout() {
         <div className={styles.headerContent}>
           {/* Logo */}
           <Link to="/" className={styles.logo}>
-            <h1 className={styles.logoText}>AI Video Gen</h1>
+            <h1 className={styles.logoText}>Delicious Lotus</h1>
           </Link>
 
           {/* Desktop Navigation */}
@@ -47,7 +47,7 @@ export function MainLayout() {
             </span>
           </div>
           <div className={styles.footerInfo}>
-            <span>&copy; 2025 AI Video Generation Platform</span>
+            <span>&copy; 2025 Delicious Lotus</span>
             <span className={styles.separator}>•</span>
             <a href="#help" className={styles.footerLink}>Help</a>
             <span className={styles.separator}>•</span>

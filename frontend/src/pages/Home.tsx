@@ -10,9 +10,9 @@ export function Home() {
   return (
     <div className={styles.homePage}>
       <div className={styles.homeContent}>
-        <h1 className={styles.homeTitle}>AI Video Generation Pipeline</h1>
+        <h1 className={styles.homeTitle}>Delicious Lotus</h1>
         <p className={styles.homeDescription}>
-          Welcome to the AI Video Generation Platform
+          Welcome to Delicious Lotus
         </p>
         <p className={styles.homeNote}>
           Pipeline selection coming in PR-F006

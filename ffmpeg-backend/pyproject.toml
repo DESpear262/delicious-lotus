@@ -50,6 +50,9 @@ dependencies = [
     "tenacity>=8.2.3",
     "PyJWT>=2.8.0",
 
+    # AI/ML APIs
+    "replicate>=0.25.0",
+
     # Logging
     "python-json-logger>=2.0.7",
 

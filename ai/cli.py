@@ -793,22 +793,26 @@ class AIModuleTester:
                         scene_objects.append(scene_obj)
                         current_time += scene_data['duration']
 
-                    # Build micro-prompts using the service
-                    micro_prompt_request = MicroPromptRequest(
-                        generation_id=f"gen_{hash(prompt) % 10000}",
-                        scenes=[scene.dict() for scene in scene_objects],  # Convert to dicts as expected
+                    # Build micro-prompts using the centralized function
+                    generation_id = f"gen_{hash(prompt) % 10000}"
+                    
+                    # Import the function (path should already be set up earlier)
+                    import sys
+                    ffmpeg_backend_src = project_root / 'ffmpeg-backend' / 'src'
+                    if str(ffmpeg_backend_src) not in sys.path:
+                        sys.path.insert(0, str(ffmpeg_backend_src))
+                    from app.api.v1.replicate import build_micro_prompts_from_scenes
+                    
+                    micro_prompts = await build_micro_prompts_from_scenes(
+                        scenes=scenes,
                         prompt_analysis=prompt_analysis,
+                        generation_id=generation_id,
                         brand_config={"name": "Test Brand", "colors": ["#0066CC", "#FFFFFF"]},
-                        enforce_brand_consistency=True,
-                        enforce_accessibility=True,
-                        harmony_threshold=0.7
+                        use_fallback=True
                     )
-
-                    micro_prompt_response = await micro_prompt_service.build_micro_prompts(micro_prompt_request)
-                    micro_prompts = [mp.prompt_text for mp in micro_prompt_response.micro_prompts]
-                    print(f"[OK] Generated {len(micro_prompts)} micro-prompts using MicroPromptBuilderService")
+                    print(f"[OK] Generated {len(micro_prompts)} micro-prompts")
                 except Exception as e:
-                    print(f"[WARN] MicroPromptBuilderService failed: {e}, using fallback")
+                    print(f"[WARN] Micro-prompt building failed: {e}, using fallback")
                     # Fallback to manual creation
                     micro_prompts = []
                     for i, scene in enumerate(scenes, 1):
@@ -817,7 +821,7 @@ class AIModuleTester:
                         print(f"[OK] Scene {i} micro-prompt generated (fallback)")
             else:
                 # Fallback to manual creation
-                print("[WARN] MicroPromptBuilderService not available, using fallback")
+                print("[WARN] Micro-prompt building not available, using fallback")
                 micro_prompts = []
                 for i, scene in enumerate(scenes, 1):
                     micro_prompt = f"Professional {scene['type']} scene: {scene['description']}. High-quality production, {prompt_analysis.get('style', 'modern')} style, {prompt_analysis.get('tone', 'professional')} tone."
@@ -827,94 +831,58 @@ class AIModuleTester:
             # Step 4: Video Generation using Replicate
             print("\n[STEP 4] Generating videos...")
             
-            # Use the centralized video generation function from replicate.py
+            # Use the centralized video generation functions from replicate.py
             try:
-                # Import the function from ffmpeg-backend
+                # Import the functions from ffmpeg-backend
                 import sys
-                ffmpeg_backend_path = project_root / 'ffmpeg-backend' / 'src' / 'app' / 'api' / 'v1'
-                if str(ffmpeg_backend_path) not in sys.path:
-                    sys.path.insert(0, str(ffmpeg_backend_path))
                 
-                from replicate import generate_video_clips
+                # Add the ffmpeg-backend src directory to path so relative imports work
+                ffmpeg_backend_src = project_root / 'ffmpeg-backend' / 'src'
+                if str(ffmpeg_backend_src) not in sys.path:
+                    sys.path.insert(0, str(ffmpeg_backend_src))
+                
+                # Import as a proper module (app.api.v1.replicate)
+                from app.api.v1.replicate import (
+                    generate_video_clips_with_completion,
+                    download_and_save_videos
+                )
                 
                 generation_id = f"gen_{hash(prompt) % 10000}"
-                video_results = await generate_video_clips(
+                
+                # Generate videos and wait for completion
+                video_results = await generate_video_clips_with_completion(
                     scenes=scenes,
                     micro_prompts=micro_prompts,
                     generation_id=generation_id,
                     aspect_ratio="16:9",
                     parallelize=False,  # CLI defaults to sequential for coherence
-                    use_mock=self.use_mock
+                    use_mock=self.use_mock,
+                    wait_for_completion=True  # CLI always waits for completion
                 )
                 
-                # Process results and download videos if needed
-                video_urls = []
-                for i, result in enumerate(video_results, 1):
-                    if result.get("status") == "completed" and result.get("video_url"):
-                        video_url = result["video_url"]
-                        
-                        # If it's a mock URL, create placeholder file
-                        if video_url.startswith("mock://"):
-                            scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
-                            scene_path = test_storage_dir / scene_filename
-                            
-                            with open(scene_path, 'wb') as f:
-                                f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
-                                content = f"GENERATED_MICRO_PROMPT: {micro_prompts[i-1]}".encode()[:500]
-                                f.write(content)
-                                f.write(b'\x00' * (100 - len(content) if len(content) < 100 else 0))
-                            
-                            video_url = str(scene_path)
-                            print(f"[MOCK] Scene {i} placeholder video created")
-                        else:
-                            # Download and save the video
-                            scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
-                            scene_path = test_storage_dir / scene_filename
-                            
-                            print(f"   Downloading video from {video_url}...")
-                            video_response = requests.get(video_url, timeout=60)
-                            video_response.raise_for_status()
-                            
-                            with open(scene_path, 'wb') as f:
-                                f.write(video_response.content)
-                            
-                            video_url = str(scene_path)
-                            print(f"[OK] Scene {i} video downloaded and saved ({len(video_response.content)} bytes)")
-                        
-                        video_urls.append(video_url)
-                    else:
-                        # Handle error case
-                        error_msg = result.get("error", "Unknown error")
-                        print(f"[ERROR] Failed to generate scene {i}: {error_msg}")
-                        scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
-                        scene_path = test_storage_dir / scene_filename
-                        
-                        with open(scene_path, 'wb') as f:
-                            f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
-                            content = f"[ERROR] Generation failed: {error_msg} | MICRO_PROMPT: {micro_prompts[i-1][:200]}".encode()
-                            f.write(content)
-                        
-                        video_urls.append(str(scene_path))
+                # Download and save videos
+                video_urls = await download_and_save_videos(
+                    video_results=video_results,
+                    micro_prompts=micro_prompts,
+                    output_directory=test_storage_dir,
+                    create_error_files=True
+                )
                         
             except ImportError as e:
-                print(f"[WARN] Could not import generate_video_clips: {e}")
-                print("[INFO] Falling back to direct Replicate calls")
-                # Fallback to original implementation
+                print(f"[WARN] Could not import video generation functions: {e}")
+                print("[INFO] Falling back to mock video generation")
+                # Fallback to mock implementation when import fails
                 video_urls = []
                 for i, (scene, micro_prompt) in enumerate(zip(scenes, micro_prompts), 1):
-                    if self.use_mock or not replicate_client:
-                        scene_filename = f"scene_{i}_{hash(micro_prompt) % 10000}.mp4"
-                        scene_path = test_storage_dir / scene_filename
-                        with open(scene_path, 'wb') as f:
-                            f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
-                            content = f"GENERATED_MICRO_PROMPT: {micro_prompt}".encode()[:500]
-                            f.write(content)
-                            f.write(b'\x00' * (100 - len(content) if len(content) < 100 else 0))
-                        video_urls.append(str(scene_path))
-                        print(f"[MOCK] Scene {i} placeholder video created")
-                    else:
-                        print(f"[ERROR] Replicate client not available and import failed")
-                        video_urls.append(f"error://scene_{i}")
+                    scene_filename = f"scene_{i}_{hash(micro_prompt) % 10000}.mp4"
+                    scene_path = test_storage_dir / scene_filename
+                    with open(scene_path, 'wb') as f:
+                        f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
+                        content = f"GENERATED_MICRO_PROMPT: {micro_prompt}".encode()[:500]
+                        f.write(content)
+                        f.write(b'\x00' * (100 - len(content) if len(content) < 100 else 0))
+                    video_urls.append(str(scene_path))
+                    print(f"[MOCK] Scene {i} placeholder video created (import fallback)")
             except Exception as e:
                 print(f"[ERROR] Video generation failed: {str(e)}")
                 video_urls = [f"error://scene_{i}" for i in range(1, len(scenes) + 1)]

@@ -279,11 +279,14 @@ async def create_generation(
             import sys
             from pathlib import Path
             project_root = Path(__file__).parent.parent.parent.parent.parent
-            ffmpeg_backend_path = project_root / 'ffmpeg-backend' / 'src' / 'app' / 'api' / 'v1'
-            if str(ffmpeg_backend_path) not in sys.path:
-                sys.path.insert(0, str(ffmpeg_backend_path))
             
-            from replicate import generate_video_clips
+            # Add the ffmpeg-backend src directory to path so relative imports work
+            ffmpeg_backend_src = project_root / 'ffmpeg-backend' / 'src'
+            if str(ffmpeg_backend_src) not in sys.path:
+                sys.path.insert(0, str(ffmpeg_backend_src))
+            
+            # Import as a proper module (app.api.v1.replicate)
+            from app.api.v1.replicate import generate_video_clips
             
             # Get parallelization setting from request
             parallelize = generation_request.options.parallelize_generations if generation_request.options else False

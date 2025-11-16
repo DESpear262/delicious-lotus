@@ -382,3 +382,299 @@ async def generate_video_clips(
             video_results.append(result)
     
     return video_results
+
+
+async def wait_for_video_completion(
+    video_results: List[Dict[str, Any]],
+    replicate_client: Optional[Any] = None,
+    timeout_seconds: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    """
+    Wait for queued video generations to complete.
+    
+    This function polls Replicate for completion of queued video generations
+    and updates the results with completed status and video URLs.
+    
+    Args:
+        video_results: List of result dicts from generate_video_clips with "queued" status
+        replicate_client: Optional ReplicateModelClient instance (will create if not provided)
+        timeout_seconds: Optional timeout per video (defaults to REPLICATE_TIMEOUT_SECONDS)
+        
+    Returns:
+        Updated list of results with "completed" status and video_urls, or "failed" status with errors
+    """
+    from ai.core.replicate_client import ReplicateModelClient, ClientConfig
+    
+    # Create client if not provided
+    if not replicate_client:
+        replicate_api_token = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_token:
+            logger.error("REPLICATE_API_TOKEN not configured")
+            # Mark all as failed
+            for result in video_results:
+                if result.get("status") == "queued":
+                    result["status"] = "failed"
+                    result["error"] = "REPLICATE_API_TOKEN not configured"
+            return video_results
+        
+        replicate_config = ClientConfig(
+            api_token=replicate_api_token,
+            default_model=os.getenv("REPLICATE_DEFAULT_MODEL", "google/veo-3.1-fast"),
+            generation_timeout=float(os.getenv("REPLICATE_TIMEOUT_SECONDS", "300.0"))
+        )
+        replicate_client = ReplicateModelClient(replicate_config)
+    
+    # Wait for each queued result
+    completed_results = []
+    for i, result in enumerate(video_results, 1):
+        if result.get("status") == "queued" and result.get("prediction_id"):
+            prediction_id = result["prediction_id"]
+            clip_id = result.get("clip_id", f"clip_{i}")
+            
+            logger.info(f"Waiting for {clip_id} to complete (prediction_id: {prediction_id})")
+            print(f"[INFO] Waiting for scene {i} to complete (prediction_id: {prediction_id})...")
+            
+            try:
+                # Wait for completion
+                generation_result = await replicate_client.wait_for_completion(
+                    prediction_id,
+                    timeout_seconds=timeout_seconds
+                )
+                
+                # Extract video URL from result (it's in clip_metadata)
+                if generation_result.clip_metadata and generation_result.clip_metadata.video_url:
+                    result["status"] = "completed"
+                    result["video_url"] = generation_result.clip_metadata.video_url
+                    logger.info(f"Scene {i} generation completed: {result['video_url']}")
+                    print(f"[OK] Scene {i} generation completed")
+                else:
+                    result["status"] = "failed"
+                    result["error"] = "No video URL in result"
+                    logger.error(f"Scene {i} completed but no video URL")
+                    print(f"[ERROR] Scene {i} completed but no video URL")
+            except Exception as e:
+                result["status"] = "failed"
+                result["error"] = str(e)
+                logger.error(f"Failed to wait for scene {i} completion: {e}")
+                print(f"[ERROR] Failed to wait for scene {i} completion: {e}")
+        
+        completed_results.append(result)
+    
+    return completed_results
+
+
+async def generate_video_clips_with_completion(
+    scenes: List[Dict[str, Any]],
+    micro_prompts: List[str],
+    generation_id: str,
+    aspect_ratio: str = "16:9",
+    parallelize: bool = False,
+    use_mock: bool = False,
+    storage_service = None,
+    webhook_base_url: Optional[str] = None,
+    wait_for_completion: bool = True,
+    timeout_seconds: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    """
+    Generate video clips and optionally wait for completion.
+    
+    This is a convenience wrapper around generate_video_clips that optionally
+    waits for all generations to complete before returning.
+    
+    Args:
+        scenes: List of scene dictionaries with 'duration' and other metadata
+        micro_prompts: List of micro-prompt strings, one per scene
+        generation_id: Unique ID for the generation job
+        aspect_ratio: Video aspect ratio (default: "16:9")
+        parallelize: If True, generate clips concurrently; if False, sequentially
+        use_mock: If True, create placeholder files instead of calling Replicate
+        storage_service: Storage service for uploading videos (optional)
+        webhook_base_url: Base URL for webhook callbacks (e.g., https://api.example.com)
+        wait_for_completion: If True, wait for all videos to complete before returning
+        timeout_seconds: Optional timeout per video when waiting for completion
+        
+    Returns:
+        List of dictionaries with 'clip_id', 'video_url', 'scene_id', 'status', and 'prediction_id'
+    """
+    # Generate clips (returns immediately with "queued" status)
+    video_results = await generate_video_clips(
+        scenes=scenes,
+        micro_prompts=micro_prompts,
+        generation_id=generation_id,
+        aspect_ratio=aspect_ratio,
+        parallelize=parallelize,
+        use_mock=use_mock,
+        storage_service=storage_service,
+        webhook_base_url=webhook_base_url
+    )
+    
+    # If waiting for completion, poll for results
+    if wait_for_completion and not use_mock:
+        video_results = await wait_for_video_completion(
+            video_results,
+            timeout_seconds=timeout_seconds
+        )
+    
+    return video_results
+
+
+async def build_micro_prompts_from_scenes(
+    scenes: List[Dict[str, Any]],
+    prompt_analysis: Dict[str, Any],
+    generation_id: str,
+    brand_config: Optional[Dict[str, Any]] = None,
+    use_fallback: bool = True
+) -> List[str]:
+    """
+    Build micro-prompts from scene decomposition results.
+    
+    This is a convenience wrapper around MicroPromptBuilderService that handles
+    the service initialization and fallback logic.
+    
+    Args:
+        scenes: List of scene dictionaries from scene decomposition
+        prompt_analysis: Prompt analysis results (tone, style, etc.)
+        generation_id: Unique ID for the generation job
+        brand_config: Optional brand configuration
+        use_fallback: If True, use simple fallback prompts if service fails
+        
+    Returns:
+        List of micro-prompt strings, one per scene
+    """
+    try:
+        from ai.services.micro_prompt_builder_service import MicroPromptBuilderService
+        from ai.models.micro_prompt import MicroPromptRequest
+        
+        # Build micro-prompts using the service
+        micro_prompt_request = MicroPromptRequest(
+            generation_id=generation_id,
+            scenes=scenes,
+            prompt_analysis=prompt_analysis,
+            brand_config=brand_config or {"name": "Default Brand", "colors": ["#0066CC", "#FFFFFF"]},
+            enforce_brand_consistency=True,
+            enforce_accessibility=True,
+            harmony_threshold=0.7
+        )
+        
+        micro_prompt_service = MicroPromptBuilderService()
+        micro_prompt_response = await micro_prompt_service.build_micro_prompts(micro_prompt_request)
+        micro_prompts = [mp.prompt_text for mp in micro_prompt_response.micro_prompts]
+        
+        logger.info(f"Generated {len(micro_prompts)} micro-prompts using MicroPromptBuilderService")
+        return micro_prompts
+        
+    except Exception as e:
+        logger.warning(f"MicroPromptBuilderService failed: {e}, using fallback")
+        if not use_fallback:
+            raise
+        
+        # Fallback to simple prompt creation
+        micro_prompts = []
+        for i, scene in enumerate(scenes, 1):
+            scene_type = scene.get('type', scene.get('scene_type', 'development'))
+            scene_desc = scene.get('description', scene.get('content_description', 'scene'))
+            tone = prompt_analysis.get('tone', 'professional')
+            style = prompt_analysis.get('style', 'modern')
+            
+            micro_prompt = (
+                f"Professional {scene_type} scene: {scene_desc}. "
+                f"High-quality production, {style} style, {tone} tone."
+            )
+            micro_prompts.append(micro_prompt)
+        
+        logger.info(f"Generated {len(micro_prompts)} micro-prompts using fallback method")
+        return micro_prompts
+
+
+async def download_and_save_videos(
+    video_results: List[Dict[str, Any]],
+    micro_prompts: List[str],
+    output_directory: Path,
+    create_error_files: bool = True
+) -> List[str]:
+    """
+    Download completed videos and save them to disk.
+    
+    Args:
+        video_results: List of result dicts from generate_video_clips_with_completion
+        micro_prompts: List of micro-prompt strings (for error file content)
+        output_directory: Directory to save videos to
+        create_error_files: If True, create placeholder files for failed generations
+        
+    Returns:
+        List of local file paths to the saved videos
+    """
+    import requests
+    
+    # Ensure output directory exists
+    output_directory.mkdir(parents=True, exist_ok=True)
+    
+    video_paths = []
+    
+    for i, result in enumerate(video_results, 1):
+        if result.get("status") == "completed" and result.get("video_url"):
+            video_url = result["video_url"]
+            
+            # If it's a mock URL, create placeholder file
+            if video_url.startswith("mock://"):
+                scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
+                scene_path = output_directory / scene_filename
+                
+                with open(scene_path, 'wb') as f:
+                    f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
+                    content = f"GENERATED_MICRO_PROMPT: {micro_prompts[i-1]}".encode()[:500]
+                    f.write(content)
+                    f.write(b'\x00' * (100 - len(content) if len(content) < 100 else 0))
+                
+                video_paths.append(str(scene_path))
+                logger.info(f"Created mock video file: {scene_path}")
+                print(f"[MOCK] Scene {i} placeholder video created")
+            else:
+                # Download and save the video
+                scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
+                scene_path = output_directory / scene_filename
+                
+                try:
+                    logger.info(f"Downloading video from {video_url}...")
+                    print(f"   Downloading video from {video_url}...")
+                    video_response = requests.get(video_url, timeout=60)
+                    video_response.raise_for_status()
+                    
+                    with open(scene_path, 'wb') as f:
+                        f.write(video_response.content)
+                    
+                    video_paths.append(str(scene_path))
+                    logger.info(f"Video downloaded and saved: {scene_path} ({len(video_response.content)} bytes)")
+                    print(f"[OK] Scene {i} video downloaded and saved ({len(video_response.content)} bytes)")
+                except Exception as e:
+                    logger.error(f"Failed to download video for scene {i}: {e}")
+                    if create_error_files:
+                        # Create error placeholder
+                        with open(scene_path, 'wb') as f:
+                            f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
+                            content = f"[ERROR] Download failed: {str(e)} | URL: {video_url}".encode()[:500]
+                            f.write(content)
+                        video_paths.append(str(scene_path))
+                        print(f"[ERROR] Failed to download scene {i}, created error file")
+                    else:
+                        video_paths.append(None)
+        else:
+            # Handle error case
+            error_msg = result.get("error", "Unknown error")
+            logger.error(f"Failed to generate scene {i}: {error_msg}")
+            print(f"[ERROR] Failed to generate scene {i}: {error_msg}")
+            
+            if create_error_files:
+                scene_filename = f"scene_{i}_{hash(micro_prompts[i-1]) % 10000}.mp4"
+                scene_path = output_directory / scene_filename
+                
+                with open(scene_path, 'wb') as f:
+                    f.write(b'\x00\x00\x00\x20ftypmp41\x00\x00\x00\x00mp41mp42iso5dash')
+                    content = f"[ERROR] Generation failed: {error_msg} | MICRO_PROMPT: {micro_prompts[i-1][:200]}".encode()
+                    f.write(content)
+                
+                video_paths.append(str(scene_path))
+            else:
+                video_paths.append(None)
+    
+    return video_paths

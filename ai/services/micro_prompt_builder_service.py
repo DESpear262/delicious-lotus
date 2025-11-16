@@ -202,8 +202,9 @@ class MicroPromptBuilderService:
                 source="style_vector"
             ))
 
-        # Assemble final prompt
-        prompt_text = self._assemble_prompt_text(prompt_elements, scene.scene_type.value)
+        # Assemble final prompt - safely handle both enum and string values
+        scene_type_value = scene.scene_type.value if hasattr(scene.scene_type, 'value') else str(scene.scene_type)
+        prompt_text = self._assemble_prompt_text(prompt_elements, scene_type_value)
 
         # Generate negative prompt if enabled
         negative_prompt = None
@@ -252,9 +253,10 @@ class MicroPromptBuilderService:
         """Build visual style and camera elements"""
         elements = []
 
-        # Visual style
+        # Visual style - safely handle both enum and string values
         if scene.visual_style:
-            elements.append(f"{scene.visual_style.value} visual style")
+            visual_style_value = scene.visual_style.value if hasattr(scene.visual_style, 'value') else str(scene.visual_style)
+            elements.append(f"{visual_style_value} visual style")
 
         # Camera work
         if scene.camera_movement:
@@ -350,8 +352,8 @@ class MicroPromptBuilderService:
             "poor lighting", "amateur", "unprofessional"
         ])
 
-        # Scene-specific negatives
-        scene_type = scene.scene_type.value
+        # Scene-specific negatives - safely handle both enum and string values
+        scene_type = scene.scene_type.value if hasattr(scene.scene_type, 'value') else str(scene.scene_type)
         if scene_type == "introduction":
             negative_elements.extend(["dark", "confusing", "boring"])
         elif scene_type == "development":

@@ -9,6 +9,7 @@ import {
   VideoParameters,
   ReviewStep,
 } from '@/components/GenerationForm';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import styles from './AdCreativeForm.module.css';
 
 export const AdCreativeForm: React.FC = () => {
@@ -24,6 +25,9 @@ export const AdCreativeForm: React.FC = () => {
     previousStep,
     goToStep,
     submitForm,
+    showRestoreDialog,
+    handleResume,
+    handleDiscard,
   } = useGenerationForm();
 
   // Calculate completed steps
@@ -124,6 +128,19 @@ export const AdCreativeForm: React.FC = () => {
           {renderStepContent()}
         </FormContainer>
       </div>
+
+      {/* Restore Draft Dialog */}
+      <ConfirmDialog
+        isOpen={showRestoreDialog}
+        title="Previous Draft Found"
+        message="A previous draft was found. Would you like to resume where you left off?"
+        confirmLabel="Resume"
+        cancelLabel="Discard"
+        confirmVariant="primary"
+        cancelVariant="outline"
+        onConfirm={handleResume}
+        onCancel={handleDiscard}
+      />
     </div>
   );
 };

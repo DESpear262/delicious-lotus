@@ -3,7 +3,7 @@
  * Handles auto-save to localStorage with expiration
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import type { AdCreativeFormData, FormDraft } from '@/types/form';
 
 const STORAGE_KEY = 'ad-creative-form-draft';
@@ -17,6 +17,7 @@ export function useFormPersistence(
 ) {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMount = useRef(true);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
 
   /**
    * Save form data to localStorage
@@ -127,21 +128,32 @@ export function useFormPersistence(
   }, [formData, saveToStorage]);
 
   /**
-   * Load draft on mount
+   * Load draft on mount - show dialog instead of browser confirm
    */
   useEffect(() => {
     if (hasSavedDraft() && onRestore) {
-      const shouldRestore = window.confirm(
-        'A previous draft was found. Would you like to restore it?'
-      );
-      if (shouldRestore) {
-        restoreDraft();
-      } else {
-        clearStorage();
-      }
+      setShowRestoreDialog(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
+
+  /**
+   * Handle resume (restore draft)
+   */
+  const handleResume = useCallback(() => {
+    setShowRestoreDialog(false);
+    if (restoreDraft()) {
+      // Draft restored successfully
+    }
+  }, [restoreDraft]);
+
+  /**
+   * Handle discard (clear draft)
+   */
+  const handleDiscard = useCallback(() => {
+    setShowRestoreDialog(false);
+    clearStorage();
+  }, [clearStorage]);
 
   return {
     saveToStorage,
@@ -149,5 +161,8 @@ export function useFormPersistence(
     clearStorage,
     hasSavedDraft,
     restoreDraft,
+    showRestoreDialog,
+    handleResume,
+    handleDiscard,
   };
 }

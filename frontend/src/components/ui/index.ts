@@ -25,3 +25,6 @@ export type { SpinnerProps, SpinnerOverlayProps } from './Spinner';
 
 export { Toast, ToastContainer } from './Toast';
 export type { ToastProps, ToastContainerProps, ToastType } from './Toast';
+
+export { ConfirmDialog } from './ConfirmDialog';
+export type { ConfirmDialogProps } from './ConfirmDialog';

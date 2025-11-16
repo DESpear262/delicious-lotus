@@ -49,7 +49,12 @@ export function useGenerationForm() {
     setFormData(data);
   }, []);
 
-  const { clearStorage } = useFormPersistence(formData, handleRestore);
+  const {
+    clearStorage,
+    showRestoreDialog,
+    handleResume,
+    handleDiscard,
+  } = useFormPersistence(formData, handleRestore);
 
   /**
    * Update a single field
@@ -240,6 +245,10 @@ export function useGenerationForm() {
     currentStep,
     formData,
     errors,
+    // Form persistence dialog
+    showRestoreDialog,
+    handleResume,
+    handleDiscard,
     isSubmitting,
     submitError,
 

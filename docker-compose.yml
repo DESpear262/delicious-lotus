@@ -1,0 +1,84 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-video-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_video_pipeline}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_video_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_video_user} -d ${POSTGRES_DB:-ai_video_pipeline}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-network
+
+  # Redis Cache/Queue
+  redis:
+    image: redis:7-alpine
+    container_name: ai-video-redis
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-network
+
+  # Backend (FastAPI + FFmpeg) - PR-D002
+  backend:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    container_name: ai-video-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      # API Keys (will be provided by user)
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
+      # Storage
+      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Application
+      APP_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # CORS (for development - Option B deployment)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8000}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-video-network
+    # Uses CMD from Dockerfile: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ai-video-network:
+    driver: bridge

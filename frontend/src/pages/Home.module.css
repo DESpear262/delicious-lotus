@@ -1,0 +1,51 @@
+/* Home Page */
+.homePage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.homeContent {
+  max-width: 800px;
+  padding: var(--spacing-8);
+}
+
+.homeTitle {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-6);
+}
+
+.homeDescription {
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-8);
+}
+
+.homeNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  padding: var(--spacing-4);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+}
+
+/* Mobile Responsive */
+@media (max-width: 767px) {
+  .homeTitle {
+    font-size: var(--font-size-3xl);
+  }
+
+  .homeDescription {
+    font-size: var(--font-size-lg);
+  }
+
+  .homeContent {
+    padding: var(--spacing-4);
+  }
+}

@@ -1,33 +1,35 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { MainLayout } from './layouts/MainLayout';
-import { PipelineSelection } from './pages/PipelineSelection';
-import { AdCreativeForm } from './pages/AdCreativeForm';
-import { History } from './pages/History';
-import { VideoPreview } from './pages/VideoPreview';
-import { GenerationProgress } from './pages/GenerationProgress';
-import { NotFound } from './pages/NotFound';
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
 
-/**
- * App Component
- *
- * Main application component with React Router v7 configuration.
- * Routes are wrapped in MainLayout for consistent header/footer.
- */
 function App() {
+  const [count, setCount] = useState(0)
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<PipelineSelection />} />
-          <Route path="create/ad-creative" element={<AdCreativeForm />} />
-          <Route path="history" element={<History />} />
-          <Route path="generation/:id" element={<GenerationProgress />} />
-          <Route path="preview/:id" element={<VideoPreview />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
 }
 
-export default App;
+export default App

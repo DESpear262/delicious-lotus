@@ -4,7 +4,7 @@ Brand Analysis Service - PR 102: Brand & Metadata Extraction Layer
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..core.openai_client import OpenAIClient
 from ..models.brand_config import BrandConfig, get_default_brand_config

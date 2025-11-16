@@ -63,11 +63,6 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8000}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      # Note: For development, you can mount code for hot reload
-      # - ./fastapi/app:/app/app
-      - backend_uploads:/app/uploads
-      - backend_temp:/app/temp
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,47 +72,11 @@ services:
       - ai-video-network
     # Uses CMD from Dockerfile: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-  # Celery Worker for async tasks (placeholder)
-  celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    container_name: ai-video-celery-worker
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
-      REDIS_URL: redis://redis:6379/0
-      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
-      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      ENVIRONMENT: development
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-    volumes:
-      - ./backend:/app
-      - /app/.venv
-      - backend_uploads:/app/uploads
-      - backend_outputs:/app/outputs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-video-network
-    # Placeholder command - will be replaced when backend team provides Celery setup
-    command: echo "Celery worker placeholder - waiting for backend structure"
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  backend_uploads:
-    driver: local
-  backend_temp:
-    driver: local
-  backend_outputs:
     driver: local
 
 networks:

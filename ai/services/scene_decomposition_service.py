@@ -7,7 +7,7 @@ import uuid
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
-from models.scene_decomposition import (
+from ..models.scene_decomposition import (
     Scene,
     SceneType,
     VisualStyle,
@@ -19,8 +19,8 @@ from models.scene_decomposition import (
     AD_SCENE_RULES,
     MUSIC_VIDEO_SCENE_RULES
 )
-from models.prompt_analysis import PromptAnalysis, KeyElement
-from models.brand_config import BrandConfig
+from ..models.prompt_analysis import PromptAnalysis, KeyElement
+from ..models.brand_config import BrandConfig
 
 logger = logging.getLogger(__name__)
 

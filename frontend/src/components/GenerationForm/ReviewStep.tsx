@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { AdCreativeFormData } from '@/types/form';
+import type { AdCreativeFormData } from '@/types/form';
 import styles from './ReviewStep.module.css';
 
 interface ReviewStepProps {

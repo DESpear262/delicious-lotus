@@ -93,7 +93,31 @@
     font-size: var(--font-size-xl);
   }
 
+  /* Stack color inputs vertically on mobile */
   .colorGrid {
     grid-template-columns: 1fr;
+    gap: var(--spacing-4);
+  }
+
+  /* Larger upload area for touch */
+  .uploadArea {
+    min-height: 140px;
+  }
+
+  /* Better spacing for form sections */
+  .section {
+    gap: var(--spacing-4);
+  }
+
+  /* Ensure inputs are properly sized */
+  .input {
+    font-size: 16px; /* Prevent iOS zoom */
+    min-height: var(--touch-target-min);
+  }
+
+  /* Toggle switches should be touch-friendly */
+  .toggle {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
   }
 }

@@ -135,3 +135,48 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger input fields for touch */
+  .input {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: var(--touch-target-min);
+  }
+
+  /* Adjust icon spacing for larger inputs */
+  .inputWithLeftIcon {
+    padding-left: var(--spacing-12);
+  }
+
+  .inputWithRightIcon {
+    padding-right: var(--spacing-12);
+  }
+
+  .leftIcon,
+  .rightIcon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* Make labels slightly larger on mobile */
+  .label {
+    font-size: var(--font-size-base);
+  }
+
+  /* Better spacing for error/helper text */
+  .errorMessage,
+  .successMessage,
+  .helperText {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Small phones - adjust padding */
+@media (max-width: 375px) {
+  .input {
+    padding: var(--spacing-2) var(--spacing-3);
+  }
+}

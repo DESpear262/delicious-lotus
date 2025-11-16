@@ -35,25 +35,54 @@
   min-width: 140px;
 }
 
-/* Responsive */
+/* Responsive - Mobile */
 @media (max-width: 767px) {
-  .content {
-    padding: var(--spacing-5);
+  /* Single column layout with reduced padding */
+  .container {
+    gap: var(--spacing-4);
   }
 
+  .content {
+    padding: var(--spacing-4);
+    border-radius: var(--radius-md);
+    min-height: 300px;
+  }
+
+  /* Stack navigation buttons vertically */
   .navigation {
     flex-direction: column-reverse;
     gap: var(--spacing-3);
+    padding-top: var(--spacing-4);
+    position: sticky;
+    bottom: 0;
+    background: var(--color-bg-primary);
+    padding: var(--spacing-4);
+    margin: 0 calc(var(--spacing-4) * -1);
+    border-top: 2px solid var(--color-border);
   }
 
+  /* Full-width buttons for better touch targets */
   .backButton,
   .nextButton,
   .submitButton {
     width: 100%;
     min-width: auto;
+    min-height: var(--touch-target-comfortable);
   }
 
   .spacer {
     display: none;
+  }
+}
+
+/* Small phones - further reduce spacing */
+@media (max-width: 375px) {
+  .content {
+    padding: var(--spacing-3);
+    min-height: 250px;
+  }
+
+  .container {
+    gap: var(--spacing-3);
   }
 }

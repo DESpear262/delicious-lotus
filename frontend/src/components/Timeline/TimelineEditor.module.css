@@ -158,18 +158,74 @@
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
+  /* Stack header elements vertically */
   .timelineEditor__header {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--spacing-3);
   }
 
   .timelineEditor__actions {
     flex-wrap: wrap;
     justify-content: space-between;
+    gap: var(--spacing-2);
   }
 
   .timelineEditor__stats {
     flex-wrap: wrap;
+    gap: var(--spacing-3);
+  }
+
+  /* Larger zoom controls for touch */
+  .timelineEditor__zoomButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2);
+  }
+
+  /* Larger playback controls */
+  .timelineEditor__playButton,
+  .timelineEditor__stopButton {
+    min-width: var(--touch-target-comfortable);
+    min-height: var(--touch-target-comfortable);
+  }
+
+  /* Full-width composition button */
+  .timelineEditor__composeButton {
+    width: 100%;
+    min-height: var(--touch-target-comfortable);
+    margin-top: var(--spacing-2);
+  }
+
+  /* Horizontal scroll for timeline on mobile */
+  .timelineEditor__content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better spacing for timeline tracks */
+  .timelineEditor__tracks {
+    gap: var(--spacing-3);
+  }
+
+  /* Simplified timeline for mobile */
+  .timelineEditor {
+    padding: var(--spacing-3);
+  }
+}
+
+/* Small phones - further simplification */
+@media (max-width: 375px) {
+  .timelineEditor {
+    padding: var(--spacing-2);
+  }
+
+  .timelineEditor__header {
+    gap: var(--spacing-2);
+  }
+
+  .timelineEditor__stats {
+    font-size: var(--font-size-sm);
   }
 }

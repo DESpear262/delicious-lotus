@@ -193,11 +193,47 @@
 
 /* Responsive */
 @media (max-width: 767px) {
+  /* Move toasts to bottom center on mobile */
   .container {
-    max-width: calc(100% - var(--spacing-8));
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    max-width: 100%;
+    padding: var(--spacing-3);
+    align-items: stretch;
   }
 
   .toast {
-    min-width: 280px;
+    min-width: auto;
+    width: 100%;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Larger dismiss button for touch */
+  .closeButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Better padding for mobile */
+  .toast {
+    padding: var(--spacing-4);
+  }
+
+  /* Larger icons and text */
+  .icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .message {
+    font-size: var(--font-size-base);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-2);
   }
 }

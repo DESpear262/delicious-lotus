@@ -124,3 +124,47 @@
   overflow-y: auto;
   padding: var(--spacing-4) 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Ensure proper touch targets */
+  .menuButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-3);
+  }
+
+  .closeButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-3);
+  }
+
+  /* Larger icons for better visibility */
+  .menuIcon,
+  .closeIcon {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Better spacing in drawer */
+  .drawerHeader {
+    padding: var(--spacing-5) var(--spacing-6);
+    min-height: var(--touch-target-large);
+  }
+
+  .drawerTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  /* Full-width drawer on small phones */
+  .drawer {
+    width: 85vw;
+  }
+}
+
+@media (max-width: 375px) {
+  .drawer {
+    width: 90vw;
+  }
+}

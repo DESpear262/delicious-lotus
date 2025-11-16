@@ -205,3 +205,55 @@
 .clip__deleteButton:active {
   transform: scale(0.95);
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Touch-friendly interactions */
+  .clipTrack__clip,
+  .timeRuler__marker,
+  .transitionPicker__option {
+    min-height: var(--touch-target-min);
+  }
+
+  /* Larger touch targets for interactive elements */
+  .clipTrack__deleteButton,
+  .clipTrack__trimHandle,
+  .transitionPicker__button {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2);
+  }
+
+  /* Horizontal scroll for timeline */
+  .clipTrack,
+  .timeRuler {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Larger clip thumbnails for better visibility */
+  .clipTrack__thumbnail {
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  /* Better spacing */
+  .clipTrack {
+    gap: var(--spacing-2);
+  }
+
+  /* Larger fonts for readability */
+  .clipTrack__duration,
+  .timeRuler__time {
+    font-size: var(--font-size-sm);
+  }
+
+  /* Transition picker as bottom sheet on mobile */
+  .transitionPicker__dropdown {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 50vh;
+  }
+}

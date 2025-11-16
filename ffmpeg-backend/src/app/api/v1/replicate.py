@@ -278,10 +278,15 @@ async def generate_video_clips(
             else:
                 valid_duration = 8
             
+            print(f"[INFO] Clip {i}: prompt='{micro_prompt[:50]}...', duration={valid_duration}s, aspect_ratio={aspect_ratio}")
+            
             # Build webhook URL if webhook_base_url is provided
             webhook_url = None
             if webhook_base_url:
                 webhook_url = f"{webhook_base_url.rstrip('/')}/api/v1/webhooks/replicate"
+                print(f"[INFO] Clip {i}: Webhook URL configured: {webhook_url}")
+            else:
+                print(f"[WARN] Clip {i}: No webhook URL provided - status updates may be delayed")
             
             clip_request = GenerateClipRequest(
                 clip_id=clip_id,
@@ -295,7 +300,9 @@ async def generate_video_clips(
             )
             
             # Start generation (returns immediately with prediction_id)
+            print(f"[INFO] Clip {i}: Submitting to Replicate API...")
             response = await replicate_client.generate_clip(clip_request)
+            print(f"[INFO] Clip {i}: Received prediction_id={response.prediction_id}")
             
             # Store prediction mapping for webhook handler
             # Note: Mapping will be stored by the caller (fastapi route) since we can't import across packages
@@ -313,6 +320,9 @@ async def generate_video_clips(
             
         except Exception as e:
             logger.error(f"Failed to start generation for clip {clip_id}: {str(e)}")
+            print(f"[ERROR] Failed to start generation for clip {i} ({clip_id}): {str(e)}")
+            import traceback
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
             return {
                 "clip_id": clip_id,
                 "scene_id": scene_id,
@@ -326,6 +336,7 @@ async def generate_video_clips(
     if parallelize:
         # Generate all clips concurrently
         logger.info(f"Generating {len(micro_prompts)} clips in parallel")
+        print(f"[INFO] Generating {len(micro_prompts)} clips in parallel")
         tasks = [
             generate_single_clip(i + 1, scene, micro_prompt)
             for i, (scene, micro_prompt) in enumerate(zip(scenes, micro_prompts))
@@ -337,6 +348,7 @@ async def generate_video_clips(
         for i, result in enumerate(video_results):
             if isinstance(result, Exception):
                 logger.error(f"Clip {i+1} generation raised exception: {result}")
+                print(f"[ERROR] Clip {i+1} generation raised exception: {result}")
                 processed_results.append({
                     "clip_id": f"clip_{i+1}_error",
                     "scene_id": f"scene_{i+1}",
@@ -346,13 +358,27 @@ async def generate_video_clips(
                     "prediction_id": None
                 })
             else:
+                status = result.get('status', 'unknown')
+                clip_id = result.get('clip_id', f'clip_{i+1}')
+                if status == 'queued':
+                    print(f"[OK] Clip {i+1} ({clip_id}) queued for generation")
+                elif status == 'failed':
+                    print(f"[ERROR] Clip {i+1} ({clip_id}) failed: {result.get('error', 'Unknown error')}")
                 processed_results.append(result)
         video_results = processed_results
     else:
         # Generate clips sequentially
         logger.info(f"Generating {len(micro_prompts)} clips sequentially")
+        print(f"[INFO] Generating {len(micro_prompts)} clips sequentially")
         for i, (scene, micro_prompt) in enumerate(zip(scenes, micro_prompts), 1):
+            print(f"[INFO] Starting generation for clip {i}/{len(micro_prompts)}")
             result = await generate_single_clip(i, scene, micro_prompt)
+            status = result.get('status', 'unknown')
+            clip_id = result.get('clip_id', f'clip_{i}')
+            if status == 'queued':
+                print(f"[OK] Clip {i} ({clip_id}) queued for generation")
+            elif status == 'failed':
+                print(f"[ERROR] Clip {i} ({clip_id}) failed: {result.get('error', 'Unknown error')}")
             video_results.append(result)
     
     return video_results

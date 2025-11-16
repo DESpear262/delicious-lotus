@@ -26,9 +26,15 @@ const getStepStatus = (
 ): StepStatus => {
   const stepNames = [
     'validation',
+    'analyzing',
     'planning',
+    'decomposing',
+    'micro',
+    'building',
     'generation',
+    'generating',
     'composition',
+    'assembling',
     'rendering',
   ];
 
@@ -87,49 +93,67 @@ export const GenerationProgress: React.FC = () => {
   });
 
   /**
-   * Build steps array from current progress
+   * Build steps array from current progress (matching CLI format)
    */
   const steps: Step[] = useMemo(() => {
     const baseSteps = [
       {
         id: 'validation',
-        label: 'Input Validation',
-        description: 'Validating prompt and parameters',
+        label: 'Step 1: Analyzing Prompt',
+        description: 'Analyzing prompt and parameters...',
       },
       {
         id: 'planning',
-        label: 'Content Planning',
-        description: 'Planning scenes and structure',
+        label: 'Step 2: Decomposing into Scenes',
+        description: 'Planning scenes and structure...',
+      },
+      {
+        id: 'micro_prompts',
+        label: 'Step 3: Building Micro-Prompts',
+        description: 'Creating detailed prompts for each scene...',
       },
       {
         id: 'generation',
-        label: 'Asset Generation',
-        description: 'Generating video clips',
+        label: 'Step 4: Generating Videos',
+        description: 'Generating video clips from prompts...',
         info:
           progress?.current_clip && progress?.total_clips
-            ? `${progress.current_clip}/${progress.total_clips} clips`
+            ? `Clip ${progress.current_clip} of ${progress.total_clips}`
+            : progress?.total_clips
+            ? `${progress.total_clips} clips to generate`
             : undefined,
       },
       {
         id: 'composition',
-        label: 'Video Composition',
-        description: 'Assembling final video',
+        label: 'Step 5: Video Composition',
+        description: 'Assembling final video from clips...',
       },
       {
         id: 'rendering',
-        label: 'Final Rendering',
-        description: 'Rendering and encoding',
+        label: 'Step 6: Final Rendering',
+        description: 'Rendering and encoding final video...',
       },
     ];
 
     return baseSteps.map((step, index) => {
-      const stepStatus = getStepStatus(index, currentStep, status);
+      // Map step IDs to indices for status checking
+      const stepIdToIndex: Record<string, number> = {
+        'validation': 0,
+        'planning': 1,
+        'micro_prompts': 2,
+        'generation': 3,
+        'composition': 4,
+        'rendering': 5,
+      };
+      
+      const stepIndex = stepIdToIndex[step.id] ?? index;
+      const stepStatus = getStepStatus(stepIndex, currentStep, status);
 
       return {
         ...step,
         status: stepStatus,
         progress:
-          stepStatus === 'in_progress' && step.id === 'generation'
+          stepStatus === 'in_progress' && (step.id === 'generation' || step.id === 'micro_prompts')
             ? progress?.percentage
             : undefined,
       };
@@ -278,9 +302,22 @@ export const GenerationProgress: React.FC = () => {
 
       {/* Step Indicator */}
       <Card variant="elevated" className={styles.stepsCard}>
-        <CardHeader title="Progress Steps" />
+        <CardHeader title="Generation Progress" subtitle="Following the same steps as the CLI" />
         <CardBody>
           <StepIndicator steps={steps} orientation="vertical" />
+          {/* Current Step Details */}
+          {currentStep && (
+            <div className={styles.currentStepDetails}>
+              <p className={styles.currentStepText}>
+                <strong>Current:</strong> {currentStep}
+              </p>
+              {progress?.percentage !== undefined && (
+                <p className={styles.progressText}>
+                  {progress.percentage.toFixed(1)}% complete
+                </p>
+              )}
+            </div>
+          )}
         </CardBody>
       </Card>
 

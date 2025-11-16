@@ -297,6 +297,30 @@
   }
 }
 
+/* Current Step Details */
+.currentStepDetails {
+  margin-top: var(--spacing-4);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.currentStepText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-2) 0;
+}
+
+.currentStepText strong {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.progressText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 767px) {
   /* Page container with mobile spacing */

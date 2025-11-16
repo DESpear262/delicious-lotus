@@ -116,9 +116,11 @@ async def create_generation(
     """
     logger = get_request_logger(request)
     logger.info(f"Creating new generation with prompt: {generation_request.prompt[:50]}...")
+    print(f"\n[START] Processing prompt: {generation_request.prompt[:100]}{'...' if len(generation_request.prompt) > 100 else ''}")
 
     # Generate unique ID for the generation (needed for micro-prompt generation)
     generation_id = f"gen_{uuid.uuid4().hex[:16]}"
+    print(f"[INFO] Generation ID: {generation_id}")
 
     # PR 101: Analyze the prompt for consistency
     prompt_analysis = None
@@ -128,6 +130,7 @@ async def create_generation(
 
     if AI_SERVICES_AVAILABLE:
         try:
+            print("\n[STEP 1] Analyzing prompt...")
             logger.info("Starting prompt analysis...")
             # Initialize service with mock mode for MVP (will be configured with real OpenAI key later)
             analysis_service = PromptAnalysisService(openai_api_key="dummy_key", use_mock=True)
@@ -135,6 +138,7 @@ async def create_generation(
             analysis_response = await analysis_service.analyze_prompt(analysis_request)
             prompt_analysis = analysis_response.analysis.dict()
             logger.info(f"Prompt analysis completed (confidence: {prompt_analysis.get('confidence_score', 0)})")
+            print(f"[OK] Prompt analysis complete (confidence: {prompt_analysis.get('confidence_score', 0):.2f})")
 
             # PR 102: Analyze brand configuration if available
             if generation_request.parameters.brand:
@@ -158,6 +162,7 @@ async def create_generation(
                 logger.info("No brand configuration needed for this generation")
 
             # PR 301: Generate micro-prompts from scenes (PR 103 scene decomposition is conceptually complete)
+            print("\n[STEP 2] Decomposing into scenes...")
             logger.info("Starting scene decomposition and micro-prompt generation...")
             from ai.models.scene_decomposition import decompose_video_scenes
 
@@ -171,6 +176,7 @@ async def create_generation(
             scene_response = decompose_video_scenes(scene_request)
             scenes = [scene.dict() for scene in scene_response.scenes]
             logger.info(f"Scene decomposition completed: {len(scenes)} scenes generated")
+            print(f"[OK] Generated {len(scenes)} scenes")
 
             # Build micro-prompts for each scene
             brand_style_vector = None
@@ -189,10 +195,12 @@ async def create_generation(
                 brand_style_vector=brand_style_vector.dict() if brand_style_vector else None
             )
 
+            print("\n[STEP 3] Building micro-prompts...")
             prompt_builder = MicroPromptBuilderService()
             micro_prompt_response = await prompt_builder.build_micro_prompts(micro_prompt_request)
             micro_prompts = [mp.dict() for mp in micro_prompt_response.micro_prompts]
             logger.info(f"Micro-prompt generation completed: {len(micro_prompts)} prompts created")
+            print(f"[OK] Generated {len(micro_prompts)} micro-prompts")
 
         except Exception as e:
             logger.error(f"AI analysis failed: {str(e)}")
@@ -283,7 +291,9 @@ async def create_generation(
             # Extract aspect ratio - AspectRatio enum values are already strings like "16:9"
             aspect_ratio = str(generation_request.parameters.aspect_ratio.value) if hasattr(generation_request.parameters.aspect_ratio, 'value') else str(generation_request.parameters.aspect_ratio)
             
+            print(f"\n[STEP 4] Generating videos...")
             logger.info(f"Starting video generation for {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
+            print(f"[INFO] Generating {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
             
             # Extract prompt_text from micro_prompts (they're dicts with 'prompt_text' field)
             micro_prompt_texts = []
@@ -360,15 +370,20 @@ async def create_generation(
                 _generation_store[generation_id]["status"] = GenerationStatus.PROCESSING
             
             logger.info(f"Video generation started: {queued_count}/{len(video_results)} clips queued (webhooks will update status when complete)")
+            print(f"[OK] Video generation started: {queued_count}/{len(video_results)} clips queued")
+            print(f"[INFO] Webhooks will update status when each clip completes")
             
         except ImportError as e:
             logger.warning(f"Could not import generate_video_clips: {e}. Video generation will need to be handled separately.")
+            print(f"[ERROR] Could not import generate_video_clips: {e}")
         except Exception as e:
             logger.error(f"Video generation failed: {str(e)}")
+            print(f"[ERROR] Video generation failed: {str(e)}")
             # Don't fail the entire request, just log the error
             _generation_store[generation_id]["video_generation_error"] = str(e)
 
     logger.info(f"Generation {generation_id} created successfully")
+    print(f"\n[SUCCESS] Generation {generation_id} created successfully")
     return response
 
 

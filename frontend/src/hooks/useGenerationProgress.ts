@@ -129,9 +129,12 @@ export function useGenerationProgress(
    */
   const fetchStatus = useCallback(async () => {
     try {
+      console.log(`[INFO] Fetching generation status for ${generationId}...`);
       const response = await getGeneration(generationId);
 
       if (!isMounted.current) return;
+      
+      console.log(`[INFO] Status: ${response.status}, Progress: ${response.progress?.percentage?.toFixed(1) || 0}%`);
 
       // Update state
       setStatus(response.status);
@@ -202,7 +205,12 @@ export function useGenerationProgress(
    * Handle progress event from WebSocket
    */
   const handleProgress = useCallback((data: ProgressEvent['data']) => {
-    console.log('[useGenerationProgress] Progress update:', data);
+    console.log(`[PROGRESS] Step: ${data.step}, ${data.percentage.toFixed(1)}% complete`);
+    if (data.clip_number && data.total_clips) {
+      console.log(`[PROGRESS] Clip ${data.clip_number}/${data.total_clips} - ${data.message || ''}`);
+    } else if (data.message) {
+      console.log(`[PROGRESS] ${data.message}`);
+    }
 
     setProgress(() => ({
       current_step: data.step,
@@ -226,7 +234,10 @@ export function useGenerationProgress(
    * Handle clip completed event from WebSocket
    */
   const handleClipCompleted = useCallback((data: ClipCompletedEvent['data']) => {
-    console.log('[useGenerationProgress] Clip completed:', data);
+    console.log(`[OK] Clip completed: ${data.clip_id} (${data.duration.toFixed(1)}s)`);
+    if (data.thumbnail_url) {
+      console.log(`[INFO] Thumbnail URL: ${data.thumbnail_url}`);
+    }
 
     setClips((prev) => [
       ...prev,
@@ -244,7 +255,7 @@ export function useGenerationProgress(
    */
   const handleStatusChange = useCallback(
     (data: StatusChangeEvent['data']) => {
-      console.log('[useGenerationProgress] Status change:', data);
+      console.log(`[STATUS] Changed from ${data.old_status} to ${data.new_status}`);
 
       const newStatus = data.new_status as GenerationStatus;
       setStatus(newStatus);
@@ -266,7 +277,10 @@ export function useGenerationProgress(
    */
   const handleCompleted = useCallback(
     (data: CompletedEvent['data']) => {
-      console.log('[useGenerationProgress] Generation completed:', data);
+      console.log('[SUCCESS] Generation completed!');
+      if (data.video_url) {
+        console.log(`[INFO] Video URL: ${data.video_url}`);
+      }
 
       setStatus('completed');
       stopPolling();
@@ -283,7 +297,12 @@ export function useGenerationProgress(
    */
   const handleError = useCallback(
     (data: ErrorEvent['data']) => {
-      console.error('[useGenerationProgress] Error event:', data);
+      console.error(`[ERROR] Generation error: ${data.message}`);
+      if (data.recoverable) {
+        console.log('[INFO] Error is recoverable, continuing...');
+      } else {
+        console.error('[ERROR] Fatal error, generation stopped');
+      }
 
       setError(data.message);
 

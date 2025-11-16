@@ -38,6 +38,7 @@
 - ✅ **Database persistence** - Generation metadata stored in PostgreSQL with JSONB fields for flexible metadata storage
 - ✅ **GET /api/v1/generations endpoint** - List generations with pagination, status filtering, and proper error handling
 - ✅ **History page null safety** - Fixed TypeError by adding defensive checks for undefined/empty generations arrays
+- ✅ **Replicate webhook integration** - Async video generation using Replicate webhooks. Server returns immediately after starting generation, Replicate calls webhook when complete. Webhook handler downloads videos, uploads to S3, and updates database. No more polling overhead.
 
 ### Backend/AI
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)

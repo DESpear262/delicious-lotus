@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     s3_bucket: Optional[str] = None
     use_local_storage: bool = True
     local_storage_path: str = "./storage"
+    
+    # Webhook Configuration
+    webhook_base_url: Optional[str] = None  # Base URL for webhook callbacks (e.g., https://api.example.com)
 
 
 # Global settings instance

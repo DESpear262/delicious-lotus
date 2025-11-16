@@ -186,13 +186,17 @@ async def generate_video_clips(
     aspect_ratio: str = "16:9",
     parallelize: bool = False,
     use_mock: bool = False,
-    storage_service = None
+    storage_service = None,
+    webhook_base_url: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    Generate video clips from micro-prompts using Replicate.
+    Generate video clips from micro-prompts using Replicate with webhook callbacks.
     
     This function extracts the working Replicate video generation logic
     from cli.py and makes it reusable for both CLI and FastAPI backend.
+    
+    Uses webhooks for async completion - starts generation and returns immediately.
+    Replicate will call the webhook endpoint when generation completes.
     
     Args:
         scenes: List of scene dictionaries with 'duration' and other metadata
@@ -201,9 +205,11 @@ async def generate_video_clips(
         aspect_ratio: Video aspect ratio (default: "16:9")
         parallelize: If True, generate clips concurrently; if False, sequentially
         use_mock: If True, create placeholder files instead of calling Replicate
+        storage_service: Storage service for uploading videos (optional)
+        webhook_base_url: Base URL for webhook callbacks (e.g., https://api.example.com)
         
     Returns:
-        List of dictionaries with 'clip_id', 'video_url', 'scene_id', and 'status'
+        List of dictionaries with 'clip_id', 'video_url', 'scene_id', 'status', and 'prediction_id'
     """
     try:
         from ai.core.replicate_client import ReplicateModelClient, ClientConfig
@@ -229,7 +235,7 @@ async def generate_video_clips(
     video_results = []
     
     async def generate_single_clip(i: int, scene: Dict[str, Any], micro_prompt: str) -> Dict[str, Any]:
-        """Generate a single video clip and upload to storage"""
+        """Generate a single video clip using webhook-based async generation"""
         clip_id = f"clip_{i:03d}_{hash(micro_prompt) % 10000}"
         scene_id = f"scene_{i}"
         
@@ -258,7 +264,7 @@ async def generate_video_clips(
                 "clip_id": clip_id,
                 "scene_id": scene_id,
                 "video_url": mock_url,
-                "status": "completed",
+                "status": "queued",
                 "prediction_id": None
             }
         
@@ -272,6 +278,11 @@ async def generate_video_clips(
             else:
                 valid_duration = 8
             
+            # Build webhook URL if webhook_base_url is provided
+            webhook_url = None
+            if webhook_base_url:
+                webhook_url = f"{webhook_base_url.rstrip('/')}/api/v1/webhooks/replicate"
+            
             clip_request = GenerateClipRequest(
                 clip_id=clip_id,
                 generation_id=generation_id,
@@ -279,47 +290,29 @@ async def generate_video_clips(
                 prompt=micro_prompt,
                 duration_seconds=valid_duration,
                 aspect_ratio=aspect_ratio,
-                resolution=VideoResolution.RES_720P
+                resolution=VideoResolution.RES_720P,
+                webhook_url=webhook_url
             )
             
-            # Start generation
+            # Start generation (returns immediately with prediction_id)
             response = await replicate_client.generate_clip(clip_request)
             
-            # Wait for completion
-            generation_result = await replicate_client.wait_for_completion(
-                response.prediction_id,
-                timeout_seconds=300.0
-            )
+            # Store prediction mapping for webhook handler
+            # Note: Mapping will be stored by the caller (fastapi route) since we can't import across packages
+            # The prediction_id is returned in the result so caller can store it
             
-            replicate_url = generation_result.clip_metadata.video_url
-            
-            # Upload to storage if storage_service is provided
-            final_url = replicate_url
-            if storage_service and replicate_url:
-                try:
-                    object_key = f"generations/{generation_id}/clips/{clip_id}.mp4"
-                    # Download from Replicate and upload to storage
-                    final_url = storage_service.upload_from_url(
-                        replicate_url,
-                        object_key,
-                        content_type="video/mp4"
-                    )
-                    logger.info(f"Uploaded clip {clip_id} to storage: {final_url}")
-                except Exception as e:
-                    logger.error(f"Failed to upload clip {clip_id} to storage: {str(e)}")
-                    # Fallback to Replicate URL if storage upload fails
-                    final_url = replicate_url
-            
+            # Return immediately with queued status
+            # Webhook will update status when generation completes
             return {
                 "clip_id": clip_id,
                 "scene_id": scene_id,
-                "video_url": final_url,
-                "status": "completed",
+                "video_url": None,  # Will be set by webhook handler
+                "status": "queued",
                 "prediction_id": response.prediction_id
             }
             
         except Exception as e:
-            logger.error(f"Failed to generate clip {clip_id}: {str(e)}")
+            logger.error(f"Failed to start generation for clip {clip_id}: {str(e)}")
             return {
                 "clip_id": clip_id,
                 "scene_id": scene_id,

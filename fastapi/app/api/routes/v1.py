@@ -4,12 +4,14 @@ Block 0: API Skeleton & Core Infrastructure
 """
 
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse
 from app.core.logging import get_request_logger
+from app.core.config import settings
 from app.models.schemas import (
     GenerationRequest,
     CreateGenerationResponse,
@@ -296,7 +298,19 @@ async def create_generation(
                     # If it's already a string or has prompt_text attribute
                     micro_prompt_texts.append(getattr(mp, 'prompt_text', str(mp)))
             
-            # Generate clips using the centralized function (with storage service)
+            # Get webhook base URL from settings or environment
+            webhook_base_url = settings.webhook_base_url or os.getenv('WEBHOOK_BASE_URL')
+            if not webhook_base_url:
+                # Try to construct from request if available
+                try:
+                    webhook_base_url = f"{request.url.scheme}://{request.url.hostname}"
+                    if request.url.port and request.url.port not in [80, 443]:
+                        webhook_base_url += f":{request.url.port}"
+                except:
+                    logger.warning("Could not determine webhook base URL - webhooks will not work")
+                    webhook_base_url = None
+            
+            # Generate clips using the centralized function (with storage service and webhooks)
             video_results = await generate_video_clips(
                 scenes=scenes,
                 micro_prompts=micro_prompt_texts,
@@ -304,20 +318,39 @@ async def create_generation(
                 aspect_ratio=aspect_ratio,
                 parallelize=parallelize,
                 use_mock=False,
-                storage_service=storage_service
+                storage_service=storage_service,
+                webhook_base_url=webhook_base_url
             )
             
-            # Update generation status and store video results
-            completed_count = len([r for r in video_results if r.get('status') == 'completed'])
+            # Store prediction_id mappings for webhook handler
+            if webhook_base_url:
+                try:
+                    from app.api.routes.webhooks import store_prediction_mapping
+                    for result in video_results:
+                        if result.get('prediction_id') and result.get('clip_id'):
+                            store_prediction_mapping(
+                                prediction_id=result['prediction_id'],
+                                generation_id=generation_id,
+                                clip_id=result['clip_id'],
+                                scene_id=result.get('scene_id', '')
+                            )
+                except ImportError:
+                    logger.warning("Could not import store_prediction_mapping - webhook mappings not stored")
+                except Exception as e:
+                    logger.error(f"Failed to store prediction mappings: {e}")
+            
+            # Store initial video results (all will be "queued" status with webhooks)
+            # Webhook handler will update status to "completed" when each clip finishes
+            queued_count = len([r for r in video_results if r.get('status') == 'queued'])
             if generation_storage_service:
                 try:
-                    # Update status to PROCESSING
+                    # Update status to PROCESSING (generation started, waiting for webhooks)
                     generation_storage_service.update_generation(
                         generation_id=generation_id,
                         status=GenerationStatus.PROCESSING.value,
                         metadata={"video_results": video_results}
                     )
-                    logger.info(f"Updated generation {generation_id} status to PROCESSING")
+                    logger.info(f"Updated generation {generation_id} status to PROCESSING ({queued_count} clips queued)")
                 except Exception as e:
                     logger.error(f"Failed to update generation status in database: {str(e)}")
             
@@ -326,7 +359,7 @@ async def create_generation(
                 _generation_store[generation_id]["video_results"] = video_results
                 _generation_store[generation_id]["status"] = GenerationStatus.PROCESSING
             
-            logger.info(f"Video generation completed: {completed_count}/{len(video_results)} clips generated")
+            logger.info(f"Video generation started: {queued_count}/{len(video_results)} clips queued (webhooks will update status when complete)")
             
         except ImportError as e:
             logger.warning(f"Could not import generate_video_clips: {e}. Video generation will need to be handled separately.")

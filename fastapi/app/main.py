@@ -19,6 +19,7 @@ from app.core.errors import global_exception_handler
 from app.models.schemas import DetailedHealthResponse
 from app.api.routes.v1 import api_v1_router
 from app.api.routes.internal_v1 import internal_v1_router
+from app.api.routes.webhooks import webhook_router
 
 
 # Create FastAPI application
@@ -34,6 +35,7 @@ app.add_exception_handler(Exception, global_exception_handler)
 # Register API routers immediately (not in lifespan)
 app.include_router(api_v1_router)
 app.include_router(internal_v1_router)
+app.include_router(webhook_router)
 
 # Mount static files for frontend (Option B deployment)
 # Check if frontend/dist directory exists before mounting

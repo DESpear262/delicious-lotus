@@ -75,7 +75,8 @@ export const useGenerationHistory = (): UseGenerationHistoryResult => {
       });
 
       // Apply client-side filtering for search and date range
-      let filteredGenerations = response.generations;
+      // Safely handle undefined or missing generations array
+      let filteredGenerations = response.generations || [];
 
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();

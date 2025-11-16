@@ -3,9 +3,12 @@ API v1 routes
 Block 0: API Skeleton & Core Infrastructure
 """
 
+import logging
 import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Request, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import JSONResponse
 from app.core.logging import get_request_logger
 from app.models.schemas import (
     GenerationRequest,
@@ -15,6 +18,9 @@ from app.models.schemas import (
     GenerationProgress
 )
 from app.core.errors import NotFoundError
+
+# Set up module-level logger
+logger = logging.getLogger(__name__)
 
 # Import AI services (BLOCK A, C & D)
 try:
@@ -38,6 +44,37 @@ api_v1_router = APIRouter(prefix="/api/v1", tags=["api-v1"])
 # Initialize services
 clip_assembly_service = None
 edit_classifier_service = None
+storage_service = None
+generation_storage_service = None
+
+# Initialize storage services
+try:
+    from app.services.storage import StorageService
+    from app.core.config import settings
+    
+    storage_service = StorageService(
+        use_local=settings.use_local_storage,
+        local_storage_path=settings.local_storage_path,
+        s3_bucket=settings.s3_bucket,
+        aws_region=settings.aws_region
+    )
+    logger.info("StorageService initialized")
+except Exception as e:
+    logger.warning(f"Failed to initialize StorageService: {str(e)}")
+
+# Initialize generation storage service
+try:
+    from app.services.generation_storage import GenerationStorageService
+    from app.core.config import settings
+    
+    if settings.database_url:
+        generation_storage_service = GenerationStorageService(database_url=settings.database_url)
+        logger.info("GenerationStorageService initialized")
+    else:
+        logger.warning("DATABASE_URL not set - generation storage will use in-memory fallback")
+except Exception as e:
+    logger.warning(f"Failed to initialize GenerationStorageService: {str(e)}")
+
 if AI_SERVICES_AVAILABLE:
     try:
         clip_assembly_service = ClipAssemblyService()
@@ -52,7 +89,7 @@ if AI_SERVICES_AVAILABLE:
     except Exception as e:
         logger.warning(f"Failed to initialize edit classifier service: {str(e)}")
 
-# Placeholder storage (will be replaced with Redis/Postgres)
+# Placeholder storage (fallback if database not available)
 _generation_store = {}
 
 
@@ -176,25 +213,241 @@ async def create_generation(
         websocket_url=f"/ws/generations/{generation_id}"
     )
 
-    # TODO: Add Redis integration point
-    # - Store generation metadata in Redis with TTL
-    # - Add to processing queue
-    # Placeholder: Store in memory for now
-    _generation_store[generation_id] = {
-        "id": generation_id,
-        "status": GenerationStatus.QUEUED,
-        "request": generation_request.dict(),
-        "prompt_analysis": prompt_analysis,  # PR 101: Store analysis results
-        "brand_config": brand_config.dict() if brand_config else None,  # PR 102: Store brand config
-        "scenes": scenes,  # PR 103: Store decomposed scenes
-        "micro_prompts": micro_prompts,  # PR 301: Store generated micro-prompts
-        "created_at": response.created_at,
-        "updated_at": response.created_at,
-        "progress": None
-    }
+    # Store generation metadata in database
+    if generation_storage_service:
+        try:
+            generation_storage_service.create_generation(
+                generation_id=generation_id,
+                prompt=generation_request.prompt,
+                status=GenerationStatus.QUEUED.value,
+                metadata={
+                    "prompt_analysis": prompt_analysis,
+                    "brand_config": brand_config.dict() if brand_config else None,
+                    "scenes": scenes,
+                    "micro_prompts": micro_prompts,
+                    "parameters": generation_request.parameters.dict(),
+                    "options": generation_request.options.dict() if generation_request.options else None
+                },
+                duration_seconds=generation_request.parameters.duration_seconds
+            )
+            logger.info(f"Stored generation {generation_id} in database")
+        except Exception as e:
+            logger.error(f"Failed to store generation in database: {str(e)}")
+            # Fallback to in-memory storage
+            _generation_store[generation_id] = {
+                "id": generation_id,
+                "status": GenerationStatus.QUEUED,
+                "request": generation_request.dict(),
+                "prompt_analysis": prompt_analysis,
+                "brand_config": brand_config.dict() if brand_config else None,
+                "scenes": scenes,
+                "micro_prompts": micro_prompts,
+                "created_at": response.created_at,
+                "updated_at": response.created_at,
+                "progress": None
+            }
+    else:
+        # Fallback to in-memory storage
+        _generation_store[generation_id] = {
+            "id": generation_id,
+            "status": GenerationStatus.QUEUED,
+            "request": generation_request.dict(),
+            "prompt_analysis": prompt_analysis,
+            "brand_config": brand_config.dict() if brand_config else None,
+            "scenes": scenes,
+            "micro_prompts": micro_prompts,
+            "created_at": response.created_at,
+            "updated_at": response.created_at,
+            "progress": None
+        }
+
+    # Generate video clips using the centralized function
+    # TODO: Move this to a background task/worker for production
+    if scenes and micro_prompts and len(scenes) == len(micro_prompts):
+        try:
+            # Import the video generation function
+            import sys
+            from pathlib import Path
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+            ffmpeg_backend_path = project_root / 'ffmpeg-backend' / 'src' / 'app' / 'api' / 'v1'
+            if str(ffmpeg_backend_path) not in sys.path:
+                sys.path.insert(0, str(ffmpeg_backend_path))
+            
+            from replicate import generate_video_clips
+            
+            # Get parallelization setting from request
+            parallelize = generation_request.options.parallelize_generations if generation_request.options else False
+            
+            # Extract aspect ratio - AspectRatio enum values are already strings like "16:9"
+            aspect_ratio = str(generation_request.parameters.aspect_ratio.value) if hasattr(generation_request.parameters.aspect_ratio, 'value') else str(generation_request.parameters.aspect_ratio)
+            
+            logger.info(f"Starting video generation for {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
+            
+            # Extract prompt_text from micro_prompts (they're dicts with 'prompt_text' field)
+            micro_prompt_texts = []
+            for mp in micro_prompts:
+                if isinstance(mp, dict):
+                    prompt_text = mp.get('prompt_text', '')
+                    if not prompt_text:
+                        # Fallback: try to get from nested structure
+                        prompt_text = mp.get('prompt', '') or str(mp)
+                    micro_prompt_texts.append(prompt_text)
+                else:
+                    # If it's already a string or has prompt_text attribute
+                    micro_prompt_texts.append(getattr(mp, 'prompt_text', str(mp)))
+            
+            # Generate clips using the centralized function (with storage service)
+            video_results = await generate_video_clips(
+                scenes=scenes,
+                micro_prompts=micro_prompt_texts,
+                generation_id=generation_id,
+                aspect_ratio=aspect_ratio,
+                parallelize=parallelize,
+                use_mock=False,
+                storage_service=storage_service
+            )
+            
+            # Update generation status and store video results
+            completed_count = len([r for r in video_results if r.get('status') == 'completed'])
+            if generation_storage_service:
+                try:
+                    # Update status to PROCESSING
+                    generation_storage_service.update_generation(
+                        generation_id=generation_id,
+                        status=GenerationStatus.PROCESSING.value,
+                        metadata={"video_results": video_results}
+                    )
+                    logger.info(f"Updated generation {generation_id} status to PROCESSING")
+                except Exception as e:
+                    logger.error(f"Failed to update generation status in database: {str(e)}")
+            
+            # Also update in-memory store (fallback)
+            if generation_id in _generation_store:
+                _generation_store[generation_id]["video_results"] = video_results
+                _generation_store[generation_id]["status"] = GenerationStatus.PROCESSING
+            
+            logger.info(f"Video generation completed: {completed_count}/{len(video_results)} clips generated")
+            
+        except ImportError as e:
+            logger.warning(f"Could not import generate_video_clips: {e}. Video generation will need to be handled separately.")
+        except Exception as e:
+            logger.error(f"Video generation failed: {str(e)}")
+            # Don't fail the entire request, just log the error
+            _generation_store[generation_id]["video_generation_error"] = str(e)
 
     logger.info(f"Generation {generation_id} created successfully")
     return response
+
+
+@api_v1_router.get("/generations", status_code=200)
+async def list_generations(
+    request: Request,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None)
+):
+    """
+    List all generations with pagination
+    
+    Returns a paginated list of generation records with metadata.
+    """
+    logger = get_request_logger(request)
+    logger.info(f"Listing generations (limit={limit}, offset={offset}, status={status})")
+    
+    try:
+        # Try to get from database first
+        if generation_storage_service:
+            generations = generation_storage_service.list_generations(
+                limit=limit,
+                offset=offset,
+                status=status
+            )
+            total = generation_storage_service.count_generations(status=status)
+        else:
+            # Fallback to in-memory store
+            all_generations = list(_generation_store.values())
+            
+            # Filter by status if provided
+            if status:
+                all_generations = [g for g in all_generations if g.get("status") == status]
+            
+            # Sort by created_at descending
+            all_generations.sort(key=lambda x: x.get("created_at", datetime.min), reverse=True)
+            
+            # Paginate
+            total = len(all_generations)
+            generations = all_generations[offset:offset + limit]
+            
+            # Convert to API format
+            generations = [
+                {
+                    "generation_id": g["id"],
+                    "status": g.get("status", "unknown"),
+                    "prompt": g.get("request", {}).get("prompt", "")[:100],  # Truncate for list view
+                    "thumbnail_url": None,  # TODO: Generate thumbnails
+                    "created_at": g.get("created_at", datetime.utcnow()).isoformat() + "Z",
+                    "duration_seconds": g.get("request", {}).get("parameters", {}).get("duration_seconds", 30)
+                }
+                for g in generations
+            ]
+        
+        # Calculate pagination metadata
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+        page = (offset // limit) + 1 if limit > 0 else 1
+        
+        return {
+            "generations": generations,
+            "pagination": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": pages
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to list generations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list generations: {str(e)}")
+
+
+@api_v1_router.post("/assets/upload", status_code=201)
+async def upload_asset(
+    request: Request,
+    file: UploadFile = File(...),
+    type: str = Form("image")
+):
+    """
+    Upload an asset (logo, image, audio, etc.)
+    
+    This is a stub endpoint that returns a mock response.
+    In production, this should:
+    - Validate file type and size
+    - Upload to S3 or storage service
+    - Store metadata in database
+    - Return asset URL and metadata
+    """
+    logger = get_request_logger(request)
+    logger.info(f"Asset upload requested: {file.filename}, type: {type}")
+    
+    # Stub implementation - return mock response
+    asset_id = f"asset_{uuid.uuid4().hex[:16]}"
+    
+    # In production, would:
+    # 1. Validate file (size, type, etc.)
+    # 2. Upload to S3/storage
+    # 3. Store metadata in database
+    # 4. Return actual URL
+    
+    return JSONResponse(
+        status_code=201,
+        content={
+            "asset_id": asset_id,
+            "url": f"https://storage.example.com/assets/{asset_id}/{file.filename}",
+            "filename": file.filename,
+            "type": type,
+            "size": 0,  # Would be actual file size
+            "status": "uploaded"
+        }
+    )
 
 
 @api_v1_router.post("/generations/{generation_id}/clips", status_code=201)

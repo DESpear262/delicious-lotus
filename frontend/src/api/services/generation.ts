@@ -48,9 +48,14 @@ export const listGenerations = async (
 ): Promise<ListGenerationsResponse> => {
   const queryParams = new URLSearchParams();
 
-  if (params?.page) {
-    queryParams.append('page', params.page.toString());
+  // Backend uses offset, but frontend may pass page - convert if needed
+  if (params?.page && params?.limit) {
+    const offset = (params.page - 1) * params.limit;
+    queryParams.append('offset', offset.toString());
+  } else if (params?.offset !== undefined) {
+    queryParams.append('offset', params.offset.toString());
   }
+  
   if (params?.limit) {
     queryParams.append('limit', params.limit.toString());
   }

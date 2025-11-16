@@ -44,13 +44,21 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(',')]
         return v
 
-    # Database Configuration (placeholders for future use)
+    # Database Configuration
     database_url: Optional[str] = None
     redis_url: Optional[str] = None
 
-    # External Service URLs (placeholders)
+    # External Service URLs
     replicate_api_token: Optional[str] = None
     openai_api_key: Optional[str] = None
+
+    # AWS/S3 Configuration
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: str = "us-east-2"
+    s3_bucket: Optional[str] = None
+    use_local_storage: bool = True
+    local_storage_path: str = "./storage"
 
 
 # Global settings instance

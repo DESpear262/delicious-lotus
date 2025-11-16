@@ -2,6 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
+**Last Updated:** 2025-11-15 by Blue (Frontend Cyberpunk Theme Implementation)
 **Last Updated:** 2025-11-15 by Orange (Real Video Generation Working)
 **Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
 **Last Updated:** 2025-11-14 by White
@@ -24,6 +25,19 @@
 - ✅ Core UI components (Button, Input, Card, Spinner, Toast) - 17 files, 2,436 lines
 - ✅ Responsive framework (mobile, tablet, desktop breakpoints)
 - ✅ Animation system (fade, slide, spin)
+- ✅ **Cyberpunk theme fully implemented** - Dark backgrounds with neon accents, glassmorphism effects, scanline patterns, holographic animations
+- ✅ Typography updated with Inter, Orbitron, and JetBrains Mono fonts
+- ✅ Prompt validation updated - removed 500-character minimum, only 2000-character maximum enforced
+- ✅ **ConfirmDialog component** - Custom modal dialog replacing browser confirm with "Resume" and "Discard" buttons for better UX
+- ✅ **Replicate video generation centralized** - Extracted working logic from cli.py into reusable generate_video_clips function in ffmpeg-backend
+- ✅ **Parallelization support** - Added option to generate video clips concurrently (faster) or sequentially (more coherent). UI switch in ReviewStep with clear messaging about tradeoffs
+- ✅ **Switch UI component** - New toggle switch component with cyberpunk theme styling
+- ✅ **StorageService** - Environment-aware storage service supporting both S3 (production) and local filesystem (development). Handles file uploads, presigned URLs, and automatic backend switching
+- ✅ **GenerationStorageService** - PostgreSQL-based storage for generation metadata with connection pooling, CRUD operations, and pagination support
+- ✅ **S3 video storage** - Videos from Replicate are automatically uploaded to S3/local storage after generation, stored at `generations/{generation_id}/clips/{clip_id}.mp4`
+- ✅ **Database persistence** - Generation metadata stored in PostgreSQL with JSONB fields for flexible metadata storage
+- ✅ **GET /api/v1/generations endpoint** - List generations with pagination, status filtering, and proper error handling
+- ✅ **History page null safety** - Fixed TypeError by adding defensive checks for undefined/empty generations arrays
 
 ### Backend/AI
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)
@@ -110,10 +124,10 @@
 - ✅ Block E PR 503: Consistency Enforcement Layer - Complete (White)
 - ✅ Block E PR 504: Integration & QC - Complete (QC Agent)
 
-### Frontend Track (1/16+ complete)
-### Frontend Track (2/16+ complete)
+### Frontend Track (3/16+ complete)
 - ✅ PR-F001: Project Initialization - Complete (commit 68eee3f)
 - ✅ PR-F002: Design System Foundation - Complete (commit dec2632)
+- ✅ Frontend Theme Implementation - Complete (Blue) - Cyberpunk styling, prompt validation fixes, bughunt notes transcription
 - 🎯 PR-F003: API Client Setup - Unblocked (2h)
 - 🎯 PR-F005: Routing/Layout - Unblocked (2h)
 - 🎯 PR-F016: User Documentation - Unblocked (2h)

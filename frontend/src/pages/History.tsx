@@ -216,11 +216,11 @@ export function History() {
 
         {/* Content */}
         <div className={styles.content}>
-          {isLoading && generations.length === 0 ? (
+          {isLoading && (!generations || generations.length === 0) ? (
             <LoadingSkeleton />
           ) : error ? (
             <ErrorState error={error} onRetry={refresh} />
-          ) : generations.length === 0 ? (
+          ) : !generations || generations.length === 0 ? (
             <EmptyState hasFilters={!!debouncedSearch || Object.keys(filters).length > 0} />
           ) : (
             <>

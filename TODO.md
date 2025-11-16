@@ -35,6 +35,20 @@
   - [ ] Fallback model selection for rate limits/failures
   - [ ] Performance benchmarking and model comparison
   - [ ] A/B testing framework for model selection
+- [ ] **Logo/Asset Upload Implementation** (Currently stub endpoint)
+  - [ ] Implement file validation (type, size, format)
+  - [ ] Upload assets to S3 or storage service
+  - [ ] Store asset metadata in database
+  - [ ] Return actual asset URLs (replace stub response)
+  - [ ] Add asset management endpoints (list, delete, retrieve)
+  - [ ] Implement asset cleanup/expiration policies
+- [ ] **Thumbnail Generation** (For generation list previews)
+  - [ ] Generate thumbnails from first frame of first video clip using FFmpeg
+  - [ ] Store thumbnails in S3/local storage at `generations/{generation_id}/thumbnails/thumbnail.jpg`
+  - [ ] Update generation metadata with thumbnail URL
+  - [ ] Add thumbnail generation to video generation pipeline
+  - [ ] Support multiple thumbnail sizes (thumbnail, preview, full)
+  - [ ] Cache thumbnails to avoid regeneration
 
 ## Non-MVP AI Backend Features (Phase 2)
 

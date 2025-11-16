@@ -2,7 +2,7 @@
 
 **Purpose:** What's happening right now, recent changes, current focus areas.
 
-**Last Updated:** 2025-11-14 by White
+**Last Updated:** 2025-11-15 by Blue
 
 ---
 
@@ -129,3 +129,7 @@
 **2025-11-14 ~16:00** - PR-D005 and PR-F002 completed by Orange and White (parallel)
 **2025-11-14 ~16:30** - White claimed identity for planning session
 **2025-11-14 ~16:35** - Created consolidated task-list.md with all tracks
+**2025-11-15** - Blue: Transcribed bughunt notes, removed prompt character limit validation, implemented comprehensive cyberpunk theme facelift across entire frontend
+**2025-11-15** - Blue: Created ConfirmDialog component to replace browser confirm dialogs with styled modals using "Resume" and "Discard" button labels
+**2025-11-15** - Blue: Extracted Replicate video generation logic from cli.py into centralized generate_video_clips function in ffmpeg-backend/src/app/api/v1/replicate.py. Added parallelization support (concurrent vs sequential generation). Added UI switch in ReviewStep for parallelize_generations option. Updated both cli.py and FastAPI backend to use the centralized function.
+**2025-11-15** - Blue: Implemented S3 and database storage for generations. Created StorageService (S3/local filesystem), GenerationStorageService (PostgreSQL), updated generate_video_clips to upload videos to storage, added GET /api/v1/generations endpoint, fixed History page null safety, added thumbnail generation to TODO.md.

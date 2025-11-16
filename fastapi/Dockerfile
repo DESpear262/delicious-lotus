@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy requirements and install Python dependencies
+# Copy requirements from project root and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
@@ -34,6 +34,7 @@ FROM python:3.13-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH" \
     APP_HOME=/app
 
 # Install runtime dependencies and FFmpeg
@@ -55,8 +56,11 @@ WORKDIR ${APP_HOME}
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy application code
-COPY --chown=appuser:appuser ./app ./app
+# Copy application code from fastapi directory
+COPY --chown=appuser:appuser ./fastapi/app ./app
+
+# Copy ai module so it can be imported
+COPY --chown=appuser:appuser ./ai ./ai
 
 # Create directory for frontend static files
 RUN mkdir -p ${APP_HOME}/frontend/dist && \
@@ -66,6 +70,10 @@ RUN mkdir -p ${APP_HOME}/frontend/dist && \
 RUN mkdir -p ${APP_HOME}/temp ${APP_HOME}/uploads && \
     chown -R appuser:appuser ${APP_HOME}/temp ${APP_HOME}/uploads
 
+# Create storage directory with proper permissions
+RUN mkdir -p ${APP_HOME}/storage && \
+    chown -R appuser:appuser ${APP_HOME}/storage
+
 # Switch to non-root user
 USER appuser
 
@@ -74,7 +82,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
+    CMD /opt/venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/opt/venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -61,12 +61,12 @@ python-multipart>=0.0.20
 pytz>=2025.2
 typing-inspection>=0.4.2
 psutil>=6.1.1
-PyJWT>=2.10.
+PyJWT>=2.10.1
 
 # Development and Build Tools
 annotated-doc>=0.0.4
 certifi>=2025.11.12
-cfgv>=3.4.
+cfgv>=3.4.0
 distlib>=0.4.0
 filelock>=3.20.0
 identify>=2.6.15

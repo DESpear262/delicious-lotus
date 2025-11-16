@@ -37,11 +37,14 @@ class EditIntentClassifierService:
             openai_api_key: OpenAI API key
             use_mock: Whether to use mock responses for testing
         """
-        self.openai_client = OpenAIClient(
-            api_key=openai_api_key,
-            model="gpt-4o-mini",  # Use same model as other services
-            use_mock=use_mock
-        )
+        self.use_mock = use_mock
+        if not use_mock:
+            self.openai_client = OpenAIClient(
+                api_key=openai_api_key,
+                model="gpt-4o-mini"  # Use same model as other services
+            )
+        else:
+            self.openai_client = None
 
         logger.info("EditIntentClassifierService initialized")
 
@@ -118,6 +121,10 @@ class EditIntentClassifierService:
         Returns:
             Classification result from LLM
         """
+        if self.use_mock:
+            # Return mock classification result
+            return self._get_mock_classification_result(request)
+
         system_prompt = self._build_system_prompt(request)
         user_prompt = self._build_user_prompt(request)
 
@@ -354,4 +361,21 @@ Focus on the core editing intent and output the classification using the provide
             passed=len(issues) == 0,
             issues=issues,
             recommendations=recommendations
+        )
+
+    def _get_mock_classification_result(self, request: EditRequest) -> EditClassificationResult:
+        """
+        Generate a mock classification result for testing
+
+        Args:
+            request: The edit request
+
+        Returns:
+            Mock classification result
+        """
+        return EditClassificationResult(
+            intent_summary=f"Mock classification for: {request.natural_language_edit}",
+            operations=[],
+            confidence=0.8,
+            safety_concerns=[]
         )

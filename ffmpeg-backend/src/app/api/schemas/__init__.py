@@ -21,6 +21,11 @@ from .composition import (
 )
 from .errors import ErrorDetail, ErrorResponse
 from .job import JobCancelResponse, JobListResponse, JobResponse, JobStatus
+from .replicate import (
+    NanoBananaErrorResponse,
+    NanoBananaRequest,
+    NanoBananaResponse,
+)
 from .websocket import (
     ConnectionState,
     WSBaseMessage,
@@ -61,6 +66,10 @@ __all__ = [
     "JobResponse",
     "JobListResponse",
     "JobCancelResponse",
+    # Replicate schemas
+    "NanoBananaRequest",
+    "NanoBananaResponse",
+    "NanoBananaErrorResponse",
     # WebSocket schemas
     "WSMessageType",
     "WSBaseMessage",

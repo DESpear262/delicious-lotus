@@ -1,0 +1,369 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 13,
+        "title": "Implement Media Library Backend API",
+        "description": "Create comprehensive media asset management API endpoints with database schema, storage integration, and real-time WebSocket updates for the media library panel",
+        "details": "Design and implement MediaAsset model with fields for type (image/video/audio/text), url, thumbnail_url, filename, dimensions, duration, tags, folder_id, created_at, updated_at. Create REST API endpoints: POST /api/v1/media/upload for file uploads with multipart support, GET /api/v1/media with pagination/filtering/sorting, PATCH /api/v1/media/{id} for metadata updates, DELETE /api/v1/media/{id} for soft deletion. Implement folder management system with nested folder support. Add tagging system with many-to-many relationship. Create thumbnail generation service using FFmpeg for video assets. Integrate with S3 for asset storage with proper ACLs. Implement WebSocket notifications for new media arrival using existing WebSocket infrastructure. Add bulk operations support for moving, tagging, and deleting multiple assets.",
+        "testStrategy": "Unit test MediaAsset model CRUD operations and relationship management. Integration test file upload flow from API to S3 storage. Test thumbnail generation for various video formats. Verify WebSocket notifications are sent on media creation. Test pagination, filtering, and sorting with large datasets. Load test concurrent file uploads (target: 10 simultaneous). Test folder hierarchy operations and tag management.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement MediaAsset database schema with migrations",
+            "description": "Create the MediaAsset model with all required fields and relationships, including support for multiple media types, metadata storage, and soft deletion capability",
+            "dependencies": [],
+            "details": "Design MediaAsset table with fields: id, type (enum: image/video/audio/text), url, thumbnail_url, filename, original_filename, file_size, mime_type, dimensions (JSON for width/height), duration (for video/audio), tags (many-to-many), folder_id (foreign key), user_id, is_deleted, created_at, updated_at. Create Folder table with id, name, parent_id (self-referential), path, created_at. Create Tag table and MediaAssetTag junction table. Write Alembic migrations for all tables with proper indexes on frequently queried fields (type, folder_id, created_at). Add database constraints for data integrity.",
+            "status": "pending",
+            "testStrategy": "Unit test model creation, field validation, and relationship constraints. Test soft deletion behavior. Verify migration rollback works correctly."
+          },
+          {
+            "id": 2,
+            "title": "Build file upload API with multipart support and S3 integration",
+            "description": "Implement POST /api/v1/media/upload endpoint with multipart file handling, validation, virus scanning, and direct S3 upload with proper ACLs",
+            "dependencies": [
+              1
+            ],
+            "details": "Create upload endpoint accepting multipart/form-data with file size limits (100MB images, 1GB videos). Implement file type validation using python-magic for MIME type verification. Add virus scanning integration using ClamAV or similar. Generate unique S3 keys using UUID + original filename. Implement chunked upload for large files with resume capability. Set proper S3 ACLs (private bucket, signed URLs for access). Extract metadata during upload (dimensions for images, duration for videos using FFprobe). Create database record after successful S3 upload. Return upload progress via Server-Sent Events or WebSocket.",
+            "status": "pending",
+            "testStrategy": "Integration test file upload flow from API to S3. Test various file types and sizes. Verify malformed files are rejected. Test chunked upload resume functionality."
+          },
+          {
+            "id": 3,
+            "title": "Implement CRUD REST endpoints with advanced querying capabilities",
+            "description": "Create GET, PATCH, and DELETE endpoints for media assets with comprehensive pagination, filtering, sorting, and search functionality",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement GET /api/v1/media with cursor-based pagination for scalability, supporting limit/offset as fallback. Add filtering by type, folder_id, tags (with AND/OR logic), date ranges, file size ranges. Enable sorting by name, created_at, updated_at, file_size with ASC/DESC. Add full-text search on filename and tags. Implement PATCH /api/v1/media/{id} for updating metadata (name, tags, folder_id) with optimistic locking via version field. Create DELETE /api/v1/media/{id} for soft deletion with cascade handling. Add batch endpoints: POST /api/v1/media/batch/move, /batch/tag, /batch/delete for bulk operations with transaction support.",
+            "status": "pending",
+            "testStrategy": "Test pagination with large datasets (1000+ items). Verify all filter combinations work correctly. Test sorting consistency. Verify soft deletion preserves data."
+          },
+          {
+            "id": 4,
+            "title": "Create folder management system with nested hierarchy support",
+            "description": "Build comprehensive folder system allowing nested organization of media assets with move, rename, and permission capabilities",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement folder CRUD endpoints: POST /api/v1/folders, GET /api/v1/folders (tree structure), PATCH /api/v1/folders/{id}, DELETE /api/v1/folders/{id}. Use materialized path pattern for efficient hierarchy queries (store full path like '/root/subfolder1/subfolder2'). Implement folder move operation with descendant path updates in transaction. Add breadcrumb generation for UI navigation. Prevent circular references in folder moves. Implement folder permissions inheritance system. Add endpoint GET /api/v1/folders/{id}/contents for paginated folder contents including subfolders and assets. Support folder templates for common structures.",
+            "status": "pending",
+            "testStrategy": "Test nested folder creation up to 10 levels deep. Verify folder move updates all descendant paths. Test deletion with non-empty folders. Verify circular reference prevention."
+          },
+          {
+            "id": 5,
+            "title": "Implement tagging system with many-to-many relationships",
+            "description": "Create a flexible tagging system for media assets with auto-complete, tag management, and bulk tagging operations",
+            "dependencies": [
+              1
+            ],
+            "details": "Design Tag table with id, name (unique, case-insensitive), slug, usage_count, color (for UI), created_at. Create MediaAssetTag junction table with proper indexes. Implement tag endpoints: GET /api/v1/tags with usage statistics, POST /api/v1/tags for creation, DELETE /api/v1/tags/{id} with cascade options. Add auto-complete endpoint GET /api/v1/tags/suggest?q=term with fuzzy matching. Implement tag normalization (lowercase, trim, remove special chars). Add bulk tagging: POST /api/v1/media/batch/tag with add/remove/replace modes. Create tag categories/groups for organization. Implement tag synonyms and aliases system. Add trending tags calculation based on recent usage.",
+            "status": "pending",
+            "testStrategy": "Test many-to-many relationship integrity. Verify tag uniqueness constraint. Test bulk tagging operations are atomic. Verify auto-complete performance with 1000+ tags."
+          },
+          {
+            "id": 6,
+            "title": "Build thumbnail generation service using FFmpeg",
+            "description": "Create asynchronous thumbnail generation system for video and image assets using FFmpeg with multiple resolution support",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement async thumbnail generation using Celery/RQ for background processing. Create FFmpeg wrapper service for video frame extraction at specific timestamps (default 1 second). Generate multiple thumbnail sizes: small (150x150), medium (300x300), large (600x600) with aspect ratio preservation. Implement smart frame selection for videos (avoid black frames using histogram analysis). Add image optimization using Pillow/ImageMagick for compression. Store thumbnails in S3 with CDN-friendly naming: {asset_id}/thumb_{size}.jpg. Implement retry logic with exponential backoff for failed generations. Add webhook/callback support for thumbnail ready notifications. Cache generated thumbnails with ETags for efficient delivery.",
+            "status": "pending",
+            "testStrategy": "Test thumbnail generation for various video formats (MP4, MOV, AVI, WebM). Verify frame selection avoids black frames. Test generation failure handling and retries."
+          },
+          {
+            "id": 7,
+            "title": "Implement WebSocket notifications for real-time media updates",
+            "description": "Create real-time notification system using WebSocket to broadcast media library changes to connected clients",
+            "dependencies": [
+              3,
+              6
+            ],
+            "details": "Extend existing WebSocket infrastructure to support media library events. Create event types: media.uploaded, media.updated, media.deleted, media.thumbnail.ready, folder.created, folder.updated, folder.deleted. Implement room-based subscriptions for folder-specific updates using Socket.io rooms or similar. Add event payload standardization with timestamp, user_id, affected_ids, change_type. Create WebSocket middleware for authentication and authorization checks. Implement event batching for bulk operations to prevent notification flooding. Add client-side event handler with optimistic UI updates and conflict resolution. Implement presence system showing active users in media library. Add rate limiting to prevent WebSocket abuse.",
+            "status": "pending",
+            "testStrategy": "Test WebSocket connection establishment and authentication. Verify events broadcast to correct rooms only. Test bulk operation batching. Verify client receives real-time updates."
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Create Frontend React Application Foundation",
+        "description": "Set up modern React frontend application with Vite, TailwindCSS, shadcn/ui components, and Zustand state management for the Chronos Editor",
+        "details": "Initialize Vite + React (FC + hooks) project with TypeScript support and proper folder structure (components/, hooks/, stores/, services/). Configure TailwindCSS with custom design tokens for consistent theming. Install and configure shadcn/ui component library with custom theme variables. Set up Zustand stores for: global app state, media library state, timeline state, playback state, and WebSocket connection state. Implement React Router for navigation between editor views. Create base layout components: Header with project name/save status, Sidebar for tools/panels, Main editor area with flexible layout. Set up Axios with interceptors for API communication. Configure environment variables for API endpoints and feature flags. Implement error boundary for graceful error handling. Add React Query for server state management and caching.",
+        "testStrategy": "Test Vite dev server starts and builds production bundle successfully. Verify TailwindCSS purges unused styles in production build. Test Zustand store actions and state updates work correctly. Verify API interceptors handle auth and errors properly. Test React Router navigation between views. Ensure shadcn/ui components render correctly. Test error boundary catches and displays errors gracefully.",
+        "priority": "high",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Vite + React + TypeScript project with folder structure",
+            "description": "Set up a new Vite project with React and TypeScript, establishing the foundational folder structure for components, hooks, stores, and services",
+            "dependencies": [],
+            "details": "Create new Vite project using 'npm create vite@latest' with React-TS template. Set up folder structure: src/components/ for UI components, src/hooks/ for custom React hooks, src/stores/ for Zustand stores, src/services/ for API and utility services, src/types/ for TypeScript interfaces, src/utils/ for helper functions. Configure tsconfig.json with path aliases for cleaner imports. Set up ESLint and Prettier for code quality. Initialize Git repository with appropriate .gitignore file.",
+            "status": "pending",
+            "testStrategy": "Verify Vite dev server starts without errors, test hot module replacement works, ensure TypeScript compilation succeeds, validate folder structure exists and path aliases resolve correctly"
+          },
+          {
+            "id": 2,
+            "title": "Configure TailwindCSS and shadcn/ui with custom theming",
+            "description": "Install and configure TailwindCSS with custom design tokens and integrate shadcn/ui component library with theme customization",
+            "dependencies": [
+              1
+            ],
+            "details": "Install TailwindCSS and its peer dependencies (postcss, autoprefixer). Create tailwind.config.js with custom color palette, spacing scale, and typography settings for Chronos Editor branding. Set up CSS custom properties for dynamic theming (--primary, --secondary, --background, etc.). Install shadcn/ui CLI and initialize with custom theme. Configure components.json for shadcn/ui with proper import paths. Add selected base components (Button, Card, Dialog, Input, etc.). Create theme provider component for dark/light mode support.",
+            "status": "pending",
+            "testStrategy": "Test TailwindCSS utility classes apply correctly, verify custom theme tokens are accessible, ensure shadcn/ui components render with custom styling, validate dark mode toggle functionality"
+          },
+          {
+            "id": 3,
+            "title": "Implement Zustand store architecture for state management",
+            "description": "Create Zustand stores for managing global app state, media library, timeline, playback, and WebSocket connections with proper TypeScript typing",
+            "dependencies": [
+              1
+            ],
+            "details": "Install Zustand and its middleware dependencies. Create useAppStore for global state (project info, user preferences, UI state). Implement useMediaLibraryStore for managing uploaded media assets with CRUD operations. Build useTimelineStore for timeline state (tracks, clips, selections, zoom level). Create usePlaybackStore for playback controls (playing, currentTime, duration, volume). Implement useWebSocketStore for connection state and message handling. Add persist middleware for local storage persistence. Create store selectors for performance optimization. Implement devtools integration for debugging.",
+            "status": "pending",
+            "testStrategy": "Test each store's actions and state updates work correctly, verify persistence saves and restores state, ensure selectors prevent unnecessary re-renders, validate TypeScript types are properly enforced"
+          },
+          {
+            "id": 4,
+            "title": "Set up React Router and base layout components",
+            "description": "Implement React Router for navigation and create the foundational layout components including Header, Sidebar, and Main editor area",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Install React Router v6 and configure browser router with route definitions. Create routes for: / (project dashboard), /editor/:projectId (main editor), /settings (app settings), /export (export modal route). Build Header component with project name display, save status indicator, and user menu. Create Sidebar component with collapsible panels for media library, effects, and tools. Implement MainLayout wrapper with responsive grid layout. Add navigation guards for unsaved changes. Create breadcrumb navigation component. Implement responsive mobile layout with hamburger menu.",
+            "status": "pending",
+            "testStrategy": "Test route navigation works correctly, verify layout components render responsively, ensure navigation guards prevent data loss, validate mobile menu functionality, test deep linking works"
+          },
+          {
+            "id": 5,
+            "title": "Configure API layer with Axios and React Query",
+            "description": "Set up Axios with interceptors for API communication and integrate React Query for server state management and caching",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Install Axios and create API client instance with base configuration. Set up request/response interceptors for authentication token injection and error handling. Create API service modules for projects, media, compositions, and exports endpoints. Install and configure React Query with QueryClient setup. Implement custom hooks for API calls (useProjects, useMediaLibrary, useComposition, etc.). Configure query caching and invalidation strategies. Set up error boundaries for graceful error handling. Create environment configuration for API endpoints (development, staging, production). Implement retry logic and optimistic updates where appropriate.",
+            "status": "pending",
+            "testStrategy": "Test API interceptors handle authentication correctly, verify React Query caches and invalidates properly, ensure error boundaries catch and display errors gracefully, validate environment switching works"
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Implement Timeline UI Component System",
+        "description": "Build the core timeline interface with tracks, clips, playhead, zoom controls, and virtualization for performance",
+        "details": "Create Timeline component using react-window for virtualization of long timelines. Implement Track component with label editing, lock/mute toggles, and drag-to-reorder functionality. Build Clip component with draggable positioning, resizable edges for trimming, visual representation of media type, and thumbnail display for video clips. Implement Playhead component with smooth scrubbing, frame-accurate positioning, and time display. Create TimelineRuler showing time markers with dynamic scaling based on zoom level. Add ZoomControls with +/- buttons and Ctrl+scroll support, implementing logarithmic zoom (0.25x to 8x). Build timeline snapping system for clips to snap to playhead, other clips, and time markers. Implement multi-selection with Shift/Ctrl click and marquee selection. Add right-click context menus for clip operations. Create undo/redo system using Zustand's temporal middleware. Implement timeline scrolling with horizontal scroll and shift+scroll support.",
+        "testStrategy": "Test virtualization performance with 100+ clips on timeline. Verify drag and drop works smoothly across tracks. Test clip trimming maintains proper boundaries. Verify zoom controls scale timeline correctly. Test snapping logic at different zoom levels. Verify undo/redo preserves complete state. Test multi-selection operations work correctly. Benchmark timeline rendering performance.",
+        "priority": "high",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up Timeline virtualization infrastructure with react-window",
+            "description": "Implement the base Timeline component with react-window virtualization to handle large numbers of clips and tracks efficiently, including virtual scrolling and dynamic row height calculations",
+            "dependencies": [],
+            "details": "Install and configure react-window and react-window-infinite-loader. Create Timeline container component with VariableSizeList for tracks and FixedSizeGrid for clip grid. Implement row height calculator for tracks based on clip layers. Set up viewport management with visible range tracking. Create performance monitoring hooks to measure frame rates and render times. Implement scroll synchronization between track labels and timeline content area.",
+            "status": "pending",
+            "testStrategy": "Performance test with 1000+ clips across 50+ tracks, measure frame rate during scroll. Verify virtual rendering only renders visible items. Test memory usage remains constant regardless of timeline length."
+          },
+          {
+            "id": 2,
+            "title": "Build Track component with interactive controls and drag-to-reorder",
+            "description": "Create Track component featuring label editing, lock/mute toggles, height adjustment, and drag-to-reorder functionality with visual feedback during drag operations",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement Track component with inline label editing using contentEditable or controlled input. Add lock toggle to prevent modifications and mute toggle for audio tracks. Create drag handle with react-dnd or custom drag implementation. Implement visual feedback during drag with ghost element and drop zone indicators. Add track height adjustment with resize handle. Store track order in Zustand state with optimistic updates. Handle keyboard navigation between tracks.",
+            "status": "pending",
+            "testStrategy": "Test drag-and-drop reordering across multiple tracks with animation. Verify lock state prevents all modifications. Test label editing with validation and escape to cancel. Verify track height persists across sessions."
+          },
+          {
+            "id": 3,
+            "title": "Implement Clip component with drag, resize, and trim capabilities",
+            "description": "Build the Clip component supporting draggable positioning on timeline, resizable edges for trimming, visual media type indicators, and thumbnail display for video clips",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create Clip component with absolute positioning based on time offset. Implement drag functionality using react-dnd-html5-backend with custom drag preview. Add resize handles on clip edges for trimming with minimum clip duration validation. Display media type icons (video, audio, image, text) with different visual styles. Implement thumbnail extraction and display for video clips using video element and canvas. Add clip selection state with visual highlighting. Handle collision detection when moving clips between tracks.",
+            "status": "pending",
+            "testStrategy": "Test drag accuracy at different zoom levels. Verify trim handles respect minimum/maximum clip duration. Test thumbnail generation for various video formats. Verify collision detection prevents clip overlap."
+          },
+          {
+            "id": 4,
+            "title": "Create Playhead and TimelineRuler with frame-accurate positioning",
+            "description": "Develop the Playhead component for smooth scrubbing and frame-accurate positioning, alongside TimelineRuler showing dynamic time markers that scale with zoom level",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement Playhead as draggable vertical line with current time display tooltip. Add smooth scrubbing with requestAnimationFrame for 60fps updates. Calculate frame-accurate position based on timeline framerate (24/30/60fps). Create TimelineRuler with major/minor tick marks that adjust density based on zoom. Display time in appropriate format (frames, seconds, minutes) based on zoom level. Implement click-to-seek on ruler for quick navigation. Add keyboard controls for frame-by-frame stepping with arrow keys.",
+            "status": "pending",
+            "testStrategy": "Test playhead positioning accuracy at single-frame level. Verify smooth scrubbing maintains 60fps. Test time display formats switch correctly at zoom breakpoints. Verify keyboard navigation moves exactly one frame."
+          },
+          {
+            "id": 5,
+            "title": "Implement Zoom controls with logarithmic scaling system",
+            "description": "Build zoom control system with buttons, keyboard shortcuts, and mouse wheel support, implementing logarithmic scaling from 0.25x to 8x for smooth zoom experience",
+            "dependencies": [
+              1,
+              4
+            ],
+            "details": "Create ZoomControls component with zoom in/out buttons and current zoom level display. Implement logarithmic zoom calculation for smooth scaling between 0.25x and 8x. Add Ctrl+scroll wheel zoom with debouncing to prevent jank. Implement zoom-to-fit functionality to show entire timeline. Create zoom presets (25%, 50%, 100%, 200%, 400%). Maintain playhead position during zoom operations. Update timeline pixel-to-time calculations based on zoom level. Store zoom level in component state with persistence.",
+            "status": "pending",
+            "testStrategy": "Test zoom maintains playhead center position. Verify logarithmic scaling feels smooth. Test Ctrl+scroll zoom with various scroll speeds. Verify timeline renders correctly at all zoom levels."
+          },
+          {
+            "id": 6,
+            "title": "Build snapping system for precision timeline editing",
+            "description": "Implement magnetic snapping system allowing clips to snap to playhead position, other clip edges, and time markers with configurable snap threshold and visual feedback",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Create SnapManager service to calculate snap points from playhead, clip edges, and time markers. Implement configurable snap threshold in pixels (default 10px). Add visual snap indicators showing alignment lines during drag. Support different snap modes: snap to grid, snap to clips, snap to playhead. Calculate snap points efficiently using spatial indexing for large timelines. Add snap toggle button with keyboard shortcut (S key). Implement snap preview showing where clip will land. Handle multi-clip selection snapping as group.",
+            "status": "pending",
+            "testStrategy": "Test snapping activates within threshold distance. Verify visual indicators appear at correct positions. Test performance with hundreds of snap points. Verify snap modes can be toggled independently."
+          },
+          {
+            "id": 7,
+            "title": "Implement multi-selection with marquee and keyboard modifiers",
+            "description": "Create multi-selection system supporting Shift/Ctrl click selection, marquee box selection, and batch operations on selected clips with visual feedback",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement marquee selection with mouse drag on empty timeline area creating selection rectangle. Add Shift+click for range selection between clips. Support Ctrl+click for toggle selection of individual clips. Create selection state management in Zustand with Set for performance. Add visual highlighting for selected clips with consistent styling. Implement batch operations: delete, copy, paste, group selected clips. Add Select All (Ctrl+A) and Deselect (Escape) keyboard shortcuts. Handle selection persistence during timeline operations.",
+            "status": "pending",
+            "testStrategy": "Test marquee selection captures all intersecting clips. Verify Shift selection creates correct range. Test Ctrl+click toggles selection state. Verify batch operations apply to all selected clips."
+          },
+          {
+            "id": 8,
+            "title": "Create undo/redo system with temporal state management",
+            "description": "Implement comprehensive undo/redo functionality using Zustand's temporal middleware, tracking all timeline modifications with efficient state snapshots",
+            "dependencies": [
+              2,
+              3,
+              6,
+              7
+            ],
+            "details": "Configure Zustand temporal middleware with custom equality function for efficient diffing. Create action types for all timeline operations: move, resize, delete, add, reorder. Implement state snapshot optimization to store only changed properties. Add undo (Ctrl+Z) and redo (Ctrl+Y) keyboard shortcuts with visual feedback. Create undo history limit (default 50 actions) with memory management. Display current action in UI for user awareness. Group related actions (multi-clip operations) as single undo step. Implement action coalescing for continuous operations like dragging.",
+            "status": "pending",
+            "testStrategy": "Test undo/redo preserves exact timeline state. Verify action grouping works for batch operations. Test memory usage with maximum history size. Verify continuous operations create single undo entry."
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Build Hybrid Playback Engine",
+        "description": "Implement hybrid DOM + timeline playback engine for real-time preview with CSS transforms and single video element composition",
+        "details": "Create PlaybackEngine class managing playback state, frame calculation, and clip scheduling. Implement frame-based timing system with configurable timebase_fps (24/30/60). Build VideoPlayer component using single <video> element with dynamic source switching for active clips. Implement CSS transform system for opacity, scale, and X/Y position using React Spring for smooth animations. Create text/image overlay renderer using absolute positioned DOM elements. Build transition approximation using CSS animations for fade/wipe effects. Implement playback controls: play/pause, frame step forward/backward, jump to start/end, and speed controls (0.25x to 2x). Add audio playback synchronization with video using Web Audio API for precise timing. Create frame-accurate seek functionality with debouncing for performance. Implement playback range selection with in/out points. Build performance monitor showing FPS and dropped frames.",
+        "testStrategy": "Test playback maintains sync between video and overlays. Verify frame calculations are accurate at different timebase settings. Test CSS transforms apply correctly during playback. Verify transitions render smoothly without stuttering. Test audio remains synchronized with video. Verify playback controls respond within 100ms. Test performance with complex compositions (10+ clips with overlays).",
+        "priority": "high",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Develop Media Details Panel",
+        "description": "Create the media details panel for editing clip properties with bidirectional sync to timeline and real-time updates",
+        "details": "Build MediaDetailsPanel component with collapsible sections for different property groups. Implement property editors for: clip label (text input), start/end time (timecode inputs with validation), duration (calculated, read-only), speed (slider 0.1x to 4x), volume/mute (slider with mute toggle), scale (numeric input with percentage), X/Y position (dual sliders or numeric inputs), opacity (slider 0-100%), transition in/out (dropdown with duration input), and text content (rich text editor for text clips). Create custom Timecode input component with HH:MM:SS:FF format and keyboard navigation. Implement real-time preview of property changes without committing. Add property animation keyframe UI (future enhancement preparation). Build preset system for saving and applying common settings. Implement batch editing for multiple selected clips. Add property reset buttons to restore defaults. Create tooltip help system for each property.",
+        "testStrategy": "Test bidirectional sync between panel and timeline updates. Verify timecode input validation and formatting. Test property changes preview in real-time. Verify batch editing applies to all selected clips. Test preset saving and loading functionality. Ensure property constraints are enforced (e.g., scale > 0). Test keyboard navigation in timecode inputs.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Implement AI Generation Integration",
+        "description": "Integrate AI image and video generation with Replicate API, supporting concurrent generations with progress tracking",
+        "details": "Create AI generation modal with prompt input, aspect ratio selection, and generation type (image/video). Implement API service layer for Replicate endpoints: POST /api/v1/replicate/nano-banana for images, POST /api/v1/replicate/wan-video-i2v for video. Build generation queue management supporting MAX_GENERATIONS concurrent requests. Create progress tracking UI with percentage, status message, and cancel capability. Implement WebSocket subscription for real-time generation updates. Add generated asset auto-import to media library upon completion. Build generation history with ability to regenerate from previous prompts. Implement error handling with retry options for failed generations. Add credit/usage tracking display if applicable. Create preset prompt templates for common generation types. Integrate aspect ratio into generation requests for proper output dimensions.",
+        "testStrategy": "Test concurrent generation requests up to MAX_GENERATIONS limit. Verify WebSocket updates arrive in real-time. Test error handling and retry mechanisms. Verify generated assets appear in media library. Test cancellation stops generation properly. Verify aspect ratio produces correct dimensions. Test queue management when limit exceeded.",
+        "priority": "medium",
+        "dependencies": [
+          13,
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Create Export System UI",
+        "description": "Build the export modal interface with settings configuration, progress tracking, and download management",
+        "details": "Create ExportModal component with multi-step wizard: settings selection, review, and progress. Implement export settings form with: name input, aspect ratio selector (16:9, 9:16, 1:1), resolution picker (480p to 4K based on feature flags), format selector (MP4, MOV, AVI), quality slider (low/medium/high mapping to CRF values), and frame rate selector (24/30/60 fps). Build composition preview showing first frame with duration and clip count. Create progress tracking with stage visualization (downloading, rendering, encoding, uploading), percentage bar with ETA, and current operation message. Implement WebSocket subscription for export progress updates. Add download manager with signed URL generation and automatic download trigger. Build export history list with re-download capability. Implement export cancellation with confirmation dialog. Add export queue visualization for multiple exports. Create shareable link generation for completed exports.",
+        "testStrategy": "Test export settings validation and constraints. Verify WebSocket progress updates display correctly. Test download triggers automatically on completion. Verify cancellation properly stops export job. Test export history persists across sessions. Ensure signed URLs expire after configured time. Test multiple simultaneous exports queue properly.",
+        "priority": "high",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Implement Thumbnail Cache System",
+        "description": "Create IndexedDB-based thumbnail caching system with LRU eviction and lazy loading for optimal performance",
+        "details": "Implement IndexedDB service for thumbnail storage with database schema including id, blob, size_bytes, last_accessed_at fields. Build LRU cache manager with configurable THUMBNAIL_CACHE_MAX_BYTES limit (default 200MB). Create thumbnail loader service with lazy loading on viewport visibility, progressive loading for better perceived performance, and fallback to low-res placeholders. Implement cache eviction when exceeding size limit by sorting by last_accessed_at and removing oldest entries. Build thumbnail generator for video files using canvas and video element. Add WebWorker for thumbnail processing to avoid main thread blocking. Implement cache warming for frequently accessed assets. Create cache statistics component showing usage, hit rate, and eviction count. Add manual cache clear functionality in settings. Build thumbnail retry logic for failed loads. Implement different quality levels for thumbnails based on display size.",
+        "testStrategy": "Test IndexedDB storage and retrieval of thumbnails. Verify LRU eviction when cache exceeds limit. Test lazy loading triggers on scroll. Verify WebWorker processing doesn't block UI. Test cache statistics accurately reflect usage. Ensure thumbnails load progressively. Test fallback behavior for corrupted cache entries.",
+        "priority": "medium",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Build Mobile-Responsive Layout",
+        "description": "Implement responsive mobile layout with simplified timeline and touch-optimized controls for mobile editing",
+        "details": "Create responsive layout system using TailwindCSS breakpoints (sm/md/lg/xl). Implement mobile-first Timeline Lite component with single-track view, large touch targets for clips, swipe gestures for scrolling, and pinch-to-zoom support. Build stacked layout for mobile with collapsible panels to maximize screen space. Create bottom sheet pattern for media details and export settings. Implement touch-optimized playback controls with larger buttons and gesture support. Add mobile-specific asset browser with grid view and infinite scroll. Build responsive media library with adaptive column count based on screen width. Implement mobile context menus using action sheets instead of right-click. Create mobile-optimized clip trimming with handle enlargement on selection. Add haptic feedback for touch interactions on supported devices. Implement orientation change handling with layout persistence. Build mobile-specific onboarding flow highlighting touch gestures.",
+        "testStrategy": "Test on various mobile devices and screen sizes. Verify touch targets meet minimum 44x44px requirement. Test gesture recognition accuracy. Verify layout adapts smoothly to orientation changes. Test performance on low-end mobile devices. Ensure all desktop features have mobile equivalents. Test pinch-to-zoom doesn't conflict with browser zoom.",
+        "priority": "low",
+        "dependencies": [
+          15,
+          16,
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 22,
+        "title": "Implement Auto-Save and Project Management",
+        "description": "Create auto-save system with dirty state tracking, project persistence, and user project management interface",
+        "details": "Implement dirty state tracking using Zustand middleware to detect any timeline, clip, or setting changes. Create auto-save service with debounced saves every 30 seconds when dirty, immediate save on significant operations, and background save indicator. Build project state serialization including timeline configuration, clips and tracks, media library references, and export settings. Implement backend project endpoints: POST /api/v1/projects for creation, PUT /api/v1/projects/{id} for updates, GET /api/v1/projects for listing with pagination. Create dirty state indicator showing unsaved changes with dot indicator in header and save status messages. Build project management UI with project list/grid view, search and filtering, last modified sorting, and project thumbnails. Implement project operations including duplicate, rename, delete with confirmation, and archive. Add version history with ability to restore previous saves. Create project templates for common composition types. Implement conflict resolution for concurrent edits. Build project export/import for backup and sharing.",
+        "testStrategy": "Test dirty state detection for all editable properties. Verify auto-save triggers at correct intervals. Test save conflict resolution with concurrent edits. Verify project state fully restores on load. Test project listing pagination and filtering. Ensure version history maintains data integrity. Test template creation and application.",
+        "priority": "high",
+        "dependencies": [
+          15,
+          19
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-11-14T21:27:16.741Z",
+      "updated": "2025-11-16T07:41:15.961Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

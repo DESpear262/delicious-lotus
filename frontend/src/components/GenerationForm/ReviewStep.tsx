@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Switch } from '@/components/ui/Switch';
 import type { AdCreativeFormData } from '@/types/form';
 import styles from './ReviewStep.module.css';
 
@@ -9,6 +10,7 @@ interface ReviewStepProps {
   onEdit: (step: 1 | 2 | 3) => void;
   isSubmitting: boolean;
   submitError?: string | null;
+  onParallelizeChange?: (checked: boolean) => void;
 }
 
 export const ReviewStep: React.FC<ReviewStepProps> = ({
@@ -16,6 +18,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
   onEdit,
   isSubmitting,
   submitError,
+  onParallelizeChange,
 }) => {
   const estimatedTime = formData.duration <= 30 ? '3-5 minutes' : formData.duration <= 45 ? '5-7 minutes' : '7-10 minutes';
 
@@ -191,6 +194,18 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
           </div>
         </Card>
       </div>
+
+      {/* Parallelization Switch */}
+      <Card className={styles.optionsCard}>
+        <Switch
+          id="parallelize-generations"
+          checked={formData.parallelizeGenerations}
+          onChange={(checked) => onParallelizeChange?.(checked)}
+          disabled={isSubmitting}
+          label="Parallelize Generation"
+          description="Generate video clips in parallel for faster processing. This will be faster but clips may be less consistent with each other."
+        />
+      </Card>
 
       {submitError && (
         <div className={styles.errorBox} role="alert">

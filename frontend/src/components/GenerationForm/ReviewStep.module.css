@@ -196,6 +196,12 @@
   margin: 0;
 }
 
+/* Options Card */
+.optionsCard {
+  padding: var(--spacing-5);
+  border: 1px solid var(--color-border);
+}
+
 /* Error Box */
 .errorBox {
   display: flex;

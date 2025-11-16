@@ -93,6 +93,7 @@ export const AdCreativeForm: React.FC = () => {
             onEdit={(step) => goToStep(step)}
             isSubmitting={isSubmitting}
             submitError={submitError}
+            onParallelizeChange={(checked) => updateField('parallelizeGenerations', checked)}
           />
         );
 

@@ -24,6 +24,7 @@ const INITIAL_STATE: AdCreativeFormData = {
   aspectRatio: '16:9',
   style: 'professional',
   musicStyle: 'corporate',
+  parallelizeGenerations: false,
 };
 
 export function useGenerationForm() {
@@ -176,6 +177,7 @@ export function useGenerationForm() {
       options: {
         quality: 'high',
         fast_generation: false,
+        parallelize_generations: formData.parallelizeGenerations,
       },
     };
   }, [formData]);

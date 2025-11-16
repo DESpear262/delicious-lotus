@@ -66,6 +66,7 @@ export interface GenerationParameters {
 export interface GenerationOptions {
   quality?: 'low' | 'medium' | 'high';
   fast_generation?: boolean;
+  parallelize_generations?: boolean;
 }
 
 export interface CreateGenerationRequest {

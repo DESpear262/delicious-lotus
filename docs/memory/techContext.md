@@ -2,19 +2,21 @@
 
 **Purpose:** Tech stack details, setup procedures, and discovered constraints.
 
-**Last Updated:** 2025-11-14 by Orange
+**Last Updated:** 2025-11-15 by Blue
 
 ---
 
 ## Tech Stack Overview
 
 ### Frontend
-- **Framework:** React 18 with TypeScript
+- **Framework:** React 19 with TypeScript
 - **Build Tool:** Vite
 - **Routing:** React Router v6
 - **HTTP Client:** Axios
 - **WebSocket:** Socket.io client
 - **Styling:** CSS Modules + CSS Variables (NO Tailwind per project requirements)
+- **Typography:** Inter (body), Orbitron (headings), JetBrains Mono (monospace) via Google Fonts
+- **Theme:** Cyberpunk aesthetic with dark backgrounds, neon accents, glassmorphism effects
 - **Target Output:** Static files served by backend
 
 ### Backend (AI + FFmpeg combined)

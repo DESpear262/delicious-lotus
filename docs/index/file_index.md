@@ -113,11 +113,24 @@ This index tracks all files created during the AI Backend development process.
 - `frontend/src/components/ui/Card.module.css` - Card component with glassmorphism effects
 - `frontend/src/components/ui/Input.module.css` - Input component with dark theme
 - `frontend/src/components/ui/Textarea.module.css` - Textarea component with dark theme
+- `frontend/src/components/ui/ConfirmDialog.module.css` - ConfirmDialog styling with cyberpunk theme
 - `frontend/src/layouts/MainLayout.module.css` - Main layout with backdrop blur and neon borders
 
 ### Frontend Form Validation
 - `frontend/src/utils/formValidation.ts` - Form validation rules (updated: removed 500-char minimum)
 - `frontend/src/components/GenerationForm/PromptInput.tsx` - Prompt input component (updated: removed character limit validation)
+
+### Frontend UI Components
+- `frontend/src/components/ui/ConfirmDialog.tsx` - Custom confirmation dialog component with customizable buttons
+- `frontend/src/components/ui/ConfirmDialog.module.css` - Styling for ConfirmDialog with cyberpunk theme
+- `frontend/src/components/ui/index.ts` - UI components export index
+
+### Frontend Hooks
+- `frontend/src/hooks/useFormPersistence.ts` - Form draft persistence hook with localStorage (updated: uses ConfirmDialog instead of window.confirm)
+- `frontend/src/hooks/useGenerationForm.ts` - Generation form state management hook (updated: exposes ConfirmDialog state)
+
+### Frontend Pages
+- `frontend/src/pages/AdCreativeForm.tsx` - Ad creative generation form page (updated: renders ConfirmDialog for draft restoration)
 
 ## Agent Coordination
 

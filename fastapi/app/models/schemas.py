@@ -84,6 +84,7 @@ class GenerationOptions(BaseModel):
     """Options for video generation"""
     quality: str = Field(default="high", description="Generation quality")
     fast_generation: bool = Field(default=False, description="Use faster but lower quality generation")
+    parallelize_generations: bool = Field(default=False, description="Generate clips in parallel (faster but less coherent between clips)")
 
 
 class GenerationRequest(BaseModel):

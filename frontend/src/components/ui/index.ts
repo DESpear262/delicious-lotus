@@ -28,3 +28,6 @@ export type { ToastProps, ToastContainerProps, ToastType } from './Toast';
 
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
+
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';

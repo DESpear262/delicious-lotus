@@ -25,6 +25,9 @@ export interface AdCreativeFormData {
   aspectRatio: '16:9' | '9:16' | '1:1';
   style: VideoStyle;
   musicStyle: MusicStyle;
+  
+  // Step 4: Generation Options
+  parallelizeGenerations: boolean;
 }
 
 export type VideoStyle =

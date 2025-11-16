@@ -6,8 +6,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from core.openai_client import OpenAIClient
-from models.prompt_analysis import (
+from ..core.openai_client import OpenAIClient
+from ..models.prompt_analysis import (
     AnalysisRequest,
     AnalysisResponse,
     MockAnalysisResponse,

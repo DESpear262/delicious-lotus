@@ -266,12 +266,19 @@ class ReplicateModelClient:
         Returns:
             Structured generation result
         """
-        output = status_info.get("output", {})
+        output = status_info.get("output")
 
-        # Extract video URL
-        video_url = output.get("video")
+        # Extract video URL - handle both dict and direct URL formats
+        if isinstance(output, dict):
+            video_url = output.get("video")
+        elif isinstance(output, str):
+            # Direct URL string (what wan-video model returns)
+            video_url = output
+        else:
+            video_url = None
+
         if not video_url:
-            raise Exception("No video URL in successful generation output")
+            raise Exception(f"No video URL in successful generation output: {output}")
 
         # Create clip metadata
         metadata = ClipMetadata(
@@ -279,7 +286,7 @@ class ReplicateModelClient:
             generation_id="",  # Will be overridden by caller
             scene_id="",  # Will be overridden by caller
             video_url=video_url,
-            duration_seconds=output.get("duration", 0.0),
+            duration_seconds=output.get("duration", 0.0) if isinstance(output, dict) else 8.0,  # Default to 8 seconds
             resolution=self._parse_resolution_from_output(output),
             format=VideoFormat.MP4,  # Default assumption
             model_used=status_info.get("version", self.config.default_model),
@@ -288,8 +295,8 @@ class ReplicateModelClient:
             completed_at=datetime.utcnow()
         )
 
-        # Add quality score if available
-        if "quality_score" in output:
+        # Add quality score if available (only if output is dict)
+        if isinstance(output, dict) and "quality_score" in output:
             metadata.quality_score = output["quality_score"]
 
         return GenerationResult(
@@ -297,10 +304,14 @@ class ReplicateModelClient:
             prediction_details=status_info
         )
 
-    def _parse_resolution_from_output(self, output: Dict[str, Any]) -> VideoResolution:
+    def _parse_resolution_from_output(self, output) -> VideoResolution:
         """Parse resolution from Replicate output"""
-        width = output.get("width", 1280)
-        height = output.get("height", 720)
+        if isinstance(output, dict):
+            width = output.get("width", 1280)
+            height = output.get("height", 720)
+        else:
+            # Default resolution if output is not a dict
+            width, height = 1280, 720
 
         if width >= 3840 or height >= 2160:
             return VideoResolution.RES_4K

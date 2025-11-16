@@ -71,6 +71,7 @@ This index tracks all files created during the AI Backend development process.
 - `ai/tests/test_prompt_analysis.py` - Prompt analysis service tests
 - `ai/tests/test_scene_decomposition.py` - Scene decomposition tests
 - `ai/tests/test_scene_integration.py` - End-to-end integration tests
+- `test_real_video.py` - Real Replicate video generation integration test
 - `ai/tests/test_style_vector_builder.py` - Style vector builder tests (PR #501)
 - `ai/tests/test_brand_harmony.py` - Brand harmony analysis tests (PR #502)
 - `ai/tests/test_timeline_edit_planner.py` - Timeline edit planner tests (PR #402)
@@ -79,6 +80,9 @@ This index tracks all files created during the AI Backend development process.
 ### Configuration
 - `ai/requirements.txt` - Python dependencies for AI processing
 - `ai/README.md` - AI processing module documentation
+- `ai/cli.py` - Interactive CLI for testing AI modules
+- `ai/setup_cli.py` - CLI setup and environment verification script
+- `run_ai_cli.py` - CLI launcher script (project root)
 
 ## Infrastructure Files
 
@@ -90,7 +94,6 @@ This index tracks all files created during the AI Backend development process.
 ### FastAPI Backend
 - `fastapi/requirements.txt` - Python dependencies
 - `fastapi/README.md` - Backend documentation
-- `backend/Dockerfile.dev` - Development Docker configuration
 
 ## Frontend Files
 
@@ -112,5 +115,6 @@ This index tracks all files created during the AI Backend development process.
 
 ## Root Files
 
+- `requirements.txt` - Consolidated Python dependencies from all modules
 - `LICENSE` - Project license
 - `README.md` - Project overview (pending)

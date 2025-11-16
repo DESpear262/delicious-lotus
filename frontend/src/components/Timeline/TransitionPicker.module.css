@@ -1,0 +1,130 @@
+/* TransitionPicker Component Styles */
+
+.transitionPicker {
+  position: relative;
+  display: inline-block;
+}
+
+.transitionPicker__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.transitionPicker__button:hover {
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.transitionPicker__button:active {
+  transform: scale(0.95);
+}
+
+.transitionPicker__icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.transitionPicker__dropdown {
+  position: absolute;
+  top: calc(100% + var(--spacing-1));
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+  overflow: hidden;
+  animation: slideIn 150ms ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.transitionPicker__header {
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+}
+
+.transitionPicker__options {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.transitionPicker__option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  text-align: left;
+}
+
+.transitionPicker__option:last-child {
+  border-bottom: none;
+}
+
+.transitionPicker__option:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.transitionPicker__option--active {
+  background-color: var(--color-bg-tertiary);
+}
+
+.transitionPicker__optionIcon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.transitionPicker__optionContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.transitionPicker__optionLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-1);
+}
+
+.transitionPicker__optionDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.transitionPicker__checkmark {
+  font-size: var(--font-size-lg);
+  color: var(--color-success);
+  flex-shrink: 0;
+}

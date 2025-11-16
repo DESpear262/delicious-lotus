@@ -1,7 +1,7 @@
 import React from 'react';
 import { Radio } from '@/components/ui/Radio';
 import { Select } from '@/components/ui/Select';
-import { VideoStyle, MusicStyle } from '@/types/form';
+import type { VideoStyle, MusicStyle } from '@/types/form';
 import styles from './VideoParameters.module.css';
 
 interface VideoParametersProps {

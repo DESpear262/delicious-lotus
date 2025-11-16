@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useCallback, useRef } from 'react';
-import { AdCreativeFormData, FormDraft } from '@/types/form';
+import type { AdCreativeFormData, FormDraft } from '@/types/form';
 
 const STORAGE_KEY = 'ad-creative-form-draft';
 const EXPIRY_HOURS = 24;

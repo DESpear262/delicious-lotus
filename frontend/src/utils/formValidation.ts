@@ -2,7 +2,7 @@
  * Form Validation Utilities
  */
 
-import { AdCreativeFormData, ValidationRule, FormErrors } from '@/types/form';
+import type { AdCreativeFormData, ValidationRule, FormErrors } from '@/types/form';
 
 /**
  * Validation rules for each step

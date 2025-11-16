@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AdCreativeFormData } from '@/types/form';
+import type { AdCreativeFormData } from '@/types/form';
 import { createGeneration } from '@/api/services/generation';
 import { useFormValidation } from './useFormValidation';
 import { useFormPersistence } from './useFormPersistence';

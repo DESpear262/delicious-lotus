@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { AdCreativeFormData, FormErrors } from '@/types/form';
+import type { AdCreativeFormData, FormErrors } from '@/types/form';
 import { validateStep, validateField, VALIDATION_RULES } from '@/utils/formValidation';
 
 export function useFormValidation() {

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import openai
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from models.prompt_analysis import PromptAnalysis
+from ..models.prompt_analysis import PromptAnalysis
 
 
 logger = logging.getLogger(__name__)

@@ -75,6 +75,7 @@ export interface FormErrors {
 
 export interface FormDraft {
   data: AdCreativeFormData;
+  currentStep: 1 | 2 | 3 | 4;
   timestamp: number;
   version: string;
 }

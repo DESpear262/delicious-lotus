@@ -53,7 +53,26 @@ class StorageService:
             use_local = os.getenv('USE_LOCAL_STORAGE', 'true').lower() == 'true'
         
         self.use_local = use_local
-        self.local_storage_path = Path(local_storage_path or os.getenv('LOCAL_STORAGE_PATH', './storage'))
+        
+        # Get storage path and convert to absolute path
+        storage_path = local_storage_path or os.getenv('LOCAL_STORAGE_PATH', './storage')
+        self.local_storage_path = Path(storage_path)
+        
+        # Convert relative paths to absolute paths
+        if not self.local_storage_path.is_absolute():
+            # Resolve relative to current working directory, or use APP_HOME in containers
+            if os.getenv('APP_HOME'):
+                # In Docker container, resolve relative to APP_HOME (e.g., /app)
+                # Handle both './storage' and 'storage' formats
+                base_path = Path(os.getenv('APP_HOME'))
+                # If path starts with './', remove it before joining
+                path_str = str(self.local_storage_path)
+                if path_str.startswith('./'):
+                    path_str = path_str[2:]
+                self.local_storage_path = (base_path / path_str).resolve()
+            else:
+                # Resolve relative to current working directory
+                self.local_storage_path = self.local_storage_path.resolve()
         
         if not self.use_local:
             if not BOTO3_AVAILABLE:
@@ -75,9 +94,26 @@ class StorageService:
             
             logger.info(f"StorageService initialized with S3 bucket: {self.s3_bucket}")
         else:
-            # Ensure local storage directory exists
-            self.local_storage_path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"StorageService initialized with local storage: {self.local_storage_path}")
+            # Ensure local storage directory exists with proper error handling
+            try:
+                self.local_storage_path.mkdir(parents=True, exist_ok=True)
+                # Verify we can write to the directory
+                test_file = self.local_storage_path / '.test_write'
+                try:
+                    test_file.touch()
+                    test_file.unlink()
+                except (PermissionError, OSError) as e:
+                    raise PermissionError(
+                        f"Cannot write to storage directory {self.local_storage_path}: {e}. "
+                        f"Please check directory permissions."
+                    )
+                logger.info(f"StorageService initialized with local storage: {self.local_storage_path}")
+            except PermissionError as e:
+                logger.error(f"Permission denied creating storage directory: {e}")
+                raise
+            except OSError as e:
+                logger.error(f"Failed to create storage directory {self.local_storage_path}: {e}")
+                raise
     
     def upload_file(
         self,

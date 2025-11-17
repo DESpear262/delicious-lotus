@@ -2,7 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
-**Last Updated:** 2025-11-15 by Blue (Frontend Cyberpunk Theme Implementation)
+**Last Updated:** 2025-11-15 by Blue (Verbose Generation Progress & Logging)
 **Last Updated:** 2025-11-15 by Orange (Real Video Generation Working)
 **Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
 **Last Updated:** 2025-11-14 by White
@@ -39,6 +39,9 @@
 - ✅ **GET /api/v1/generations endpoint** - List generations with pagination, status filtering, and proper error handling
 - ✅ **History page null safety** - Fixed TypeError by adding defensive checks for undefined/empty generations arrays
 - ✅ **Replicate webhook integration** - Async video generation using Replicate webhooks. Server returns immediately after starting generation, Replicate calls webhook when complete. Webhook handler downloads videos, uploads to S3, and updates database. No more polling overhead.
+- ✅ **Verbose generation progress page** - Enhanced GenerationProgress page with CLI-style step-by-step display showing: Step 1 (Analyzing Prompt), Step 2 (Decomposing Scenes), Step 3 (Building Micro-Prompts), Step 4 (Generating Videos), Step 5 (Video Composition), Step 6 (Final Rendering). Current step details and percentage progress displayed.
+- ✅ **Comprehensive backend logging** - Added verbose console logging throughout video generation pipeline matching CLI output format. Logs include [START], [STEP 1-4], [OK], [ERROR], [INFO] prefixes. Logging in FastAPI create_generation endpoint and ffmpeg-backend generate_video_clips function. All logs visible in backend terminal for debugging.
+- ✅ **Enhanced frontend console logging** - Improved browser console logging with formatted messages: [PROGRESS], [OK], [ERROR], [STATUS], [INFO]. Detailed progress updates, clip completion notifications, and error messages. All accessible from browser dev tools for debugging infinite loading issues.
 
 ### Backend/AI
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)
@@ -53,6 +56,7 @@
 - ✅ Brand consistency engine with accessibility compliance and visual coherence
 - ✅ AI video generation orchestration with Wan-video/wan-2.2-t2v-fast integration
 - ✅ Natural language video editing with safety guardrails and conflict resolution
+- ✅ Frontend → backend brand payload aligned with `BrandConfig` (`brand.colors` now sent as `ColorPalette` object, avoiding 500 errors on `POST /api/v1/generations`)
 
 ### FFmpeg/Video Processing
 - ❓ Status unknown

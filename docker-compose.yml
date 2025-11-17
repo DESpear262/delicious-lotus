@@ -41,8 +41,8 @@ services:
   # Backend (FastAPI + FFmpeg) - PR-D002
   backend:
     build:
-      context: ./fastapi
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./fastapi/Dockerfile
     container_name: ai-video-backend
     environment:
       # Database

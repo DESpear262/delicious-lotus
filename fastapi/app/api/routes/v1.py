@@ -37,24 +37,25 @@ try:
     from ai.models.clip_assembly import ClipAssemblyRequest, ClipRetrievalRequest
     from ai.models.edit_intent import EditRequest, EditResponse
     AI_SERVICES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     AI_SERVICES_AVAILABLE = False
-    # Create stub classes for when AI services aren't available
+    # Define fallback types for when AI services are not available
+    # These are used in function signatures but won't be used at runtime
     from typing import Any
-    from pydantic import BaseModel
-
-    class ClipAssemblyRequest(BaseModel):  # type: ignore
-        generation_id: str = ""
-
-    class ClipRetrievalRequest(BaseModel):  # type: ignore
-        generation_id: str = ""
-
-    class EditRequest(BaseModel):  # type: ignore
-        edit_instruction: str = ""
-
-    class EditResponse(BaseModel):  # type: ignore
-        success: bool = False
-        message: str = ""
+    AnalysisRequest = Any
+    MicroPromptRequest = Any
+    SceneDecompositionRequest = Any
+    SceneDecompositionResponse = Any
+    ClipAssemblyRequest = Any
+    ClipRetrievalRequest = Any
+    EditRequest = Any
+    EditResponse = Any
+    PromptAnalysisService = None
+    BrandAnalysisService = None
+    MicroPromptBuilderService = None
+    ClipAssemblyService = None
+    EditIntentClassifierService = None
+    logger.warning(f"AI services not available: {e}")
 
 # Create API v1 router
 api_v1_router = APIRouter(prefix="/api/v1", tags=["api-v1"])

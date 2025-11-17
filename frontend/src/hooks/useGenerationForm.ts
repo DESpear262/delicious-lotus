@@ -46,8 +46,9 @@ export function useGenerationForm() {
   /**
    * Handle form data restoration from localStorage
    */
-  const handleRestore = useCallback((data: AdCreativeFormData) => {
+  const handleRestore = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => {
     setFormData(data);
+    setCurrentStep(step);
   }, []);
 
   const {
@@ -55,7 +56,7 @@ export function useGenerationForm() {
     showRestoreDialog,
     handleResume,
     handleDiscard,
-  } = useFormPersistence(formData, handleRestore);
+  } = useFormPersistence(formData, currentStep, handleRestore);
 
   /**
    * Update a single field
@@ -166,7 +167,12 @@ export function useGenerationForm() {
         brand: formData.brandName
           ? {
               name: formData.brandName,
-              colors: [formData.brandColors.primary, formData.brandColors.secondary],
+              colors: {
+                primary: [formData.brandColors.primary],
+                secondary: formData.brandColors.secondary
+                  ? [formData.brandColors.secondary]
+                  : undefined,
+              },
               logo_url: formData.brandLogo?.url,
             }
           : undefined,

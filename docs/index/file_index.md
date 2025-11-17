@@ -87,8 +87,10 @@ This index tracks all files created during the AI Backend development process.
 ## Infrastructure Files
 
 ### Docker
-- `docker/docker-compose.yml` - Local development environment
-- `docker/postgres/init.sql` - Database initialization
+- `docker-compose.yml` - Root docker-compose configuration with all services (main backend, FFmpeg backend API, FFmpeg backend worker, postgres, redis)
+- `docker/postgres/init.sql` - Main database initialization (ai_video_pipeline)
+- `docker/postgres/init-ffmpeg-db.sh` - FFmpeg backend database initialization script (creates ffmpeg_backend database)
+- `docker/postgres/init-ffmpeg-db.sql` - Reference SQL file (actual creation done via shell script)
 - `docker/redis/redis.conf` - Redis configuration
 
 ### FastAPI Backend
@@ -142,6 +144,7 @@ This index tracks all files created during the AI Backend development process.
 - `fastapi/commits/Orange/` - Backend-specific Orange commits
 - `commits/Blonde/` - Blonde agent commit records (PR #004)
 - `commits/Blue/` - Blue agent commit records (Frontend theme implementation, prompt validation fixes)
+- `commits/Silver/` - Silver agent commit records (Vite dev proxy for frontend API/WebSocket traffic)
 
 ## Root Files
 

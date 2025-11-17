@@ -11,7 +11,8 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./docker/postgres/init-ffmpeg-db.sh:/docker-entrypoint-initdb.d/02-init-ffmpeg-db.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_video_user} -d ${POSTGRES_DB:-ai_video_pipeline}"]
       interval: 10s
@@ -72,11 +73,88 @@ services:
       - ai-video-network
     # Uses CMD from Dockerfile: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
+  # FFmpeg Backend API Service
+  ffmpeg-backend-api:
+    build:
+      context: ./ffmpeg-backend
+      dockerfile: Dockerfile.dev
+    container_name: ffmpeg-backend-api
+    environment:
+      # Database - using shared postgres with separate database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/ffmpeg_backend
+      # Redis - using shared redis
+      REDIS_URL: redis://redis:6379/0
+      # Application settings
+      ENVIRONMENT: ${FFMPEG_ENVIRONMENT:-development}
+      DEBUG: ${FFMPEG_DEBUG:-true}
+      LOG_LEVEL: ${FFMPEG_LOG_LEVEL:-INFO}
+      # S3 Storage (optional - can be overridden via .env)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    volumes:
+      - ./ffmpeg-backend/src:/app/src
+      - ./ffmpeg-backend/tests:/app/tests:ro
+      - ./ffmpeg-backend/migrations:/app/migrations:ro
+      - ./ffmpeg-backend/alembic.ini:/app/alembic.ini:ro
+      - ffmpeg_media_data:/app/media
+    ports:
+      - "${FFMPEG_API_PORT:-8001}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - ai-video-network
+
+  # FFmpeg Backend RQ Worker for background job processing
+  ffmpeg-backend-worker:
+    build:
+      context: ./ffmpeg-backend
+      dockerfile: Dockerfile.dev
+    command: rq worker --url redis://redis:6379/0 default high low
+    container_name: ffmpeg-backend-worker
+    environment:
+      # Database - using shared postgres with separate database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/ffmpeg_backend
+      # Redis - using shared redis
+      REDIS_URL: redis://redis:6379/0
+      # Application settings
+      ENVIRONMENT: ${FFMPEG_ENVIRONMENT:-development}
+      # S3 Storage (optional - can be overridden via .env)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    volumes:
+      - ./ffmpeg-backend/src:/app/src:ro
+      - ffmpeg_media_data:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ai-video-network
+    deploy:
+      replicas: 1
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  ffmpeg_media_data:
     driver: local
 
 networks:

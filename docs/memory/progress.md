@@ -2,7 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
-**Last Updated:** 2025-11-17 by Silver (Frontend integration & local generation debugging)
+**Last Updated:** 2025-11-17 by Silver (Docker integration: FFmpeg backend services)
 **Last Updated:** 2025-11-15 by Blue (Verbose Generation Progress & Logging)
 **Last Updated:** 2025-11-15 by Orange (Real Video Generation Working)
 **Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
@@ -16,6 +16,8 @@
 - ✅ Local development environment (Docker Compose, PostgreSQL, Redis)
 - ✅ Production-ready database schema (9 tables, views, triggers, helpers)
 - ✅ Environment configuration templates (60+ variables for FastAPI, AI service configs)
+- ✅ **Unified Docker Compose setup** - Root docker-compose.yml includes main backend, FFmpeg backend API, and FFmpeg backend worker services. All services share postgres and redis instances with separate databases. FFmpeg backend runs on port 8001.
+- ✅ **Automatic database initialization** - `ffmpeg_backend` database automatically created on first postgres startup via `docker/postgres/init-ffmpeg-db.sh` script.
 
 ### Frontend
 - ✅ React 19 + Vite + TypeScript project initialized

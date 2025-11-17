@@ -2,7 +2,7 @@
 
 **Purpose:** Track architectural decisions and patterns established during implementation.
 
-**Last Updated:** 2025-11-15 by Blue
+**Last Updated:** 2025-11-17 by Silver
 
 ---
 
@@ -103,5 +103,42 @@
    - Returns storage URL (S3 path or local path)
 6. Generation status updated to PROCESSING with video_results metadata
 7. Frontend can list generations via GET /api/v1/generations
+
+## Docker Architecture
+
+### Pattern: Unified Docker Compose with Service Isolation
+**Date:** 2025-11-17
+**Context:** Need to run both main backend and FFmpeg backend services together while maintaining team independence
+**Decision:** Integrated FFmpeg backend services into root `docker-compose.yml` while keeping `ffmpeg-backend/docker-compose.yml` unchanged
+**Details:**
+- Root docker-compose.yml includes:
+  - Shared infrastructure: `postgres` (port 5432), `redis` (port 6379)
+  - Main backend: `backend` service (port 8000)
+  - FFmpeg backend: `ffmpeg-backend-api` (port 8001), `ffmpeg-backend-worker` (RQ worker)
+- Both backends share the same postgres instance but use separate databases:
+  - Main backend: `ai_video_pipeline` database
+  - FFmpeg backend: `ffmpeg_backend` database
+- Both backends share the same redis instance (different keyspaces via database number)
+- All services on `ai-video-network` for inter-service communication
+- FFmpeg backend team can still run `ffmpeg-backend/docker-compose.yml` independently for isolated development
+**Rationale:**
+- Single command to start all services: `docker-compose up --build`
+- Resource efficiency (shared postgres/redis)
+- Team independence maintained (no changes to ffmpeg-backend docker-compose.yml)
+- Automatic database creation via init script
+
+### Pattern: Automatic Database Initialization
+**Date:** 2025-11-17
+**Context:** Need to automatically create `ffmpeg_backend` database when postgres container starts
+**Decision:** Created shell script (`docker/postgres/init-ffmpeg-db.sh`) that runs during postgres initialization
+**Details:**
+- Script runs as postgres superuser during container initialization
+- Checks if database exists before creating (idempotent)
+- Grants privileges to application user
+- Runs after main database initialization (alphabetical ordering: 01-init.sql, then 02-init-ffmpeg-db.sh)
+**Rationale:**
+- No manual database creation required
+- Works on first startup and subsequent restarts
+- Follows PostgreSQL Docker image initialization pattern
 
 *(Additional patterns to be populated as video generation pipeline evolves)*

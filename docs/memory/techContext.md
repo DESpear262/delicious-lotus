@@ -2,7 +2,7 @@
 
 **Purpose:** Tech stack details, setup procedures, and discovered constraints.
 
-**Last Updated:** 2025-11-15 by Blue
+**Last Updated:** 2025-11-17 by Silver
 
 ---
 
@@ -41,9 +41,17 @@
 ### Local Setup (PR-D001)
 - Docker Compose for local development
 - PostgreSQL 16 container (port 5432)
+  - Main database: `ai_video_pipeline` (for main backend)
+  - FFmpeg database: `ffmpeg_backend` (auto-created via init script)
 - Redis 7 container (port 6379, using redis:7-alpine image)
+  - Shared by both main backend and FFmpeg backend
+- Services:
+  - `backend`: Main FastAPI backend (port 8000)
+  - `ffmpeg-backend-api`: FFmpeg backend API (port 8001)
+  - `ffmpeg-backend-worker`: RQ worker for background job processing
 - Environment variables via .env file
 - Hot reload for both frontend and backend
+- All services on `ai-video-network` for inter-service communication
 
 ---
 

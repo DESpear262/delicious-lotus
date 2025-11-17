@@ -2,7 +2,7 @@
 
 **Purpose:** What's happening right now, recent changes, current focus areas.
 
-**Last Updated:** 2025-11-17 by Silver (Local generation flow + frontend integration debugging)
+**Last Updated:** 2025-11-17 by Silver (Docker integration: FFmpeg backend services added to root docker-compose)
 
 ---
 
@@ -136,3 +136,4 @@
 **2025-11-15** - Blue: Implemented Replicate webhook-based async video generation. Created webhook endpoint POST /api/v1/webhooks/replicate, updated generate_video_clips to use webhooks instead of polling, added prediction_id mapping storage, webhook handler processes results and uploads to S3. Generation now returns immediately instead of blocking on Replicate completion.
 **2025-11-15** - Blue: Enhanced video generation progress page with verbose CLI-style step display. Updated GenerationProgress page to show detailed steps (Analyzing Prompt, Decomposing Scenes, Building Micro-Prompts, Generating Videos, Composition, Rendering). Added comprehensive console logging throughout backend (FastAPI and ffmpeg-backend) matching CLI output format. Enhanced frontend console logging with formatted progress messages. All logging accessible from browser dev tools and backend terminal for debugging infinite loading issues.
 **2025-11-17** - Silver: Debugged end-to-end generation via web app. Fixed frontend → backend API proxying, aligned brand payload with backend `BrandConfig` (nested `ColorPalette`), updated scene decomposition and micro-prompt builder to handle new brand color format, wired FastAPI Socket.io ASGI app and frontend Socket.io client (`/socket.io` + `generation_id` query), and ensured in-memory `_generation_store` is always populated so `GET /api/v1/generations/{id}` works even when Postgres/Redis or clip storage are misconfigured.
+**2025-11-17** - Silver: Integrated FFmpeg backend services into root docker-compose.yml. Added `ffmpeg-backend-api` (port 8001) and `ffmpeg-backend-worker` services that share the same postgres and redis instances as the main backend. Created automatic database initialization script (`docker/postgres/init-ffmpeg-db.sh`) to create `ffmpeg_backend` database on first startup. All changes isolated to root docker-compose.yml so ffmpeg-backend team can continue using their own docker-compose.yml independently.

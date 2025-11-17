@@ -5,14 +5,253 @@ OpenAI Client Wrapper - PR 101: Prompt Parsing Module
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 import openai
+from pydantic import ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from ..models.prompt_analysis import PromptAnalysis
+from ..models.prompt_analysis import PromptAnalysis, Tone, Style, VisualTheme, NarrativeStructure, TargetAudience, ImageryStyle
 
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_analysis_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize and validate OpenAI response data to match PromptAnalysis schema.
+    Handles enum mapping, data type conversion, and structural validation.
+
+    This function is robust against:
+    - Invalid enum values (maps to valid ones with fallbacks)
+    - Wrong data types (converts strings to lists, validates numbers)
+    - Missing fields (provides sensible defaults)
+    - Malformed nested structures (fixes key_elements and color_palette)
+    - Invalid ranges (clamps confidence_score, importance values)
+
+    Args:
+        data: Raw JSON data from OpenAI (potentially malformed)
+
+    Returns:
+        Normalized and validated data ready for PromptAnalysis creation
+    """
+    normalized = normalize_field_names(data)
+
+    # Normalize enum fields with fallbacks
+    enum_mappings = {
+        'tone': {
+            'professional': Tone.PROFESSIONAL,
+            'friendly': Tone.FRIENDLY,
+            'enthusiastic': Tone.ENTHUSIASTIC,
+            'serious': Tone.SERIOUS,
+            'playful': Tone.PLAYFUL,
+            'dramatic': Tone.DRAMATIC,
+            'calm': Tone.CALM,
+            'energetic': Tone.ENERGETIC,
+            # Fallback mappings for common variations
+            'excited': Tone.ENTHUSIASTIC,
+            'fun': Tone.PLAYFUL,
+            'formal': Tone.PROFESSIONAL,
+            'corporate': Tone.PROFESSIONAL,
+            'relaxed': Tone.CALM,
+        },
+        'style': {
+            'modern': Style.MODERN,
+            'classic': Style.CLASSIC,
+            'minimalist': Style.MINIMALIST,
+            'cinematic': Style.CINEMATIC,
+            'documentary': Style.DOCUMENTARY,
+            'animation': Style.ANIMATION,
+            'photorealistic': Style.PHOTOREALISTIC,
+            'artistic': Style.ARTISTIC,
+            # Fallback mappings
+            'animated': Style.ANIMATION,
+            'realistic': Style.PHOTOREALISTIC,
+            'minimal': Style.MINIMALIST,
+            'movie': Style.CINEMATIC,
+        },
+        'visual_theme': {
+            'bright': VisualTheme.BRIGHT,
+            'dark': VisualTheme.DARK,
+            'warm': VisualTheme.WARM,
+            'cool': VisualTheme.COOL,
+            'neutral': VisualTheme.NEUTRAL,
+            'vibrant': VisualTheme.VIBRANT,
+            'monochrome': VisualTheme.MONOCHROME,
+            'earthy': VisualTheme.EARTHY,
+            # Fallback mappings
+            'colorful': VisualTheme.VIBRANT,
+            'moody': VisualTheme.DARK,
+            'sunny': VisualTheme.WARM,
+        },
+        'narrative_structure': {
+            'problem_solution': NarrativeStructure.PROBLEM_SOLUTION,
+            'storytelling': NarrativeStructure.STORYTELLING,
+            'demonstration': NarrativeStructure.DEMONSTRATION,
+            'testimonial': NarrativeStructure.TESTIMONIAL,
+            'comparison': NarrativeStructure.COMPARISON,
+            'explanation': NarrativeStructure.EXPLANATION,
+            'celebration': NarrativeStructure.CELEBRATION,
+            'announcement': NarrativeStructure.ANNOUNCEMENT,
+            # Fallback mappings
+            'story': NarrativeStructure.STORYTELLING,
+            'demo': NarrativeStructure.DEMONSTRATION,
+            'tutorial': NarrativeStructure.DEMONSTRATION,
+            'how-to': NarrativeStructure.DEMONSTRATION,
+            'announce': NarrativeStructure.ANNOUNCEMENT,
+        },
+        'target_audience': {
+            'business': TargetAudience.BUSINESS,
+            'consumers': TargetAudience.CONSUMERS,
+            'teens': TargetAudience.TEENS,
+            'professionals': TargetAudience.PROFESSIONALS,
+            'families': TargetAudience.FAMILIES,
+            'elders': TargetAudience.ELDERS,
+            'general': TargetAudience.GENERAL,
+            # Fallback mappings
+            'young': TargetAudience.TEENS,
+            'kids': TargetAudience.FAMILIES,
+            'children': TargetAudience.FAMILIES,
+            'enterprise': TargetAudience.BUSINESS,
+            'corporate': TargetAudience.BUSINESS,
+            'family': TargetAudience.FAMILIES,
+        },
+        'imagery_style': {
+            'photography': ImageryStyle.PHOTOGRAPHY,
+            'illustration': ImageryStyle.ILLUSTRATION,
+            'graphics': ImageryStyle.GRAPHICS,
+            'text_overlays': ImageryStyle.TEXT_OVERLAYS,
+            'product_shots': ImageryStyle.PRODUCT_SHOTS,
+            'lifestyle': ImageryStyle.LIFESTYLE,
+            'abstract': ImageryStyle.ABSTRACT,
+            'realistic': ImageryStyle.REALISTIC,
+            'animation': ImageryStyle.ANIMATION,
+            # Fallback mappings
+            'photo': ImageryStyle.PHOTOGRAPHY,
+            'animated': ImageryStyle.ANIMATION,
+            'graphic': ImageryStyle.GRAPHICS,
+            'product': ImageryStyle.PRODUCT_SHOTS,
+            'real': ImageryStyle.REALISTIC,
+            'illustrated': ImageryStyle.ILLUSTRATION,
+        },
+    }
+
+    # Apply enum normalization
+    for field, mapping in enum_mappings.items():
+        if field in normalized:
+            value = normalized[field]
+            if isinstance(value, str):
+                normalized[field] = mapping.get(value.lower(), mapping.get('general', Tone.FRIENDLY))
+            else:
+                # If not a string, use a sensible default
+                normalized[field] = mapping.get('general', Tone.FRIENDLY)
+
+    # Normalize list fields
+    list_fields = ['key_themes', 'key_messages', 'analysis_notes']
+    for field in list_fields:
+        if field in normalized:
+            value = normalized[field]
+            if isinstance(value, list):
+                # Ensure all items are strings and limit length
+                normalized[field] = [str(item) for item in value[:10]]  # Max 10 items
+            elif isinstance(value, str):
+                # If it's a string, try to split on common separators
+                normalized[field] = [item.strip() for item in value.split(',')][:10]
+            else:
+                normalized[field] = []
+        else:
+            normalized[field] = []
+
+    # Normalize key_elements (complex nested structure)
+    if 'key_elements' in normalized:
+        elements = normalized['key_elements']
+        if isinstance(elements, list):
+            normalized_elements = []
+            for element in elements[:5]:  # Max 5 elements
+                if isinstance(element, dict):
+                    # Ensure required fields exist with defaults
+                    elem_type = element.get('element_type', 'unknown')
+                    description = element.get('description', 'No description')
+                    importance = element.get('importance', 3)
+
+                    # Validate importance is 1-5
+                    if not isinstance(importance, int) or importance < 1 or importance > 5:
+                        importance = 3
+
+                    normalized_elements.append({
+                        'element_type': str(elem_type),
+                        'description': str(description),
+                        'importance': importance
+                    })
+                elif isinstance(element, str):
+                    # If it's just a string, create a basic element
+                    normalized_elements.append({
+                        'element_type': 'general',
+                        'description': str(element),
+                        'importance': 3
+                    })
+            normalized['key_elements'] = normalized_elements
+        else:
+            normalized['key_elements'] = []
+
+    # Normalize color_palette (nested object)
+    if 'color_palette' in normalized:
+        palette = normalized['color_palette']
+        if isinstance(palette, dict):
+            # Ensure primary_colors and secondary_colors are lists of strings
+            primary = palette.get('primary_colors', [])
+            secondary = palette.get('secondary_colors', [])
+            mood = palette.get('mood', 'neutral')
+
+            if isinstance(primary, list):
+                primary = [str(color) for color in primary]
+            else:
+                primary = []
+
+            if isinstance(secondary, list):
+                secondary = [str(color) for color in secondary]
+            else:
+                secondary = []
+
+            normalized['color_palette'] = {
+                'primary_colors': primary,
+                'secondary_colors': secondary,
+                'mood': str(mood)
+            }
+        else:
+            # Default color palette
+            normalized['color_palette'] = {
+                'primary_colors': ['#0066CC'],
+                'secondary_colors': ['#666666'],
+                'mood': 'neutral'
+            }
+
+    # Normalize confidence_score
+    if 'confidence_score' in normalized:
+        score = normalized['confidence_score']
+        if isinstance(score, (int, float)):
+            # Ensure it's between 0.0 and 1.0
+            normalized['confidence_score'] = max(0.0, min(1.0, float(score)))
+        else:
+            normalized['confidence_score'] = 0.5
+
+    # Ensure required string fields exist
+    string_fields = ['narrative_intent', 'pacing', 'music_style']
+    for field in string_fields:
+        if field in normalized:
+            normalized[field] = str(normalized[field])
+        else:
+            normalized[field] = 'moderate' if field == 'pacing' else 'corporate' if field == 'music_style' else 'Create engaging content'
+
+    # Handle product_focus (can be null)
+    if 'product_focus' in normalized:
+        value = normalized['product_focus']
+        if value is None or value == 'null' or value == '':
+            normalized['product_focus'] = None
+        else:
+            normalized['product_focus'] = str(value)
+
+    return normalized
 
 
 def normalize_field_names(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -133,15 +372,30 @@ class OpenAIClient:
 
             logger.warning(f"[FIELD_TRANSFORM] Original fields: {list(analysis_data.keys())}")
 
-            # Normalize field names to match schema (handles capitalized names from OpenAI)
-            analysis_data = normalize_field_names(analysis_data)
+            # Normalize field names and data types to match schema (handles capitalized names and data validation)
+            analysis_data = normalize_analysis_data(analysis_data)
 
             logger.warning(f"[FIELD_TRANSFORM] Normalized fields: {list(analysis_data.keys())}")
 
-            # Validate and create PromptAnalysis object
-            analysis = PromptAnalysis(**analysis_data)
+            # Validate and create PromptAnalysis object (should now be robust against malformed data)
+            try:
+                analysis = PromptAnalysis(**analysis_data)
+            except ValidationError as e:
+                logger.error(f"PromptAnalysis validation failed after normalization: {e}")
+                raise Exception(f"Failed to create valid analysis from OpenAI response: {str(e)}")
             analysis.original_prompt = prompt
-            analysis.analysis_timestamp = response.created.isoformat()
+
+            # Convert OpenAI's unix timestamp (or datetime) into a UTC ISO 8601 string for downstream services.
+            raw_created = getattr(response, "created", None)
+            if isinstance(raw_created, (int, float)):
+                created_dt = datetime.fromtimestamp(raw_created, tz=timezone.utc)
+                analysis.analysis_timestamp = created_dt.isoformat().replace("+00:00", "Z")
+            elif isinstance(raw_created, datetime):
+                created_dt = raw_created.astimezone(timezone.utc)
+                analysis.analysis_timestamp = created_dt.isoformat().replace("+00:00", "Z")
+            else:
+                analysis.analysis_timestamp = str(raw_created) if raw_created is not None else datetime.utcnow().replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+
             analysis.model_version = self.model
 
             logger.info(f"Successfully analyzed prompt (confidence: {analysis.confidence_score})")

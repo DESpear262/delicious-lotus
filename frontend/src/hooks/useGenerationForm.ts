@@ -167,7 +167,12 @@ export function useGenerationForm() {
         brand: formData.brandName
           ? {
               name: formData.brandName,
-              colors: [formData.brandColors.primary, formData.brandColors.secondary],
+              colors: {
+                primary: [formData.brandColors.primary],
+                secondary: formData.brandColors.secondary
+                  ? [formData.brandColors.secondary]
+                  : undefined,
+              },
               logo_url: formData.brandLogo?.url,
             }
           : undefined,

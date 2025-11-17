@@ -47,9 +47,15 @@ export interface PaginationMeta {
 // Generation API Types
 // ============================================================================
 
+export interface BrandColorPalette {
+  primary: string[];
+  secondary?: string[];
+  background?: string;
+}
+
 export interface BrandParameters {
   name: string;
-  colors: string[];
+  colors: BrandColorPalette;
   logo_url?: string;
 }
 

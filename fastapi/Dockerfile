@@ -84,5 +84,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD /opt/venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
-# Run the application
-CMD ["/opt/venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application with Socket.io ASGI wrapper so WebSockets work
+CMD ["/opt/venv/bin/uvicorn", "app.main:socketio_app", "--host", "0.0.0.0", "--port", "8000"]

@@ -44,7 +44,18 @@
 
 ## Integration Patterns
 
-*(To be populated as backend/frontend/ffmpeg integration patterns emerge)*
+### Pattern: Frontend → Backend API & WebSocket Integration (Dev)
+**Date:** 2025-11-17
+**Context:** Local development flow for web UI → FastAPI backend
+**Decision:** Use Vite dev proxy for REST + WebSockets and Socket.io ASGI wrapper in FastAPI.
+**Details:**
+- Frontend dev server proxies:
+  - `/api` → `http://localhost:8000` (REST API)
+  - `/socket.io` → `http://localhost:8000` (Socket.io Engine.IO endpoint)
+  - `/ws` → `ws://localhost:8000` (raw WebSocket endpoints if needed)
+- Backend runs `app.main:socketio_app` (Socket.io ASGI wrapper) so Socket.io and FastAPI share the same port.
+- Socket.io client always connects to `/socket.io` and passes `generation_id` via query parameters; backend extracts it in `handle_connect` and/or `subscribe` to validate and subscribe to the correct generation room.
+- `GET /api/v1/generations/{id}` first tries persisted clip/progress data (Postgres/Redis via `ClipAssemblyService`), then falls back to in-memory `_generation_store` so status lookups work even when DB/Redis are misconfigured in dev.
 
 ---
 

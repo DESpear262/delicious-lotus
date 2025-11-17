@@ -96,7 +96,13 @@ except Exception as e:
 
 if AI_SERVICES_AVAILABLE:
     try:
-        clip_assembly_service = ClipAssemblyService()
+        # If we have a database URL, reuse its config for clip assembly service so it
+        # connects to the same PostgreSQL instance as GenerationStorageService.
+        clip_db_config = None
+        if generation_storage_service:
+            clip_db_config = getattr(generation_storage_service, "db_config", None)
+
+        clip_assembly_service = ClipAssemblyService(db_config=clip_db_config)
     except Exception as e:
         logger.warning(f"Failed to initialize clip assembly service: {str(e)}")
 
@@ -240,6 +246,22 @@ async def create_generation(
         websocket_url=f"/ws/generations/{generation_id}"
     )
 
+    # Always store basic generation metadata in in-memory store so that
+    # GET /api/v1/generations/{id} can return a record even if database
+    # or clip storage are unavailable.
+    _generation_store[generation_id] = {
+        "id": generation_id,
+        "status": GenerationStatus.QUEUED,
+        "request": generation_request.dict(),
+        "prompt_analysis": prompt_analysis,
+        "brand_config": brand_config.dict() if brand_config else None,
+        "scenes": scenes,
+        "micro_prompts": micro_prompts,
+        "created_at": response.created_at,
+        "updated_at": response.created_at,
+        "progress": None,
+    }
+
     # Store generation metadata in database
     if generation_storage_service:
         try:
@@ -260,33 +282,6 @@ async def create_generation(
             logger.info(f"Stored generation {generation_id} in database")
         except Exception as e:
             logger.error(f"Failed to store generation in database: {str(e)}")
-            # Fallback to in-memory storage
-            _generation_store[generation_id] = {
-                "id": generation_id,
-                "status": GenerationStatus.QUEUED,
-                "request": generation_request.dict(),
-                "prompt_analysis": prompt_analysis,
-                "brand_config": brand_config.dict() if brand_config else None,
-                "scenes": scenes,
-                "micro_prompts": micro_prompts,
-                "created_at": response.created_at,
-                "updated_at": response.created_at,
-                "progress": None
-            }
-    else:
-        # Fallback to in-memory storage
-        _generation_store[generation_id] = {
-            "id": generation_id,
-            "status": GenerationStatus.QUEUED,
-            "request": generation_request.dict(),
-            "prompt_analysis": prompt_analysis,
-            "brand_config": brand_config.dict() if brand_config else None,
-            "scenes": scenes,
-            "micro_prompts": micro_prompts,
-            "created_at": response.created_at,
-            "updated_at": response.created_at,
-            "progress": None
-        }
 
     # Generate video clips using the centralized function
     # TODO: Move this to a background task/worker for production

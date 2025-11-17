@@ -370,9 +370,27 @@ def _generate_brand_references(request: SceneDecompositionRequest) -> BrandRefer
     config = request.brand_config
 
     # Colors
-    colors = config.get('colors', [])
-    if colors:
-        brand_ref.colors = colors[:3]  # Limit to 3 colors
+    colors = config.get('colors')
+    # New BrandConfig format: colors is an object with primary/secondary/background
+    if isinstance(colors, dict):
+        flat_colors = []
+        primary = colors.get('primary') or []
+        secondary = colors.get('secondary') or []
+
+        if isinstance(primary, list):
+            flat_colors.extend(primary)
+        elif primary:
+            flat_colors.append(primary)
+
+        if isinstance(secondary, list):
+            flat_colors.extend(secondary)
+        elif secondary:
+            flat_colors.append(secondary)
+
+        brand_ref.colors = flat_colors[:3]  # Limit to 3 colors
+    # Backwards compatibility: support legacy list format
+    elif isinstance(colors, list):
+        brand_ref.colors = colors[:3]
 
     # Logo placement suggestions based on scene type
     # (This would be more sophisticated in a full implementation)

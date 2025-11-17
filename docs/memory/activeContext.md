@@ -2,7 +2,7 @@
 
 **Purpose:** What's happening right now, recent changes, current focus areas.
 
-**Last Updated:** 2025-11-15 by Blue
+**Last Updated:** 2025-11-17 by Silver (Local generation flow + frontend integration debugging)
 
 ---
 
@@ -91,7 +91,7 @@
 - ✅ Work priority? → Parallel tracks
 
 ### Open
-- None currently
+- How aggressively should we rely on database/Redis vs in-memory fallbacks for local development when Postgres schema is out of sync?
 
 ---
 
@@ -134,3 +134,5 @@
 **2025-11-15** - Blue: Extracted Replicate video generation logic from cli.py into centralized generate_video_clips function in ffmpeg-backend/src/app/api/v1/replicate.py. Added parallelization support (concurrent vs sequential generation). Added UI switch in ReviewStep for parallelize_generations option. Updated both cli.py and FastAPI backend to use the centralized function.
 **2025-11-15** - Blue: Implemented S3 and database storage for generations. Created StorageService (S3/local filesystem), GenerationStorageService (PostgreSQL), updated generate_video_clips to upload videos to storage, added GET /api/v1/generations endpoint, fixed History page null safety, added thumbnail generation to TODO.md.
 **2025-11-15** - Blue: Implemented Replicate webhook-based async video generation. Created webhook endpoint POST /api/v1/webhooks/replicate, updated generate_video_clips to use webhooks instead of polling, added prediction_id mapping storage, webhook handler processes results and uploads to S3. Generation now returns immediately instead of blocking on Replicate completion.
+**2025-11-15** - Blue: Enhanced video generation progress page with verbose CLI-style step display. Updated GenerationProgress page to show detailed steps (Analyzing Prompt, Decomposing Scenes, Building Micro-Prompts, Generating Videos, Composition, Rendering). Added comprehensive console logging throughout backend (FastAPI and ffmpeg-backend) matching CLI output format. Enhanced frontend console logging with formatted progress messages. All logging accessible from browser dev tools and backend terminal for debugging infinite loading issues.
+**2025-11-17** - Silver: Debugged end-to-end generation via web app. Fixed frontend → backend API proxying, aligned brand payload with backend `BrandConfig` (nested `ColorPalette`), updated scene decomposition and micro-prompt builder to handle new brand color format, wired FastAPI Socket.io ASGI app and frontend Socket.io client (`/socket.io` + `generation_id` query), and ensured in-memory `_generation_store` is always populated so `GET /api/v1/generations/{id}` works even when Postgres/Redis or clip storage are misconfigured.

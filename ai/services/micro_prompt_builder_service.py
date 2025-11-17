@@ -280,10 +280,27 @@ class MicroPromptBuilderService:
 
         elements = []
 
-        # Colors
-        colors = brand_config.get('colors', [])
-        if colors:
-            elements.append(f"using {', '.join(colors[:3])} color scheme")
+        # Colors (support both new ColorPalette object and legacy list format)
+        colors_value = brand_config.get('colors')
+        flat_colors: List[str] = []
+        if isinstance(colors_value, dict):
+            primary = colors_value.get('primary') or []
+            secondary = colors_value.get('secondary') or []
+
+            if isinstance(primary, list):
+                flat_colors.extend(primary)
+            elif primary:
+                flat_colors.append(primary)
+
+            if isinstance(secondary, list):
+                flat_colors.extend(secondary)
+            elif secondary:
+                flat_colors.append(secondary)
+        elif isinstance(colors_value, list):
+            flat_colors = colors_value
+
+        if flat_colors:
+            elements.append(f"using {', '.join(flat_colors[:3])} color scheme")
 
         # Typography
         typography = brand_config.get('typography', {}).get('primary_font')
@@ -436,8 +453,25 @@ class MicroPromptBuilderService:
         if brand_config.get('name'):
             keywords.append(brand_config['name'])
 
-        colors = brand_config.get('colors', [])
-        keywords.extend(colors[:2])  # Limit to first 2 colors
+        colors_value = brand_config.get('colors')
+        flat_colors: List[str] = []
+        if isinstance(colors_value, dict):
+            primary = colors_value.get('primary') or []
+            secondary = colors_value.get('secondary') or []
+
+            if isinstance(primary, list):
+                flat_colors.extend(primary)
+            elif primary:
+                flat_colors.append(primary)
+
+            if isinstance(secondary, list):
+                flat_colors.extend(secondary)
+            elif secondary:
+                flat_colors.append(secondary)
+        elif isinstance(colors_value, list):
+            flat_colors = colors_value
+
+        keywords.extend(flat_colors[:2])  # Limit to first 2 colors
 
         if brand_config.get('tagline'):
             keywords.append(brand_config['tagline'])
@@ -528,8 +562,25 @@ class MicroPromptBuilderService:
         elements = []
 
         # Basic color integration (respecting harmony recommendations)
-        colors = brand_config.get('colors', [])
-        if colors and brand_harmony_analysis:
+        colors_value = brand_config.get('colors')
+        flat_colors: List[str] = []
+        if isinstance(colors_value, dict):
+            primary = colors_value.get('primary') or []
+            secondary = colors_value.get('secondary') or []
+
+            if isinstance(primary, list):
+                flat_colors.extend(primary)
+            elif primary:
+                flat_colors.append(primary)
+
+            if isinstance(secondary, list):
+                flat_colors.extend(secondary)
+            elif secondary:
+                flat_colors.append(secondary)
+        elif isinstance(colors_value, list):
+            flat_colors = colors_value
+
+        if flat_colors and brand_harmony_analysis:
             # Use harmony-safe color combinations
             safe_combinations = brand_harmony_analysis.safe_color_combinations
             if safe_combinations.get('text_on_background'):
@@ -537,9 +588,9 @@ class MicroPromptBuilderService:
                 elements.append("using brand-approved color combinations for visual consistency")
             else:
                 # Fallback to basic colors but note potential issues
-                elements.append(f"using {', '.join(colors[:2])} brand colors")
-        elif colors:
-            elements.append(f"using {', '.join(colors[:2])} brand colors")
+                elements.append(f"using {', '.join(flat_colors[:2])} brand colors")
+        elif flat_colors:
+            elements.append(f"using {', '.join(flat_colors[:2])} brand colors")
 
         # Typography (no harmony conflicts typically)
         typography = brand_config.get('typography', {}).get('primary_font')

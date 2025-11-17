@@ -2,6 +2,7 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
+**Last Updated:** 2025-11-17 by Silver (Frontend integration & local generation debugging)
 **Last Updated:** 2025-11-15 by Blue (Verbose Generation Progress & Logging)
 **Last Updated:** 2025-11-15 by Orange (Real Video Generation Working)
 **Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
@@ -57,6 +58,8 @@
 - ✅ AI video generation orchestration with Wan-video/wan-2.2-t2v-fast integration
 - ✅ Natural language video editing with safety guardrails and conflict resolution
 - ✅ Frontend → backend brand payload aligned with `BrandConfig` (`brand.colors` now sent as `ColorPalette` object, avoiding 500 errors on `POST /api/v1/generations`)
+- ✅ Scene decomposition and micro-prompt builder updated to support both legacy flat color lists and the new `ColorPalette` object format (no more slice-related runtime errors during generation).
+- ✅ Local generation lifecycle from web UI works end-to-end in dev (prompt → analysis → scenes → micro-prompts → generation record + progress polling), with FastAPI always populating in-memory `_generation_store` so status retrieval works even if database/Redis/clip storage are misconfigured.
 
 ### FFmpeg/Video Processing
 - ❓ Status unknown
@@ -66,13 +69,13 @@
 ## Known Issues
 
 ### Critical
-- None yet
+- None currently (generation requests succeed and status polling works in dev).
 
 ### High Priority
-- None yet
+- FFmpeg backend is not yet wired into the FastAPI container image in dev; `generate_video_clips` import fails with `No module named 'app.api.v1'`, so real clip generation/storage must be exercised via the ffmpeg-backend service/CLI rather than the FastAPI container.
 
 ### Medium Priority
-- None yet
+- Local Postgres schema for `clips` (and related tables) may be out-of-date in some environments, causing non-fatal `column "generation_id" does not exist` errors when `ClipAssemblyService` attempts retrieval. Generation metadata is still available via in-memory store, but DB-backed clip retrieval and progress need migrations or schema reset.
 
 ### Low Priority
 - Minor: NotFoundError exception handling not working in test environment (1 failing test)

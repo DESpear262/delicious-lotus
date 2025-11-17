@@ -49,10 +49,22 @@ class BrandAnalysisService:
         """
         try:
             logger.info("Starting brand analysis...")
+            logger.debug(
+                "BrandAnalysisService.analyze_brand input",
+                extra={
+                    "prompt_analysis": prompt_analysis.dict() if hasattr(prompt_analysis, "dict") else str(prompt_analysis),
+                    "brand_config_raw": brand_config,
+                },
+            )
 
             # If no brand config provided, check if prompt contains brand information
             if not brand_config:
                 brand_config = self._extract_brand_from_prompt(prompt_analysis)
+
+            logger.debug(
+                "BrandAnalysisService brand_config after extraction",
+                extra={"brand_config_extracted": brand_config},
+            )
 
             # If we still don't have brand config, use defaults
             if not brand_config:
@@ -61,20 +73,35 @@ class BrandAnalysisService:
 
             # Convert to BrandConfig object (this will validate the schema)
             try:
+                logger.debug("Attempting to construct BrandConfig from brand_config", extra={"brand_config": brand_config})
                 brand_config_obj = BrandConfig(**brand_config)
             except Exception as e:
                 logger.warning(f"Invalid brand config provided: {e}, attempting to complete missing fields")
                 brand_config_obj = await self._complete_brand_config(brand_config, prompt_analysis)
+
+            logger.debug(
+                "BrandAnalysisService brand_config_obj after initial construction",
+                extra={"brand_config_obj": brand_config_obj.dict()},
+            )
 
             # If brand config is incomplete, fill in missing information
             if self._is_brand_config_incomplete(brand_config_obj):
                 logger.info("Brand configuration is incomplete, filling missing information")
                 brand_config_obj = await self._complete_brand_config(brand_config, prompt_analysis)
 
+                logger.debug(
+                    "BrandAnalysisService brand_config_obj after completion",
+                    extra={"brand_config_completed": brand_config_obj.dict()},
+                )
+
             # Merge brand config with prompt analysis insights
             merged_config = await self._merge_with_prompt_analysis(brand_config_obj, prompt_analysis)
 
             logger.info(f"Brand analysis completed for: {merged_config.name}")
+            logger.debug(
+                "BrandAnalysisService merged_config",
+                extra={"merged_config": merged_config.dict()},
+            )
             return merged_config
 
         except Exception as e:
@@ -274,6 +301,15 @@ class BrandAnalysisService:
         # Convert to dict for manipulation
         config_dict = brand_config.dict()
 
+        logger.debug(
+            "BrandAnalysisService._apply_merge_suggestions start",
+            extra={
+                "brand_config": brand_config.dict(),
+                "merge_suggestions": merge_suggestions,
+                "other_before": config_dict.get("other"),
+            },
+        )
+
         # Apply merge suggestions selectively
         if "adjusted_colors" in merge_suggestions:
             # Only adjust colors if they complement the brand
@@ -292,7 +328,12 @@ class BrandAnalysisService:
                 config_dict["visual_style"]["mood"] = enhancements["mood_adjustment"]
 
         # Add analysis context
-        if "other" not in config_dict:
+        # Ensure "other" is a dict we can safely assign into
+        if not isinstance(config_dict.get("other"), dict):
+            logger.debug(
+                "BrandAnalysisService._apply_merge_suggestions normalizing 'other' field",
+                extra={"other_before_normalization": config_dict.get("other")},
+            )
             config_dict["other"] = {}
 
         config_dict["other"]["prompt_analysis_context"] = {
@@ -301,6 +342,11 @@ class BrandAnalysisService:
             "key_themes": prompt_analysis.key_themes[:3],  # Limit to top 3
             "merged_at": "brand_analysis_service"
         }
+
+        logger.debug(
+            "BrandAnalysisService._apply_merge_suggestions end",
+            extra={"other_after": config_dict.get("other")},
+        )
 
         return BrandConfig(**config_dict)
 
@@ -422,7 +468,20 @@ Suggest specific adjustments to colors, typography, or visual style that would e
         """Mock implementation for testing"""
         # Add some mock merge data
         config_dict = brand_config.dict()
-        if "other" not in config_dict:
+        logger.debug(
+            "BrandAnalysisService._get_mock_merged_brand_config start",
+            extra={
+                "brand_config": brand_config.dict(),
+                "other_before": config_dict.get("other"),
+            },
+        )
+
+        # Ensure "other" is a dict we can safely assign into
+        if not isinstance(config_dict.get("other"), dict):
+            logger.debug(
+                "BrandAnalysisService._get_mock_merged_brand_config normalizing 'other' field",
+                extra={"other_before_normalization": config_dict.get("other")},
+            )
             config_dict["other"] = {}
 
         config_dict["other"]["prompt_analysis_context"] = {
@@ -431,5 +490,9 @@ Suggest specific adjustments to colors, typography, or visual style that would e
             "key_themes": prompt_analysis.key_themes[:2],
             "merged_at": "mock_brand_analysis_service"
         }
+        logger.debug(
+            "BrandAnalysisService._get_mock_merged_brand_config end",
+            extra={"other_after": config_dict.get("other")},
+        )
 
         return BrandConfig(**config_dict)

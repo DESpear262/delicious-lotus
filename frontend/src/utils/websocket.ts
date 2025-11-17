@@ -70,9 +70,18 @@ export class WebSocketManager {
     this.updateStatus('connecting');
 
     try {
+      // Derive generation_id from endpoint if present (e.g., '/ws/generations/{id}')
+      let generationId: string | undefined;
+      const match = endpoint.match(/\/generations\/([^/]+)/);
+      if (match && match[1]) {
+        generationId = match[1];
+      }
+
       // Create Socket.io connection
-      this.socket = io(this.config.url, {
-        path: endpoint,
+      // Always use the Socket.io path; pass generation_id via query so the
+      // backend can validate and subscribe the connection.
+      const options: any = {
+        path: '/socket.io',
         transports: ['websocket', 'polling'],
         reconnection: false, // We handle reconnection manually
         timeout: this.config.timeout,
@@ -80,7 +89,13 @@ export class WebSocketManager {
         extraHeaders: {
           'X-Request-ID': generateUUID(),
         },
-      });
+      };
+
+      if (generationId) {
+        options.query = { generation_id: generationId };
+      }
+
+      this.socket = io(this.config.url, options);
 
       // Set up event listeners
       this.setupEventListeners();

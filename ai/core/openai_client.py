@@ -15,6 +15,61 @@ from ..models.prompt_analysis import PromptAnalysis
 logger = logging.getLogger(__name__)
 
 
+def normalize_field_names(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform OpenAI response field names to match PromptAnalysis schema.
+    Converts capitalized field names (e.g., 'Tone', 'Confidence Score') to
+    lowercase snake_case (e.g., 'tone', 'confidence_score').
+
+    Args:
+        data: Raw JSON data from OpenAI
+
+    Returns:
+        Normalized data with correct field names
+    """
+    # Mapping of possible OpenAI field names to expected schema field names
+    field_mapping = {
+        'Tone': 'tone',
+        'Style': 'style',
+        'Narrative Intent': 'narrative_intent',
+        'Narrative Structure': 'narrative_structure',
+        'Target Audience': 'target_audience',
+        'Key Themes': 'key_themes',
+        'Key Messages': 'key_messages',
+        'Visual Theme': 'visual_theme',
+        'Imagery Style': 'imagery_style',
+        'Color Palette': 'color_palette',
+        'Key Elements': 'key_elements',
+        'Product Focus': 'product_focus',
+        'Pacing': 'pacing',
+        'Music Style': 'music_style',
+        'Confidence Score': 'confidence_score',
+        'Analysis Notes': 'analysis_notes',
+        # Also handle lowercase versions in case they're partially correct
+        'narrative intent': 'narrative_intent',
+        'narrative structure': 'narrative_structure',
+        'target audience': 'target_audience',
+        'key themes': 'key_themes',
+        'key messages': 'key_messages',
+        'visual theme': 'visual_theme',
+        'imagery style': 'imagery_style',
+        'color palette': 'color_palette',
+        'key elements': 'key_elements',
+        'product focus': 'product_focus',
+        'music style': 'music_style',
+        'confidence score': 'confidence_score',
+        'analysis notes': 'analysis_notes',
+    }
+
+    normalized = {}
+    for key, value in data.items():
+        # Use mapping if available, otherwise keep original key
+        normalized_key = field_mapping.get(key, key)
+        normalized[normalized_key] = value
+
+    return normalized
+
+
 class OpenAIClient:
     """Wrapper for OpenAI API calls with retry logic and error handling"""
 
@@ -76,6 +131,13 @@ class OpenAIClient:
             # Parse the JSON response
             analysis_data = json.loads(content)
 
+            logger.warning(f"[FIELD_TRANSFORM] Original fields: {list(analysis_data.keys())}")
+
+            # Normalize field names to match schema (handles capitalized names from OpenAI)
+            analysis_data = normalize_field_names(analysis_data)
+
+            logger.warning(f"[FIELD_TRANSFORM] Normalized fields: {list(analysis_data.keys())}")
+
             # Validate and create PromptAnalysis object
             analysis = PromptAnalysis(**analysis_data)
             analysis.original_prompt = prompt
@@ -110,37 +172,71 @@ class OpenAIClient:
 
 For each prompt, analyze and extract:
 
-1. **Tone**: The emotional tone (professional, friendly, enthusiastic, serious, playful, dramatic, calm, energetic)
+1. **tone**: The emotional tone (professional, friendly, enthusiastic, serious, playful, dramatic, calm, energetic)
 
-2. **Style**: Visual and narrative approach (modern, classic, minimalist, cinematic, documentary, animation, photorealistic, artistic)
+2. **style**: Visual and narrative approach (modern, classic, minimalist, cinematic, documentary, animation, photorealistic, artistic)
 
-3. **Narrative Intent**: What the video is trying to achieve (inform, persuade, entertain, demonstrate, etc.)
+3. **narrative_intent**: What the video is trying to achieve (inform, persuade, entertain, demonstrate, etc.)
 
-4. **Narrative Structure**: How the content should be structured (problem_solution, storytelling, demonstration, testimonial, comparison, explanation, celebration, announcement)
+4. **narrative_structure**: How the content should be structured (problem_solution, storytelling, demonstration, testimonial, comparison, explanation, celebration, announcement)
 
-5. **Target Audience**: Who the video is for (business, consumers, teens, professionals, families, elders, general)
+5. **target_audience**: Who the video is for (business, consumers, teens, professionals, families, elders, general)
 
-6. **Key Themes**: Main themes to maintain consistency throughout the video
+6. **key_themes**: Main themes to maintain consistency throughout the video (array of strings)
 
-7. **Key Messages**: Core messages that must be conveyed
+7. **key_messages**: Core messages that must be conveyed (array of strings)
 
-8. **Visual Theme**: Overall aesthetic (bright, dark, warm, cool, neutral, vibrant, monochrome, earthy)
+8. **visual_theme**: Overall aesthetic (bright, dark, warm, cool, neutral, vibrant, monochrome, earthy)
 
-9. **Imagery Style**: Type of visual elements (photography, illustration, graphics, text_overlays, product_shots, lifestyle, abstract, realistic)
+9. **imagery_style**: Type of visual elements (photography, illustration, graphics, text_overlays, product_shots, lifestyle, abstract, realistic)
 
-10. **Color Palette**: Suggest appropriate colors based on the content
+10. **color_palette**: Object with primary_colors (array of hex codes), secondary_colors (array of hex codes), and mood (string)
 
-11. **Key Elements**: Important elements that should appear in the video
+11. **key_elements**: Important elements that should appear in the video (array of objects with element_type, description, importance 1-5)
 
-12. **Product Focus**: What product/service is being featured (if any)
+12. **product_focus**: What product/service is being featured (string or null if none)
 
-13. **Pacing**: Suggested video pacing (slow, moderate, fast)
+13. **pacing**: Suggested video pacing (slow, moderate, fast)
 
-14. **Music Style**: Recommended background music style
+14. **music_style**: Recommended background music style
+
+15. **confidence_score**: Your confidence in this analysis (0.0-1.0)
+
+16. **analysis_notes**: Additional analysis notes (array of strings)
 
 Make your best guess for elements not explicitly mentioned in the prompt. Provide a confidence score (0.0-1.0) based on how well the prompt supports your analysis.
 
-Return your analysis as a valid JSON object matching the PromptAnalysis schema."""
+IMPORTANT: Return your analysis as a valid JSON object with EXACTLY these field names (all lowercase with underscores):
+{
+  "tone": "professional",
+  "style": "modern",
+  "narrative_intent": "string describing the intent",
+  "narrative_structure": "problem_solution",
+  "target_audience": "business",
+  "key_themes": ["theme1", "theme2"],
+  "key_messages": ["message1", "message2"],
+  "visual_theme": "bright",
+  "imagery_style": "photography",
+  "color_palette": {
+    "primary_colors": ["#HEXCODE"],
+    "secondary_colors": ["#HEXCODE"],
+    "mood": "professional"
+  },
+  "key_elements": [
+    {
+      "element_type": "product",
+      "description": "description here",
+      "importance": 5
+    }
+  ],
+  "product_focus": "product name or null",
+  "pacing": "moderate",
+  "music_style": "corporate",
+  "confidence_score": 0.85,
+  "analysis_notes": ["note1", "note2"]
+}
+
+Use these EXACT field names - all lowercase with underscores between words."""
 
     def _create_user_prompt(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Create the user prompt for analysis"""

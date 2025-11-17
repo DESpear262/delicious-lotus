@@ -5,8 +5,8 @@ services:
     container_name: ai-video-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_video_pipeline}
-      POSTGRES_USER: ${POSTGRES_USER:-ai_video_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_video_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-madcatrakshasa}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ./docker/postgres/init-ffmpeg-db.sh:/docker-entrypoint-initdb.d/02-init-ffmpeg-db.sh
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_video_user} -d ${POSTGRES_DB:-ai_video_pipeline}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_video_admin} -d ${POSTGRES_DB:-ai_video_pipeline}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +47,7 @@ services:
     container_name: ai-video-backend
     environment:
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_admin}:${POSTGRES_PASSWORD:-madcatrakshasa}@postgres:5432/${POSTGRES_DB:-ai_video_pipeline}
       # Redis
       REDIS_URL: redis://redis:6379/0
       # API Keys (will be provided by user)
@@ -81,7 +81,7 @@ services:
     container_name: ffmpeg-backend-api
     environment:
       # Database - using shared postgres with separate database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/ffmpeg_backend
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_admin}:${POSTGRES_PASSWORD:-madcatrakshasa}@postgres:5432/ffmpeg_backend
       # Redis - using shared redis
       REDIS_URL: redis://redis:6379/0
       # Application settings
@@ -125,7 +125,7 @@ services:
     container_name: ffmpeg-backend-worker
     environment:
       # Database - using shared postgres with separate database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_user}:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/ffmpeg_backend
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_admin}:${POSTGRES_PASSWORD:-madcatrakshasa}@postgres:5432/ffmpeg_backend
       # Redis - using shared redis
       REDIS_URL: redis://redis:6379/0
       # Application settings

@@ -1,0 +1,23 @@
+# Ensure shell scripts always use LF (Unix) line endings
+*.sh text eol=lf
+
+# Ensure Python files use LF line endings
+*.py text eol=lf
+
+# Ensure JavaScript/TypeScript files use LF line endings
+*.js text eol=lf
+*.ts text eol=lf
+*.jsx text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+
+# Ensure YAML/config files use LF line endings
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Markdown files
+*.md text eol=lf
+
+# Docker files
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf

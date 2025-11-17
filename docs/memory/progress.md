@@ -73,6 +73,9 @@
 ### Critical
 - None currently (generation requests succeed and status polling works in dev).
 
+### Resolved
+- ✅ **Windows CRLF line endings in init script** (2025-11-17) - `docker/postgres/init-ffmpeg-db.sh` had Windows line endings (CRLF) causing "required file not found" error during postgres initialization. Fixed by converting to Unix line endings (LF) using `dos2unix`/`sed -i 's/\r$//'`.
+
 ### High Priority
 - FFmpeg backend is not yet wired into the FastAPI container image in dev; `generate_video_clips` import fails with `No module named 'app.api.v1'`, so real clip generation/storage must be exercised via the ffmpeg-backend service/CLI rather than the FastAPI container.
 

@@ -3,6 +3,7 @@ API v1 routes
 Block 0: API Skeleton & Core Infrastructure
 """
 
+import json
 import logging
 import os
 import uuid
@@ -251,17 +252,20 @@ async def create_generation(
             )
 
             print("\n[STEP 3] Building micro-prompts...")
-            # logger.info(f"[MICRO_PROMPTS] Starting micro-prompt generation for generation {generation_id}")
-            # logger.info(f"[MICRO_PROMPTS] Number of scenes: {len(scenes)}")
+            logger.info(f"[MICRO_PROMPTS] Starting micro-prompt generation for generation {generation_id}")
+            logger.info(f"[MICRO_PROMPTS] Number of scenes: {len(scenes)}")
+            logger.info(f"[MICRO_PROMPTS] Prompt analysis key_elements: {prompt_analysis.get('key_elements', [])}")
+            logger.info(f"[MICRO_PROMPTS] Brand config: {brand_config.dict() if brand_config else 'None'}")
             prompt_builder = MicroPromptBuilderService()
-            # logger.info(f"[MICRO_PROMPTS] Calling build_micro_prompts...")
+            logger.info(f"[MICRO_PROMPTS] Calling build_micro_prompts...")
             micro_prompt_response = await prompt_builder.build_micro_prompts(micro_prompt_request)
             micro_prompts = [mp.dict() for mp in micro_prompt_response.micro_prompts]
-            # logger.info(f"[MICRO_PROMPTS] Micro-prompt generation completed")
-            # logger.info(f"[MICRO_PROMPTS] Generated {len(micro_prompts)} micro-prompts")
-            # for i, mp in enumerate(micro_prompts):
-            #     prompt_text = mp.get('prompt_text', mp.get('prompt', ''))[:100]
-            #     logger.info(f"[MICRO_PROMPTS] Micro-prompt {i+1}: {prompt_text}...")
+            logger.info(f"[MICRO_PROMPTS] Micro-prompt generation completed")
+            logger.info(f"[MICRO_PROMPTS] Generated {len(micro_prompts)} micro-prompts")
+            for i, mp in enumerate(micro_prompts):
+                prompt_text = mp.get('prompt_text', mp.get('prompt', str(mp)))
+                logger.info(f"[MICRO_PROMPTS] Micro-prompt {i+1}: {prompt_text}")
+                logger.info(f"[MICRO_PROMPTS] Micro-prompt {i+1} source elements: {len(mp.get('source_elements', []))} elements")
             print(f"[OK] Generated {len(micro_prompts)} micro-prompts")
 
         except Exception as e:
@@ -551,14 +555,16 @@ async def create_generation(
                 "parallelize": parallelize,
                 "webhook_base_url": webhook_base_url
             }
-            # logger.warning(f"[VIDEO_GENERATION] Request payload prepared with {len(ffmpeg_request)} fields")
-            # logger.warning(f"[VIDEO_GENERATION] Scenes count: {len(scenes)}")
-            # logger.warning(f"[VIDEO_GENERATION] Micro-prompts count: {len(micro_prompt_texts)}")
+            logger.warning(f"[VIDEO_GENERATION] Request payload prepared with {len(ffmpeg_request)} fields")
+            logger.warning(f"[VIDEO_GENERATION] Scenes count: {len(scenes)}")
+            logger.warning(f"[VIDEO_GENERATION] Micro-prompts count: {len(micro_prompt_texts)}")
+            for i, prompt in enumerate(micro_prompt_texts):
+                logger.warning(f"[VIDEO_GENERATION] Micro-prompt {i+1} to Replicate: {prompt}")
 
             # Make HTTP call to ffmpeg-backend API
             import httpx
-            # logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO FFMPEG-BACKEND-API =====")
-            # logger.warning(f"[VIDEO_GENERATION] Target URL: http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips")
+            logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO FFMPEG-BACKEND-API =====")
+            logger.warning(f"[VIDEO_GENERATION] Target URL: http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips")
             # logger.warning(f"[VIDEO_GENERATION] Request payload keys: {list(ffmpeg_request.keys())}")
             async with httpx.AsyncClient(timeout=60.0) as client:
                 # logger.warning(f"[VIDEO_GENERATION] HTTPX client created successfully")
@@ -832,6 +838,27 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
         logger.error(f"[GET_GENERATION] Generation {generation_id} not found in any storage")
         raise NotFoundError("generation", generation_id)
 
+    # Normalize metadata payload (may be JSON-encoded in DB)
+    metadata_obj = {}
+    raw_metadata = generation_data.get("metadata") if generation_data else None
+    if raw_metadata:
+        if isinstance(raw_metadata, str):
+            try:
+                metadata_obj = json.loads(raw_metadata)
+            except ValueError:
+                metadata_obj = {}
+        elif isinstance(raw_metadata, dict):
+            metadata_obj = raw_metadata
+
+    # Gather video result metadata from either the DB metadata blob or the in-memory store
+    video_results_metadata = []
+    if isinstance(metadata_obj, dict):
+        video_results_metadata = metadata_obj.get("video_results") or []
+    if not video_results_metadata and generation_data:
+        store_video_results = generation_data.get("video_results")
+        if isinstance(store_video_results, list):
+            video_results_metadata = store_video_results
+
     # Initialize progress data (will be populated from Redis or clips service)
     progress_data = None
 
@@ -849,11 +876,12 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
     # Note: Redis progress retrieval could be implemented here in the future
     # For now, we'll rely on status-based progress estimation
     if status == GenerationStatus.PROCESSING:
-        # Create basic progress for processing status
-        metadata_obj = generation_data.get("metadata", {})
-        video_results = metadata_obj.get("video_results", []) if isinstance(metadata_obj, dict) else []
-        total_clips = len(video_results) if video_results else 5
-        completed_clips = len([r for r in video_results if r.get("status") == "completed"]) if video_results else 0
+        # Create basic progress for processing status using metadata fallbacks
+        total_clips = len(video_results_metadata) if video_results_metadata else 5
+        completed_clips = (
+            len([r for r in video_results_metadata if r.get("status") == "completed"])
+            if video_results_metadata else 0
+        )
 
         progress = GenerationProgress(
             current_step="generating_clips",
@@ -902,6 +930,33 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
                 end_time=clip.end_time_seconds,
                 prompt=clip.prompt_used
             ))
+    elif video_results_metadata:
+        logger.info(
+            "[GET_GENERATION] No clip assembly data available, constructing clips from metadata fallback"
+        )
+
+        def _safe_float(value: Optional[float], default: float = 0.0) -> float:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+
+        clips_generated = []
+        for result in video_results_metadata:
+            clip_id = result.get("clip_id") or f"clip_{len(clips_generated) + 1}"
+            clip_prompt = (
+                result.get("prompt")
+                or (f"Scene {result.get('scene_id')}" if result.get("scene_id") else "Generated clip")
+            )
+            clips_generated.append(ClipMetadata(
+                clip_id=clip_id,
+                url=result.get("video_url") or "",
+                thumbnail_url=result.get("thumbnail_url"),
+                duration=_safe_float(result.get("duration")),
+                start_time=_safe_float(result.get("start_time")),
+                end_time=_safe_float(result.get("end_time")),
+                prompt=clip_prompt
+            ))
 
     # Build metadata - handle both database format (direct fields) and in-memory format (nested request)
     metadata = {}
@@ -911,7 +966,7 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
             # Database format
             metadata.update({
                 "prompt": generation_data.get("prompt", ""),
-                "parameters": generation_data.get("metadata", {}).get("parameters", {}),
+                "parameters": metadata_obj.get("parameters", {}) if isinstance(metadata_obj, dict) else {},
                 "created_at": generation_data["created_at"].isoformat() + "Z" if isinstance(generation_data.get("created_at"), datetime) else str(generation_data.get("created_at", "")),
                 "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
             })
@@ -924,17 +979,26 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
                 "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
             })
 
+    if video_results_metadata:
+        metadata["video_results"] = video_results_metadata
+
     # Add clip statistics to metadata
+    total_clips = completed_clips = failed_clips = None
     if clips_data:
         total_clips = len(clips_data)
         completed_clips = sum(1 for c in clips_data if c.is_successful())
         failed_clips = sum(1 for c in clips_data if c.storage_status.value == "failed")
+    elif video_results_metadata:
+        total_clips = len(video_results_metadata)
+        completed_clips = sum(1 for r in video_results_metadata if r.get("status") == "completed")
+        failed_clips = sum(1 for r in video_results_metadata if r.get("status") == "failed")
 
+    if total_clips is not None:
         metadata.update({
             "total_clips": total_clips,
-            "completed_clips": completed_clips,
-            "failed_clips": failed_clips,
-            "completion_percentage": (completed_clips / total_clips * 100) if total_clips > 0 else 0
+            "completed_clips": completed_clips or 0,
+            "failed_clips": failed_clips or 0,
+            "completion_percentage": (completed_clips / total_clips * 100) if total_clips > 0 and completed_clips is not None else 0
         })
 
     # Determine timestamps

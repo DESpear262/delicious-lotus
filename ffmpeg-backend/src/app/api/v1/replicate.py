@@ -421,7 +421,7 @@ async def generate_video_clips(
                 "resolution": "720p"
             }
             logger.warning(f"[REPLICATE_INPUT] ===== SENDING TO REPLICATE =====")
-            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Prompt: {micro_prompt}")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Full Prompt: {micro_prompt}")
             logger.warning(f"[REPLICATE_INPUT] Clip {i}: Duration: {valid_duration}")
             logger.warning(f"[REPLICATE_INPUT] Clip {i}: Aspect Ratio: {aspect_ratio}")
             logger.warning(f"[REPLICATE_INPUT] Clip {i}: Resolution: 720p")
@@ -720,11 +720,27 @@ async def build_micro_prompts_from_scenes(
             scene_desc = scene.get('description', scene.get('content_description', 'scene'))
             tone = prompt_analysis.get('tone', 'professional')
             style = prompt_analysis.get('style', 'modern')
-            
-            micro_prompt = (
-                f"Professional {scene_type} scene: {scene_desc}. "
-                f"High-quality production, {style} style, {tone} tone."
-            )
+
+            # Incorporate key elements from prompt analysis
+            key_elements = prompt_analysis.get('key_elements', [])
+            element_descriptions = []
+            for element in key_elements:
+                if isinstance(element, dict) and element.get('importance', 0) >= 3:  # Only high-importance elements
+                    description = element.get('description', '')
+                    if description:
+                        element_descriptions.append(description)
+
+            if element_descriptions:
+                elements_text = ", ".join(element_descriptions)
+                micro_prompt = (
+                    f"Professional {scene_type} scene: {scene_desc} featuring {elements_text}. "
+                    f"High-quality production, {style} style, {tone} tone."
+                )
+            else:
+                micro_prompt = (
+                    f"Professional {scene_type} scene: {scene_desc}. "
+                    f"High-quality production, {style} style, {tone} tone."
+                )
             micro_prompts.append(micro_prompt)
         
         logger.info(f"Generated {len(micro_prompts)} micro-prompts using fallback method")

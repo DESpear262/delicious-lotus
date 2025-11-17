@@ -244,10 +244,24 @@ class MicroPromptBuilderService:
         tone = prompt_analysis.get('tone', 'professional')
         style = prompt_analysis.get('style', 'modern')
 
+        # Incorporate key elements from prompt analysis
+        key_elements = prompt_analysis.get('key_elements', [])
+        element_descriptions = []
+        for element in key_elements:
+            if isinstance(element, dict) and element.get('importance', 0) >= 3:  # Only high-importance elements
+                description = element.get('description', '')
+                if description:
+                    element_descriptions.append(description)
+
         # Add narrative context
         narrative_context = f" in {tone} {style} style"
 
-        return f"{base_desc}{narrative_context}"
+        # Combine base description with key elements
+        if element_descriptions:
+            elements_text = ", ".join(element_descriptions)
+            return f"{base_desc} featuring {elements_text}{narrative_context}"
+        else:
+            return f"{base_desc}{narrative_context}"
 
     def _build_visual_elements(self, scene: Scene) -> str:
         """Build visual style and camera elements"""
@@ -275,7 +289,7 @@ class MicroPromptBuilderService:
         brand_style_vector: Optional[BrandStyleVector]
     ) -> str:
         """Build brand integration elements"""
-        if not brand_config:
+        if not brand_config or not isinstance(brand_config, dict):
             return ""
 
         elements = []
@@ -303,7 +317,8 @@ class MicroPromptBuilderService:
             elements.append(f"using {', '.join(flat_colors[:3])} color scheme")
 
         # Typography
-        typography = brand_config.get('typography', {}).get('primary_font')
+        typography_config = brand_config.get('typography', {}) or {}
+        typography = typography_config.get('primary_font') if isinstance(typography_config, dict) else None
         if typography:
             elements.append(f"with {typography} typography style")
 
@@ -556,7 +571,7 @@ class MicroPromptBuilderService:
         request: MicroPromptRequest
     ) -> str:
         """Build brand integration elements with harmony awareness"""
-        if not brand_config:
+        if not brand_config or not isinstance(brand_config, dict):
             return ""
 
         elements = []
@@ -593,7 +608,8 @@ class MicroPromptBuilderService:
             elements.append(f"using {', '.join(flat_colors[:2])} brand colors")
 
         # Typography (no harmony conflicts typically)
-        typography = brand_config.get('typography', {}).get('primary_font')
+        typography_config = brand_config.get('typography', {}) or {}
+        typography = typography_config.get('primary_font') if isinstance(typography_config, dict) else None
         if typography:
             elements.append(f"with {typography} typography style")
 

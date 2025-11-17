@@ -269,7 +269,7 @@ def _generate_scene_content(rule: SceneDistributionRule, request: SceneDecomposi
 
     # Enhance with prompt analysis
     prompt_analysis = request.prompt_analysis
-    if prompt_analysis:
+    if prompt_analysis and isinstance(prompt_analysis, dict):
         tone = prompt_analysis.get('tone', 'professional')
         style = prompt_analysis.get('style', 'modern')
 
@@ -319,7 +319,7 @@ def _generate_key_elements(rule: SceneDistributionRule, request: SceneDecomposit
     # Add product-focused elements for development scenes
     if rule.scene_type == SceneType.DEVELOPMENT:
         prompt_analysis = request.prompt_analysis
-        if prompt_analysis and prompt_analysis.get('product_focus'):
+        if prompt_analysis and isinstance(prompt_analysis, dict) and prompt_analysis.get('product_focus'):
             elements.append(SceneElement(
                 element_type="product",
                 description=f"Main product: {prompt_analysis.get('primary_product', 'featured product')}",
@@ -364,7 +364,7 @@ def _generate_brand_references(request: SceneDecompositionRequest) -> BrandRefer
 
     brand_ref = BrandReference()
 
-    if not request.brand_config:
+    if not request.brand_config or not isinstance(request.brand_config, dict):
         return brand_ref
 
     config = request.brand_config
@@ -397,7 +397,8 @@ def _generate_brand_references(request: SceneDecompositionRequest) -> BrandRefer
     brand_ref.logo_placement = "corner"  # Default safe placement
 
     # Typography
-    typography = config.get('typography', {}).get('primary_font')
+    typography_config = config.get('typography', {}) or {}
+    typography = typography_config.get('primary_font') if isinstance(typography_config, dict) else None
     if typography:
         brand_ref.typography_style = typography
 

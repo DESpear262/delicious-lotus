@@ -19,6 +19,7 @@ class BrandCategory(str, Enum):
     FINANCIAL = "financial"
     EDUCATION = "education"
     NONPROFIT = "nonprofit"
+    AUTOMOTIVE = "automotive"
     OTHER = "other"
 
 
@@ -176,6 +177,25 @@ DEFAULT_BRAND_CONFIGS = {
         "visual_style": {
             "aesthetic": "elegant",
             "mood": "sophisticated",
+            "imagery_style": "photorealistic"
+        }
+    },
+
+    "automotive": {
+        "name": "Automotive Brand",
+        "category": "automotive",
+        "colors": {
+            "primary": ["#FF0000", "#000000"],  # Red and black (classic automotive)
+            "secondary": ["#C0C0C0", "#FFFFFF"],  # Silver and white
+            "background": "#f0f0f0"
+        },
+        "typography": {
+            "primary_font": "Helvetica",
+            "secondary_font": "Arial"
+        },
+        "visual_style": {
+            "aesthetic": "modern",
+            "mood": "powerful",
             "imagery_style": "photorealistic"
         }
     }

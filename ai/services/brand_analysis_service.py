@@ -401,7 +401,7 @@ Prompt Analysis Context:
 - Visual Theme: {prompt_analysis.visual_theme}
 - Product Focus: {prompt_analysis.product_focus or 'None specified'}
 
-Provide a complete brand configuration with all missing fields filled in appropriately."""
+Provide a complete brand configuration JSON object with all missing fields filled in appropriately."""
 
     def _create_merge_system_prompt(self) -> str:
         """Create system prompt for brand config merging"""
@@ -413,7 +413,7 @@ Key principles:
 3. Consider the video's tone, style, and target audience
 4. Focus on color harmony, typography consistency, and visual coherence
 
-Return specific, actionable suggestions for merging brand identity with video requirements."""
+Return your suggestions as a valid JSON object with specific, actionable adjustments."""
 
     def _create_merge_user_prompt(
         self,
@@ -421,7 +421,7 @@ Return specific, actionable suggestions for merging brand identity with video re
         prompt_analysis: PromptAnalysis
     ) -> str:
         """Create user prompt for brand config merging"""
-        return f"""Suggest how to merge this brand configuration with video content requirements:
+        return f"""Suggest how to merge this brand configuration with video content requirements. Return your response as a JSON object.
 
 Brand Configuration:
 {json.dumps(brand_config.dict(), indent=2)}
@@ -435,7 +435,7 @@ Video Content Requirements (from prompt analysis):
 - Imagery Style: {prompt_analysis.imagery_style}
 - Key Messages: {prompt_analysis.key_messages}
 
-Suggest specific adjustments to colors, typography, or visual style that would enhance the video while maintaining brand integrity."""
+Return a JSON object with suggested adjustments to colors, typography, or visual style that would enhance the video while maintaining brand integrity."""
 
     # Mock implementations for testing
     def _get_mock_completed_brand_config(

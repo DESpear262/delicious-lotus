@@ -4,12 +4,17 @@ Handles Replicate completion notifications
 """
 
 import logging
-import os
+from datetime import datetime
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Request, HTTPException, Header
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from app.core.logging import get_request_logger
+from app.models.schemas import GenerationStatus
+from app.services.websocket_broadcast import (
+    broadcast_completed,
+    broadcast_status_change,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +24,122 @@ webhook_router = APIRouter(prefix="/api/v1/webhooks", tags=["webhooks"])
 # Store prediction_id → generation_id/clip_id mapping
 # In production, this should be Redis or database
 _prediction_mapping: Dict[str, Dict[str, str]] = {}
+
+
+def _update_in_memory_store(
+    generation_id: str,
+    *,
+    status: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Best-effort update of the in-memory generation store that backs dev mode.
+    """
+    try:
+        from app.api.routes import v1  # Lazy import to avoid circular dependency
+    except ImportError:
+        return
+
+    store = getattr(v1, "_generation_store", None)
+    if not store or generation_id not in store:
+        return
+
+    generation = store[generation_id]
+    if status is not None:
+        generation["status"] = status
+    if metadata is not None:
+        generation["metadata"] = metadata
+    generation["updated_at"] = datetime.utcnow()
+
+
+async def _set_generation_status(
+    generation_id: str,
+    *,
+    new_status: GenerationStatus,
+    metadata: Optional[Dict[str, Any]],
+    generation_storage_service: Optional["GenerationStorageService"],
+    previous_status: str = GenerationStatus.PROCESSING.value,
+    completion_payload: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Persist a terminal generation status and broadcast websocket events.
+    """
+    status_value = new_status.value if isinstance(new_status, GenerationStatus) else new_status
+
+    if generation_storage_service:
+        try:
+            generation_storage_service.update_generation(
+                generation_id=generation_id,
+                status=status_value,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            logger.error(f"Failed to update generation status in database: {exc}")
+
+    _update_in_memory_store(generation_id, status=status_value, metadata=metadata)
+
+    try:
+        await broadcast_status_change(
+            generation_id=generation_id,
+            old_status=previous_status,
+            new_status=status_value,
+            message=f"Generation {new_status.value if isinstance(new_status, GenerationStatus) else new_status}",
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to broadcast status change for {generation_id}: {exc}")
+
+    if new_status == GenerationStatus.COMPLETED:
+        try:
+            payload = completion_payload or {}
+            await broadcast_completed(
+                generation_id=generation_id,
+                video_url=payload.get("video_url", ""),
+                thumbnail_url=payload.get("thumbnail_url", ""),
+                duration=payload.get("duration", 0.0),
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to broadcast completion event for {generation_id}: {exc}")
+
+
+async def _check_and_finalize_generation(
+    generation_id: str,
+    *,
+    metadata: Optional[Dict[str, Any]],
+    generation_storage_service: Optional["GenerationStorageService"],
+) -> None:
+    """
+    If every clip is complete, mark the generation as completed.
+    """
+    if not metadata:
+        return
+
+    video_results = metadata.get("video_results") if isinstance(metadata, dict) else None
+    if not video_results:
+        return
+
+    total_clips = len(video_results)
+    if not total_clips:
+        return
+
+    all_completed = all(result.get("status") == "completed" for result in video_results)
+    if not all_completed:
+        return
+
+    # Use first completed clip to populate completion payload when possible.
+    completed_clip = next((clip for clip in video_results if clip.get("status") == "completed"), None)
+    completion_payload = {
+        "video_url": completed_clip.get("video_url", "") if completed_clip else "",
+        "thumbnail_url": completed_clip.get("thumbnail_url", "") if completed_clip else "",
+        "duration": completed_clip.get("duration", 0.0) if completed_clip else 0.0,
+    }
+
+    await _set_generation_status(
+        generation_id=generation_id,
+        new_status=GenerationStatus.COMPLETED,
+        metadata=metadata,
+        generation_storage_service=generation_storage_service,
+        completion_payload=completion_payload,
+    )
 
 
 class ReplicateWebhookPayload(BaseModel):
@@ -94,6 +215,8 @@ async def replicate_webhook(
         logger.warning(f"[WEBHOOK] Output available: {bool(payload.output)}")
     if hasattr(payload, 'urls') and payload.urls:
         logger.warning(f"[WEBHOOK] URLs available: {payload.urls}")
+
+    metadata_snapshot: Optional[Dict[str, Any]] = None
 
     try:
         # Import services (lazy import to avoid circular dependencies)
@@ -179,7 +302,7 @@ async def replicate_webhook(
                     # Get current metadata
                     generation = generation_storage_service.get_generation(generation_id)
                     if generation:
-                        metadata = generation.get("metadata", {})
+                        metadata = generation.get("metadata", {}) or {}
                         if isinstance(metadata, str):
                             import json
                             metadata = json.loads(metadata)
@@ -215,9 +338,20 @@ async def replicate_webhook(
                             generation_id=generation_id,
                             metadata=metadata
                         )
+                        metadata_snapshot = metadata
                         logger.info(f"Updated generation {generation_id} with completed clip {clip_id}")
                 except Exception as e:
                     logger.error(f"Failed to update generation metadata: {e}")
+
+            if metadata_snapshot is None:
+                metadata_snapshot = {"video_results": video_results}
+
+            _update_in_memory_store(generation_id, metadata=metadata_snapshot)
+            await _check_and_finalize_generation(
+                generation_id=generation_id,
+                metadata=metadata_snapshot,
+                generation_storage_service=generation_storage_service,
+            )
             
             logger.info(f"Successfully processed webhook for prediction {payload.id}")
             return JSONResponse(
@@ -236,11 +370,12 @@ async def replicate_webhook(
             logger.error(f"Generation failed for prediction {payload.id}: {error_msg}")
             
             # Update generation metadata
+            metadata_snapshot = None
             if generation_storage_service:
                 try:
                     generation = generation_storage_service.get_generation(generation_id)
                     if generation:
-                        metadata = generation.get("metadata", {})
+                        metadata = generation.get("metadata", {}) or {}
                         if isinstance(metadata, str):
                             import json
                             metadata = json.loads(metadata)
@@ -272,8 +407,22 @@ async def replicate_webhook(
                             generation_id=generation_id,
                             metadata=metadata
                         )
+                        metadata_snapshot = metadata
                 except Exception as e:
                     logger.error(f"Failed to update failed generation: {e}")
+
+            if metadata_snapshot is None:
+                metadata_snapshot = {
+                    "video_results": video_results
+                }
+
+            _update_in_memory_store(generation_id, metadata=metadata_snapshot)
+            await _set_generation_status(
+                generation_id=generation_id,
+                new_status=GenerationStatus.FAILED,
+                metadata=metadata_snapshot,
+                generation_storage_service=generation_storage_service,
+            )
             
             return JSONResponse(
                 status_code=200,
@@ -288,6 +437,12 @@ async def replicate_webhook(
         
         elif payload.status == "cancelled":
             logger.info(f"Generation cancelled for prediction {payload.id}")
+            await _set_generation_status(
+                generation_id=generation_id,
+                new_status=GenerationStatus.CANCELLED,
+                metadata=None,
+                generation_storage_service=generation_storage_service,
+            )
             return JSONResponse(
                 status_code=200,
                 content={

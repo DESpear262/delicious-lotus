@@ -188,7 +188,7 @@ For each prompt, analyze and extract:
 
 8. **visual_theme**: Overall aesthetic (bright, dark, warm, cool, neutral, vibrant, monochrome, earthy)
 
-9. **imagery_style**: Type of visual elements (photography, illustration, graphics, text_overlays, product_shots, lifestyle, abstract, realistic)
+9. **imagery_style**: Type of visual elements (photography, illustration, graphics, text_overlays, product_shots, lifestyle, abstract, realistic, animation)
 
 10. **color_palette**: Object with primary_colors (array of hex codes), secondary_colors (array of hex codes), and mood (string)
 

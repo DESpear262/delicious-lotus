@@ -7,14 +7,36 @@ resource "aws_s3_bucket" "storage" {
   }
 }
 
-# Block public access
+# Allow public read access for generated content
+# Note: Public ACLs are still blocked, but bucket policies are allowed
 resource "aws_s3_bucket_public_access_block" "storage" {
   bucket = aws_s3_bucket.storage.id
 
   block_public_acls       = true
-  block_public_policy     = true
+  block_public_policy     = false  # Allow bucket policies for public read
   ignore_public_acls      = true
-  restrict_public_buckets = true
+  restrict_public_buckets = false  # Allow public bucket policies
+}
+
+# Bucket policy for public read access
+resource "aws_s3_bucket_policy" "storage_public_read" {
+  bucket = aws_s3_bucket.storage.id
+
+  # Ensure public access block is configured first
+  depends_on = [aws_s3_bucket_public_access_block.storage]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.storage.arn}/*"
+      }
+    ]
+  })
 }
 
 # Enable versioning for uploads folder only (important files)

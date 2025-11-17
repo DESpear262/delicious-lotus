@@ -51,6 +51,7 @@ services:
       # Redis
       REDIS_URL: redis://redis:6379/0
       # API Keys (will be provided by user)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_openai_api_key_here}
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
       # Storage
       S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
@@ -62,6 +63,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # CORS (for development - Option B deployment)
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8000}
+      # Webhook configuration for Replicate callbacks
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -84,6 +87,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ai_video_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env file}@postgres:5432/ffmpeg_backend
       # Redis - using shared redis
       REDIS_URL: redis://redis:6379/0
+      # API Keys
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_openai_api_key_here}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-your_replicate_token_here}
+      # Replicate Model Configuration
+      REPLICATE_DEFAULT_MODEL: ${REPLICATE_DEFAULT_MODEL:-wan-video/wan-2.2-t2v-fast}
+      #REPLICATE_DEFAULT_MODEL: ${REPLICATE_DEFAULT_MODEL:google/veo-3.1-fast}
       # Application settings
       ENVIRONMENT: ${FFMPEG_ENVIRONMENT:-development}
       DEBUG: ${FFMPEG_DEBUG:-true}

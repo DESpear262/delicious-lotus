@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from ..schemas.replicate import (
     NanoBananaErrorResponse,
@@ -24,6 +25,85 @@ router = APIRouter()
 _ai_package_path = Path(__file__).parent.parent.parent.parent.parent / "ai"
 if str(_ai_package_path) not in sys.path:
     sys.path.insert(0, str(_ai_package_path))
+
+
+class GenerateClipsRequest(BaseModel):
+    """Request model for video clip generation"""
+    scenes: List[Dict[str, Any]]
+    micro_prompts: List[str]
+    generation_id: str
+    aspect_ratio: str = "16:9"
+    parallelize: bool = False
+    webhook_base_url: Optional[str] = None
+
+class GenerateClipsResponse(BaseModel):
+    """Response model for video clip generation"""
+    video_results: List[Dict[str, Any]]
+    message: str
+
+
+@router.post(
+    "/generate-clips",
+    response_model=GenerateClipsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate video clips",
+    description="Generate video clips from micro-prompts using Replicate with webhook callbacks",
+    responses={
+        200: {
+            "description": "Successfully started video generation",
+            "model": GenerateClipsResponse,
+        },
+        400: {
+            "description": "Invalid request parameters",
+        },
+        500: {
+            "description": "Internal server error",
+        },
+    },
+)
+async def generate_clips_endpoint(request: GenerateClipsRequest):
+    """Generate video clips endpoint that calls the generate_video_clips function"""
+    # logger.warning(f"[FFMPEG_API] ===== RECEIVED GENERATE-CLIPS REQUEST =====")
+    # logger.warning(f"[FFMPEG_API] Generation ID: {request.generation_id}")
+    # logger.warning(f"[FFMPEG_API] Scenes count: {len(request.scenes)}")
+    # logger.warning(f"[FFMPEG_API] Micro-prompts count: {len(request.micro_prompts)}")
+    # logger.warning(f"[FFMPEG_API] Aspect ratio: {request.aspect_ratio}")
+    # logger.warning(f"[FFMPEG_API] Parallelize: {request.parallelize}")
+    # logger.warning(f"[FFMPEG_API] Webhook base URL: {request.webhook_base_url}")
+    # logger.warning(f"[FFMPEG_API] REPLICATE_API_TOKEN configured: {bool(os.getenv('REPLICATE_API_TOKEN'))}")
+
+    try:
+        # logger.warning(f"[FFMPEG_API] Calling generate_video_clips function...")
+        # For now, we'll call generate_video_clips without storage service
+        # The storage will be handled by the webhook handler in the main FastAPI backend
+        # Call the generate_video_clips function
+        video_results = await generate_video_clips(
+            scenes=request.scenes,
+            micro_prompts=request.micro_prompts,
+            generation_id=request.generation_id,
+            aspect_ratio=request.aspect_ratio,
+            parallelize=request.parallelize,
+            use_mock=False,
+            storage_service=None,  # Storage will be handled by webhook handler
+            webhook_base_url=request.webhook_base_url
+        )
+
+        # logger.warning(f"[FFMPEG_API] generate_video_clips completed successfully")
+        # logger.warning(f"[FFMPEG_API] Returned {len(video_results)} video results")
+
+        response = GenerateClipsResponse(
+            video_results=video_results,
+            message=f"Started generation of {len(video_results)} clips"
+        )
+        # logger.warning(f"[FFMPEG_API] Sending response: {response.message}")
+        return response
+
+    except Exception as e:
+        logger.exception(f"[FFMPEG_API] Error in generate_clips_endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Video generation failed: {str(e)}"
+        )
 
 
 @router.post(
@@ -81,6 +161,8 @@ async def generate_nano_banana(request_body: NanoBananaRequest) -> JSONResponse:
 
         # Import Replicate here to avoid import errors if package not installed
         try:
+            if not replicate_client:
+                raise RuntimeError("Replicate client not initialized")
             import replicate
         except ImportError as e:
             logger.error(f"Failed to import Replicate package: {e}")
@@ -191,13 +273,13 @@ async def generate_video_clips(
 ) -> List[Dict[str, Any]]:
     """
     Generate video clips from micro-prompts using Replicate with webhook callbacks.
-    
+
     This function extracts the working Replicate video generation logic
     from cli.py and makes it reusable for both CLI and FastAPI backend.
-    
+
     Uses webhooks for async completion - starts generation and returns immediately.
     Replicate will call the webhook endpoint when generation completes.
-    
+
     Args:
         scenes: List of scene dictionaries with 'duration' and other metadata
         micro_prompts: List of micro-prompt strings, one per scene
@@ -207,39 +289,68 @@ async def generate_video_clips(
         use_mock: If True, create placeholder files instead of calling Replicate
         storage_service: Storage service for uploading videos (optional)
         webhook_base_url: Base URL for webhook callbacks (e.g., https://api.example.com)
-        
+
     Returns:
         List of dictionaries with 'clip_id', 'video_url', 'scene_id', 'status', and 'prediction_id'
     """
-    try:
-        from ai.core.replicate_client import ReplicateModelClient, ClientConfig
-        from ai.models.replicate_client import GenerateClipRequest, VideoResolution
-    except ImportError as e:
-        logger.error(f"Failed to import Replicate client: {e}")
-        raise ImportError(f"Replicate client not available: {e}")
-    
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] ===== STARTING VIDEO GENERATION =====")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Generation ID: {generation_id}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Scenes count: {len(scenes)}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Micro-prompts count: {len(micro_prompts)}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Aspect ratio: {aspect_ratio}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Parallelize: {parallelize}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Use mock: {use_mock}")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Webhook base URL: {webhook_base_url}")
+
+    # Simple replicate client implementation for ffmpeg-backend
+    import replicate
+    from pydantic import BaseModel
+    from typing import Optional
+    from enum import Enum
+
+    class VideoResolution(str, Enum):
+        RES_480P = "480p"
+        RES_720P = "720p"
+        RES_1080P = "1080p"
+        RES_4K = "4k"
+
+    class GenerateClipRequest(BaseModel):
+        clip_id: str
+        generation_id: str
+        scene_id: str
+        prompt: str
+        duration_seconds: float = 5.0
+        aspect_ratio: str = "16:9"
+        resolution: VideoResolution = VideoResolution.RES_720P
+        webhook_url: Optional[str] = None
+
     # Initialize Replicate client
     replicate_api_token = os.getenv("REPLICATE_API_TOKEN")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] REPLICATE_API_TOKEN configured: {bool(replicate_api_token)}")
     if not replicate_api_token and not use_mock:
+        logger.error(f"[GENERATE_VIDEO_CLIPS] REPLICATE_API_TOKEN not configured and use_mock=False")
         raise ValueError("REPLICATE_API_TOKEN not configured")
-    
+
+    model_version = os.getenv("REPLICATE_MODEL_VERSION") or os.getenv("REPLICATE_DEFAULT_MODEL", "google/veo-3.1-fast")
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Using model: {model_version}")
     replicate_client = None
     if not use_mock and replicate_api_token:
-        replicate_config = ClientConfig(
-            api_token=replicate_api_token,
-            default_model=os.getenv("REPLICATE_DEFAULT_MODEL", "google/veo-3.1-fast"),
-            generation_timeout=float(os.getenv("REPLICATE_TIMEOUT_SECONDS", "300.0"))
-        )
-        replicate_client = ReplicateModelClient(replicate_config)
-    
+        # logger.warning(f"[GENERATE_VIDEO_CLIPS] Initializing Replicate client...")
+        replicate_client = replicate.Client(api_token=replicate_api_token)
+        # logger.warning(f"[GENERATE_VIDEO_CLIPS] Replicate client initialized")
+
     video_results = []
+    # logger.warning(f"[GENERATE_VIDEO_CLIPS] Starting clip generation loop...")
     
     async def generate_single_clip(i: int, scene: Dict[str, Any], micro_prompt: str) -> Dict[str, Any]:
         """Generate a single video clip using webhook-based async generation"""
+        # logger.warning(f"[GENERATE_SINGLE_CLIP] Starting clip {i} generation")
         clip_id = f"clip_{i:03d}_{hash(micro_prompt) % 10000}"
         scene_id = f"scene_{i}"
+        # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip ID: {clip_id}, Scene ID: {scene_id}")
+        # logger.warning(f"[GENERATE_SINGLE_CLIP] Prompt: {micro_prompt[:100]}...")
         
-        if use_mock or not replicate_client:
+        if use_mock:
             # Create placeholder file
             mock_url = f"mock://{clip_id}.mp4"
             if storage_service:
@@ -299,15 +410,49 @@ async def generate_video_clips(
                 webhook_url=webhook_url
             )
             
-            # Start generation (returns immediately with prediction_id)
+            # Start generation using Replicate predictions API (non-blocking)
+            # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Submitting to Replicate API...")
             print(f"[INFO] Clip {i}: Submitting to Replicate API...")
-            response = await replicate_client.generate_clip(clip_request)
-            print(f"[INFO] Clip {i}: Received prediction_id={response.prediction_id}")
-            
-            # Store prediction mapping for webhook handler
-            # Note: Mapping will be stored by the caller (fastapi route) since we can't import across packages
-            # The prediction_id is returned in the result so caller can store it
-            
+
+            replicate_input = {
+                "prompt": micro_prompt,
+                "duration": valid_duration,
+                "aspect_ratio": aspect_ratio,
+                "resolution": "720p"
+            }
+            logger.warning(f"[REPLICATE_INPUT] ===== SENDING TO REPLICATE =====")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Prompt: {micro_prompt}")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Duration: {valid_duration}")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Aspect Ratio: {aspect_ratio}")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Resolution: 720p")
+            logger.warning(f"[REPLICATE_INPUT] Clip {i}: Model: {model_version}")
+            logger.warning(f"[REPLICATE_INPUT] ===== END REPLICATE INPUT =====")
+
+            kwargs = {}
+            if webhook_url:
+                kwargs["webhook"] = webhook_url
+                kwargs["webhook_events_filter"] = ["completed"]
+                # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Webhook configured: {webhook_url}")
+            else:
+                # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: No webhook URL - generation will be synchronous!")
+                pass
+
+            # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Calling replicate_client.predictions.create...")
+            prediction = await asyncio.to_thread(
+                replicate_client.predictions.create,
+                version=model_version,
+                input=replicate_input,
+                **kwargs
+            )
+            # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Replicate call completed")
+
+            prediction_id = getattr(prediction, "id", None) or str(prediction)
+            prediction_url = getattr(prediction, "urls", {}).get("get", f"https://replicate.com/p/{prediction_id}")
+            # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Prediction ID: {prediction_id}")
+            # logger.warning(f"[GENERATE_SINGLE_CLIP] Clip {i}: Replicate Prediction URL: {prediction_url}")
+            print(f"[INFO] Clip {i}: Started prediction with ID: {prediction_id}")
+            print(f"[INFO] Clip {i}: Track progress at: {prediction_url}")
+
             # Return immediately with queued status
             # Webhook will update status when generation completes
             return {
@@ -315,7 +460,7 @@ async def generate_video_clips(
                 "scene_id": scene_id,
                 "video_url": None,  # Will be set by webhook handler
                 "status": "queued",
-                "prediction_id": response.prediction_id
+                "prediction_id": prediction_id
             }
             
         except Exception as e:

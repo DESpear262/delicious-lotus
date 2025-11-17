@@ -47,7 +47,11 @@ class OpenAIClient:
             system_prompt = self._create_system_prompt()
             user_prompt = self._create_user_prompt(prompt, context)
 
-            logger.info(f"Sending prompt analysis request to OpenAI (model: {self.model})")
+            logger.warning(f"[CHATGPT_INPUT] ===== SENDING TO CHATGPT FOR PREPROCESSING =====")
+            logger.warning(f"[CHATGPT_INPUT] System Prompt: {system_prompt}")
+            logger.warning(f"[CHATGPT_INPUT] User Prompt: {user_prompt}")
+            logger.warning(f"[CHATGPT_INPUT] Model: {self.model}")
+            logger.warning(f"[CHATGPT_INPUT] ===== END CHATGPT INPUT =====")
 
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -64,6 +68,10 @@ class OpenAIClient:
             content = response.choices[0].message.content
             if not content:
                 raise ValueError("Empty response from OpenAI")
+
+            logger.warning(f"[CHATGPT_OUTPUT] ===== RECEIVED FROM CHATGPT =====")
+            logger.warning(f"[CHATGPT_OUTPUT] Raw Response: {content}")
+            logger.warning(f"[CHATGPT_OUTPUT] ===== END CHATGPT OUTPUT =====")
 
             # Parse the JSON response
             analysis_data = json.loads(content)

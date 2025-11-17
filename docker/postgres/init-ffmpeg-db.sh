@@ -12,10 +12,11 @@
 set -e
 
 # Get database user from environment or use default
-POSTGRES_USER="${POSTGRES_USER:-ai_video_user}"
+# This is the superuser created by the postgres container
+DB_SUPERUSER="${POSTGRES_USER:-ai_video_admin}"
 
 # Check if database exists and create if it doesn't
-psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "$DB_SUPERUSER" --dbname "postgres" <<-EOSQL
     DO \$\$
     BEGIN
         IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ffmpeg_backend') THEN
@@ -25,11 +26,11 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
     \$\$;
 
     -- Grant privileges to the application user
-    GRANT ALL PRIVILEGES ON DATABASE ffmpeg_backend TO "$POSTGRES_USER";
+    GRANT ALL PRIVILEGES ON DATABASE ffmpeg_backend TO "$DB_SUPERUSER";
 EOSQL
 
 # Add comment to the database (need to connect to it)
-psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "ffmpeg_backend" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "$DB_SUPERUSER" --dbname "ffmpeg_backend" <<-EOSQL
     COMMENT ON DATABASE ffmpeg_backend IS 'Database for FFmpeg Backend service - handles video composition processing';
 EOSQL
 

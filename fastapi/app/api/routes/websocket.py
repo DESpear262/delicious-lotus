@@ -46,6 +46,7 @@ async def handle_connect(sid, environ, auth):
     We need to extract the generation_id from the connection request.
     Socket.io passes the path in the environ dict.
     """
+    logger.info(f"[WEBSOCKET_CONNECT] New connection attempt from {sid}")
     try:
         # The frontend uses: io(url, { path: '/ws/generations/{generation_id}' })
         # This path is available in the connection request
@@ -96,12 +97,14 @@ async def handle_connect(sid, environ, auth):
             logger.warning("Generation storage service not available, allowing connection without validation")
         
         # Register connection
+        logger.info(f"[WEBSOCKET_CONNECT] Registering connection {sid} for generation {generation_id}")
         await ws_manager.connect(sid, generation_id)
         
         # Send initial connection confirmation
+        logger.info(f"[WEBSOCKET_CONNECT] Sending connection confirmation to {sid}")
         await sio.emit("connected", {"generation_id": generation_id, "status": "connected"}, room=sid)
         
-        logger.info(f"WebSocket connected: {sid} -> generation {generation_id}")
+        logger.info(f"[WEBSOCKET_CONNECT] WebSocket connected successfully: {sid} -> generation {generation_id}")
         return True
         
     except Exception as e:
@@ -113,11 +116,13 @@ async def handle_connect(sid, environ, auth):
 @sio.on("disconnect")
 async def handle_disconnect(sid):
     """Handle disconnection"""
+    logger.info(f"[WEBSOCKET_DISCONNECT] Disconnecting {sid}")
     await ws_manager.disconnect(sid)
+    logger.info(f"[WEBSOCKET_DISCONNECT] Successfully disconnected {sid}")
 
 
 @sio.on("ping")
-async def handle_ping(sid, data):
+async def handle_ping(sid, data=None):
     """Handle ping for heartbeat"""
     await sio.emit("pong", {"timestamp": None}, room=sid)
 

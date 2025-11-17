@@ -110,8 +110,21 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
   // Initialize WebSocket manager
   useEffect(() => {
+    // In development, use the backend URL directly for WebSocket connections
+    const getWebSocketUrl = () => {
+      if (import.meta.env.VITE_WS_URL) {
+        return import.meta.env.VITE_WS_URL;
+      }
+      // In development, connect directly to backend (port 8000)
+      // In production, use the same origin (will be proxied by nginx/reverse proxy)
+      if (import.meta.env.DEV) {
+        return 'http://localhost:8000';
+      }
+      return window.location.origin;
+    };
+
     const defaultConfig: WebSocketConfig = {
-      url: import.meta.env.VITE_WS_URL || window.location.origin,
+      url: getWebSocketUrl(),
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 300000, // 5 minutes

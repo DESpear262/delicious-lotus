@@ -69,21 +69,32 @@ async def replicate_webhook(
     We process the result, download the video, upload to S3, and update the database.
     """
     logger = get_request_logger(request)
-    logger.info(f"Received Replicate webhook for prediction {payload.id}, status: {payload.status}")
-    
+    logger.warning(f"[WEBHOOK] ===== RECEIVED REPLICATE WEBHOOK =====")
+    logger.warning(f"[WEBHOOK] Prediction ID: {payload.id}")
+    logger.warning(f"[WEBHOOK] Status: {payload.status}")
+    logger.warning(f"[WEBHOOK] Payload keys: {list(payload.dict().keys()) if hasattr(payload, 'dict') else 'N/A'}")
+
     # Get mapping for this prediction
     mapping = get_prediction_mapping(payload.id)
     if not mapping:
-        logger.warning(f"No mapping found for prediction {payload.id}, ignoring webhook")
+        logger.warning(f"[WEBHOOK] No mapping found for prediction {payload.id}, ignoring webhook")
+        logger.warning(f"[WEBHOOK] Current mappings: {list(_prediction_mappings.keys())[:5]}...")
         return JSONResponse(
             status_code=200,
             content={"status": "ignored", "reason": "unknown_prediction"}
         )
-    
+
     generation_id = mapping["generation_id"]
     clip_id = mapping["clip_id"]
     scene_id = mapping["scene_id"]
-    
+    logger.warning(f"[WEBHOOK] Found mapping - Generation ID: {generation_id}, Clip ID: {clip_id}, Scene ID: {scene_id}")
+    logger.warning(f"[WEBHOOK] ===== PROCESSING WEBHOOK PAYLOAD =====")
+    logger.warning(f"[WEBHOOK] Prediction status: {payload.status}")
+    if hasattr(payload, 'output') and payload.output:
+        logger.warning(f"[WEBHOOK] Output available: {bool(payload.output)}")
+    if hasattr(payload, 'urls') and payload.urls:
+        logger.warning(f"[WEBHOOK] URLs available: {payload.urls}")
+
     try:
         # Import services (lazy import to avoid circular dependencies)
         from app.services.storage import StorageService
@@ -119,7 +130,10 @@ async def replicate_webhook(
                 video_url = payload.output
             elif isinstance(payload.output, dict):
                 video_url = payload.output.get("video") or payload.output.get("url")
-            
+
+            logger.warning(f"[WEBHOOK] Extracted video URL: {video_url}")
+            logger.warning(f"[WEBHOOK] Original Replicate URL: https://replicate.com/p/{payload.id}")
+
             if not video_url:
                 logger.error(f"No video URL in successful webhook payload for {payload.id}")
                 # Update generation status to failed
@@ -142,16 +156,22 @@ async def replicate_webhook(
             if storage_service:
                 try:
                     object_key = f"generations/{generation_id}/clips/{clip_id}.mp4"
-                    logger.info(f"Uploading video from {video_url} to storage: {object_key}")
+                    logger.warning(f"[WEBHOOK] Uploading video to storage...")
+                    logger.warning(f"[WEBHOOK] Source URL: {video_url}")
+                    logger.warning(f"[WEBHOOK] Storage path: {object_key}")
                     final_url = storage_service.upload_from_url(
                         video_url,
                         object_key,
                         content_type="video/mp4"
                     )
-                    logger.info(f"Successfully uploaded clip {clip_id} to storage: {final_url}")
+                    logger.warning(f"[WEBHOOK] Successfully uploaded clip {clip_id}")
+                    logger.warning(f"[WEBHOOK] Final storage URL: {final_url}")
                 except Exception as e:
-                    logger.error(f"Failed to upload video to storage: {e}")
+                    logger.warning(f"[WEBHOOK] Failed to upload video to storage: {e}")
+                    logger.warning(f"[WEBHOOK] Will use Replicate URL as fallback: {video_url}")
                     # Continue with Replicate URL as fallback
+            else:
+                logger.warning(f"[WEBHOOK] No storage service available, using Replicate URL: {video_url}")
             
             # Update generation metadata with completed clip
             if generation_storage_service:

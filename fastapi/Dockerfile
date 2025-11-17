@@ -62,6 +62,9 @@ COPY --chown=appuser:appuser ./fastapi/app ./app
 # Copy ai module so it can be imported
 COPY --chown=appuser:appuser ./ai ./ai
 
+# NOTE: ffmpeg-backend src is NOT copied here anymore - the backend should make HTTP calls
+# to the separate ffmpeg-backend-api service instead of importing code directly
+
 # Create directory for frontend static files
 RUN mkdir -p ${APP_HOME}/frontend/dist && \
     chown -R appuser:appuser ${APP_HOME}/frontend

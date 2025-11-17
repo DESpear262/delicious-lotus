@@ -39,6 +39,22 @@ try:
     AI_SERVICES_AVAILABLE = True
 except ImportError:
     AI_SERVICES_AVAILABLE = False
+    # Create stub classes for when AI services aren't available
+    from typing import Any
+    from pydantic import BaseModel
+
+    class ClipAssemblyRequest(BaseModel):  # type: ignore
+        generation_id: str = ""
+
+    class ClipRetrievalRequest(BaseModel):  # type: ignore
+        generation_id: str = ""
+
+    class EditRequest(BaseModel):  # type: ignore
+        edit_instruction: str = ""
+
+    class EditResponse(BaseModel):  # type: ignore
+        success: bool = False
+        message: str = ""
 
 # Create API v1 router
 api_v1_router = APIRouter(prefix="/api/v1", tags=["api-v1"])
@@ -550,7 +566,27 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
     logger = get_request_logger(request)
     logger.info(f"Retrieving generation {generation_id}")
 
-    # First try to get data from clip assembly service (database/Redis)
+    # First try to get from generation storage service (database)
+    generation_data = None
+    if generation_storage_service:
+        try:
+            generation_data = generation_storage_service.get_generation(generation_id)
+            if generation_data:
+                logger.info(f"Retrieved generation {generation_id} from database")
+        except Exception as e:
+            logger.warning(f"Failed to retrieve from database: {str(e)}")
+
+    # Fallback to in-memory store if not in database
+    if not generation_data:
+        generation_data = _generation_store.get(generation_id)
+        if generation_data:
+            logger.info(f"Retrieved generation {generation_id} from in-memory store")
+
+    # If not found anywhere, raise error
+    if not generation_data:
+        raise NotFoundError("generation", generation_id)
+
+    # Try to get clips data from clip assembly service (if available)
     clips_data = None
     progress_data = None
 
@@ -563,14 +599,20 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
             progress_data = clips_response.progress
             logger.info(f"Retrieved {len(clips_data)} clips from persistent storage")
         except Exception as e:
-            logger.warning(f"Failed to retrieve from persistent storage: {str(e)}")
-
-    # Fallback to in-memory store if no persistent data
-    generation_data = _generation_store.get(generation_id)
-    if not generation_data and not clips_data:
-        raise NotFoundError("generation", generation_id)
+            logger.warning(f"Failed to retrieve clips from persistent storage: {str(e)}")
 
     # Determine status and progress
+    # Handle both database format and in-memory format
+    if generation_data and "status" in generation_data:
+        # Database format or in-memory format with direct status field
+        status = generation_data.get("status", GenerationStatus.QUEUED)
+        if isinstance(status, str):
+            # Convert string to enum if needed
+            status = GenerationStatus(status)
+    else:
+        status = GenerationStatus.QUEUED
+
+    # Check if we have progress from Redis
     if progress_data:
         # Use progress from Redis
         progress = GenerationProgress(
@@ -582,22 +624,22 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
             total_clips=progress_data.total_clips
         )
         status = progress_data.status
-    elif generation_data:
-        # Fallback to in-memory logic
-        status = generation_data["status"]
-        progress = None
-        if status == GenerationStatus.PROCESSING:
-            progress = GenerationProgress(
-                current_step="generating_clips",
-                steps_completed=3,
-                total_steps=8,
-                percentage=37.5,
-                current_clip=2,
-                total_clips=5
-            )
+    elif status == GenerationStatus.PROCESSING:
+        # Create basic progress for processing status
+        metadata_obj = generation_data.get("metadata", {})
+        video_results = metadata_obj.get("video_results", []) if isinstance(metadata_obj, dict) else []
+        total_clips = len(video_results) if video_results else 5
+        completed_clips = len([r for r in video_results if r.get("status") == "completed"]) if video_results else 0
+
+        progress = GenerationProgress(
+            current_step="generating_clips",
+            steps_completed=completed_clips,
+            total_steps=total_clips,
+            percentage=(completed_clips / total_clips * 100) if total_clips > 0 else 0,
+            current_clip=completed_clips,
+            total_clips=total_clips
+        )
     else:
-        # Default status if no data available
-        status = GenerationStatus.QUEUED
         progress = None
 
     # Convert clips data to API format
@@ -615,15 +657,26 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
                 prompt=clip.prompt_used
             ))
 
-    # Build metadata
+    # Build metadata - handle both database format (direct fields) and in-memory format (nested request)
     metadata = {}
     if generation_data:
-        metadata.update({
-            "prompt": generation_data["request"]["prompt"],
-            "parameters": generation_data["request"]["parameters"],
-            "created_at": generation_data["created_at"].isoformat() + "Z",
-            "updated_at": generation_data["updated_at"].isoformat() + "Z"
-        })
+        # Check if data is from database (has 'prompt' directly) or in-memory (has 'request' nested)
+        if "prompt" in generation_data:
+            # Database format
+            metadata.update({
+                "prompt": generation_data.get("prompt", ""),
+                "parameters": generation_data.get("metadata", {}).get("parameters", {}),
+                "created_at": generation_data["created_at"].isoformat() + "Z" if isinstance(generation_data.get("created_at"), datetime) else str(generation_data.get("created_at", "")),
+                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
+            })
+        elif "request" in generation_data:
+            # In-memory format
+            metadata.update({
+                "prompt": generation_data["request"]["prompt"],
+                "parameters": generation_data["request"]["parameters"],
+                "created_at": generation_data["created_at"].isoformat() + "Z" if isinstance(generation_data.get("created_at"), datetime) else str(generation_data.get("created_at", "")),
+                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
+            })
 
     # Add clip statistics to metadata
     if clips_data:
@@ -640,8 +693,13 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
 
     # Determine timestamps
     if generation_data:
-        created_at = generation_data["created_at"]
-        updated_at = generation_data["updated_at"]
+        created_at = generation_data.get("created_at", datetime.utcnow())
+        updated_at = generation_data.get("updated_at", datetime.utcnow())
+        # Ensure they're datetime objects (psycopg2 returns them automatically, but check just in case)
+        if not isinstance(created_at, datetime):
+            created_at = datetime.utcnow()
+        if not isinstance(updated_at, datetime):
+            updated_at = datetime.utcnow()
     else:
         # Fallback timestamps
         created_at = datetime.utcnow()

@@ -62,9 +62,9 @@ COPY --chown=appuser:appuser ./app ./app
 RUN mkdir -p ${APP_HOME}/frontend/dist && \
     chown -R appuser:appuser ${APP_HOME}/frontend
 
-# Create directory for temporary files and uploads
-RUN mkdir -p ${APP_HOME}/temp ${APP_HOME}/uploads && \
-    chown -R appuser:appuser ${APP_HOME}/temp ${APP_HOME}/uploads
+# Create directory for temporary files, uploads, and storage
+RUN mkdir -p ${APP_HOME}/temp ${APP_HOME}/uploads ${APP_HOME}/storage && \
+    chown -R appuser:appuser ${APP_HOME}/temp ${APP_HOME}/uploads ${APP_HOME}/storage
 
 # Switch to non-root user
 USER appuser

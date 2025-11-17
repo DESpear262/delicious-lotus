@@ -76,6 +76,7 @@ class ImageryStyle(str, Enum):
     LIFESTYLE = "lifestyle"
     ABSTRACT = "abstract"
     REALISTIC = "realistic"
+    ANIMATION = "animation"
 
 
 class KeyElement(BaseModel):
@@ -123,10 +124,10 @@ class PromptAnalysis(BaseModel):
     confidence_score: float = Field(..., ge=0.0, le=1.0, description="AI confidence in analysis")
     analysis_notes: List[str] = Field(default_factory=list, description="Additional analysis notes")
 
-    # Metadata
-    original_prompt: str = Field(..., description="Original user prompt for reference")
-    analysis_timestamp: str = Field(..., description="When analysis was performed")
-    model_version: str = Field(..., description="AI model used for analysis")
+    # Metadata (set programmatically after OpenAI parsing)
+    original_prompt: str = Field(default="", description="Original user prompt for reference")
+    analysis_timestamp: str = Field(default="", description="When analysis was performed")
+    model_version: str = Field(default="", description="AI model used for analysis")
 
     @validator('key_themes', 'key_messages', 'analysis_notes')
     def validate_list_length(cls, v):

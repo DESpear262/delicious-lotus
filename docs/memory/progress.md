@@ -42,6 +42,7 @@
 - ✅ **GET /api/v1/generations endpoint** - List generations with pagination, status filtering, and proper error handling
 - ✅ **History page null safety** - Fixed TypeError by adding defensive checks for undefined/empty generations arrays
 - ✅ **Replicate webhook integration** - Async video generation using Replicate webhooks. Server returns immediately after starting generation, Replicate calls webhook when complete. Webhook handler downloads videos, uploads to S3, and updates database. No more polling overhead.
+- ✅ **Webhook completion status propagation** - Webhook handler now marks generations as completed/failed, syncs the in-memory store, and emits WebSocket events so the frontend leaves the loading state when clips finish.
 - ✅ **Verbose generation progress page** - Enhanced GenerationProgress page with CLI-style step-by-step display showing: Step 1 (Analyzing Prompt), Step 2 (Decomposing Scenes), Step 3 (Building Micro-Prompts), Step 4 (Generating Videos), Step 5 (Video Composition), Step 6 (Final Rendering). Current step details and percentage progress displayed.
 - ✅ **Comprehensive backend logging** - Added verbose console logging throughout video generation pipeline matching CLI output format. Logs include [START], [STEP 1-4], [OK], [ERROR], [INFO] prefixes. Logging in FastAPI create_generation endpoint and ffmpeg-backend generate_video_clips function. All logs visible in backend terminal for debugging.
 - ✅ **Enhanced frontend console logging** - Improved browser console logging with formatted messages: [PROGRESS], [OK], [ERROR], [STATUS], [INFO]. Detailed progress updates, clip completion notifications, and error messages. All accessible from browser dev tools for debugging infinite loading issues.
@@ -75,6 +76,8 @@
 
 ### Resolved
 - ✅ **Windows CRLF line endings in init script** (2025-11-17) - `docker/postgres/init-ffmpeg-db.sh` had Windows line endings (CRLF) causing "required file not found" error during postgres initialization. Fixed by converting to Unix line endings (LF) using `dos2unix`/`sed -i 's/\r$//'`.
+- ✅ **Prompt analysis timestamp failure** (2025-11-17) - Real ChatGPT responses return unix epoch integers for `created`, which triggered `'int' object has no attribute 'isoformat'` during preprocessing. `ai/core/openai_client.py` now normalizes ints/floats/datetimes into UTC ISO strings so non-simulated preprocessing succeeds.
+- ✅ **OpenAI preprocessing workflow audit complete** (2025-11-17) - Comprehensive audit of the full OpenAI preprocessing pipeline revealed and fixed multiple potential failure points. Added robust `normalize_analysis_data()` function that handles enum mapping, data type conversion, list/string normalization, numeric validation, and nested object sanitization. All edge cases now handled gracefully to prevent 500 errors from malformed ChatGPT responses.
 
 ### High Priority
 - FFmpeg backend is not yet wired into the FastAPI container image in dev; `generate_video_clips` import fails with `No module named 'app.api.v1'`, so real clip generation/storage must be exercised via the ffmpeg-backend service/CLI rather than the FastAPI container.

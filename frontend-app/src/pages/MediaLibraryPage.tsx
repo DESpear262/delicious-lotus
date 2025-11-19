@@ -20,7 +20,8 @@ import {
   ResizableHandle,
 } from '../components/ui/resizable';
 import { Tabs, TabsContent } from '../components/ui/tabs';
-import { useMediaStore } from '../contexts/StoreContext';
+import { useMediaStore, useAIGenerationStore } from '../contexts/StoreContext';
+import { MediaGenerationSkeleton } from '../components/media/MediaGenerationSkeleton';
 import type { MediaAssetType, MediaAsset } from '../types/stores';
 
 /**
@@ -50,6 +51,20 @@ export default function MediaLibraryPage() {
   const searchAssets = useMediaStore((state) => state.searchAssets);
   const loadAssets = useMediaStore((state) => state.loadAssets);
 
+  // Get active and completing generations for skeletons
+  const activeGenerationsMap = useAIGenerationStore((state) => state.activeGenerations);
+  const completingGenerationsMap = useAIGenerationStore((state) => state.completingGenerations);
+
+  // Combine active and completing generations for skeleton display
+  const visibleGenerations = useMemo(() => {
+    const active = Array.from(activeGenerationsMap.values())
+      .filter(g => g.status === 'queued' || g.status === 'generating');
+    const completing = Array.from(completingGenerationsMap.values());
+
+    return [...active, ...completing]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }, [activeGenerationsMap, completingGenerationsMap]);
+
   // Convert assets Map to array and apply filters
   const assetsArray = useMemo(() => {
     let arr = Array.from(assets.values());
@@ -62,7 +77,10 @@ export default function MediaLibraryPage() {
     // Filter by source
     if (filterSource !== 'all') {
       arr = arr.filter((asset) => {
-        const isAI = !!asset.metadata?.prompt || !!asset.metadata?.source && asset.metadata.source === 'ai';
+        const isAI =
+          !!asset.metadata?.prompt ||
+          asset.metadata?.source === 'ai_generation' ||
+          asset.tags?.includes('ai-generated');
         return filterSource === 'ai' ? isAI : !isAI;
       });
     }
@@ -321,6 +339,12 @@ export default function MediaLibraryPage() {
               ) : (
                 /* Asset Grid */
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {/* Visible Generations Skeletons (active + completing) */}
+                  {visibleGenerations.map((gen) => (
+                    <MediaGenerationSkeleton key={gen.id} />
+                  ))}
+
+                  {/* Media Assets */}
                   {assetsArray.map((asset, index) => (
                     <MediaAssetCard
                       key={asset.id}

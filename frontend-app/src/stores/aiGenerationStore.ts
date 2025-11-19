@@ -11,6 +11,7 @@ import type {
 // Initial state
 const initialState = {
   activeGenerations: new Map<string, GenerationRequest>(),
+  completingGenerations: new Map<string, GenerationRequest>(),
   generationHistory: [] as GenerationHistory[],
   maxConcurrentGenerations: Number(import.meta.env.VITE_MAX_AI_GENERATIONS) || 30, // MAX_GENERATIONS concurrency limit
 }
@@ -104,6 +105,20 @@ export const createAIGenerationStore = () => {
               state.activeGenerations.delete(generationId)
             }),
 
+          moveToCompleting: (generationId) =>
+            set((state) => {
+              const generation = state.activeGenerations.get(generationId)
+              if (generation) {
+                state.activeGenerations.delete(generationId)
+                state.completingGenerations.set(generationId, generation)
+              }
+            }),
+
+          clearCompletingGeneration: (generationId) =>
+            set((state) => {
+              state.completingGenerations.delete(generationId)
+            }),
+
           // History operations
           addToHistory: (generation, assetId) =>
             set((state) => {
@@ -150,6 +165,7 @@ export const createAIGenerationStore = () => {
           storage: createJSONStorage(() => localStorage),
           partialize: (state) => ({
             activeGenerations: Array.from(state.activeGenerations.entries()),
+            completingGenerations: Array.from(state.completingGenerations.entries()),
             generationHistory: state.generationHistory,
             maxConcurrentGenerations: state.maxConcurrentGenerations,
           }),
@@ -168,9 +184,22 @@ export const createAIGenerationStore = () => {
               ])
             )
 
+            // Reconstruct completingGenerations Map with proper Date objects
+            const completingGenerationsMap = new Map(
+              (persisted.completingGenerations || []).map(([id, gen]: [string, any]) => [
+                id,
+                {
+                  ...gen,
+                  createdAt: new Date(gen.createdAt),
+                  completedAt: gen.completedAt ? new Date(gen.completedAt) : undefined,
+                }
+              ])
+            )
+
             return {
               ...currentState,
               activeGenerations: activeGenerationsMap,
+              completingGenerations: completingGenerationsMap,
               generationHistory: (persisted.generationHistory || []).map((item: any) => ({
                 ...item,
                 request: {

@@ -18,6 +18,8 @@ export default function RootLayout() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const activeGenerationsMap = useAIGenerationStore((state) => state.activeGenerations);
   const updateGenerationStatus = useAIGenerationStore((state) => state.updateGenerationStatus);
+  const moveToCompleting = useAIGenerationStore((state) => state.moveToCompleting);
+  const clearCompletingGeneration = useAIGenerationStore((state) => state.clearCompletingGeneration);
   const loadAssets = useMediaStore((state) => state.loadAssets);
 
   // Configurable polling interval (default 5 seconds)
@@ -59,13 +61,22 @@ export default function RootLayout() {
               progress: 100,
             });
 
-            // Refresh media library after 2 seconds
-            setTimeout(() => {
+            // Move to completing state to keep skeleton visible
+            moveToCompleting(job.id);
+
+            // Refresh media library and clear completing generation
+            setTimeout(async () => {
               console.log('[RootLayout] Refreshing media library after polling detected completion');
-              loadAssets().catch((error) => {
+              try {
+                await loadAssets();
+                // Clear the completing generation after assets are loaded
+                clearCompletingGeneration(job.id);
+              } catch (error) {
                 console.error('[RootLayout] Failed to refresh media library:', error);
-              });
-            }, 2000);
+                // Still clear the completing generation on error to prevent stuck skeletons
+                clearCompletingGeneration(job.id);
+              }
+            }, 1500);
           } else if (status.status === 'failed') {
             console.log(`[RootLayout] Polling detected failure for job ${job.jobId}`);
             updateGenerationStatus(job.id, 'failed', {

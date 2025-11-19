@@ -20,6 +20,8 @@ export default function AIGenerationPanel() {
   const updateGenerationStatus = useAIGenerationStore((state) => state.updateGenerationStatus)
   const cancelGeneration = useAIGenerationStore((state) => state.cancelGeneration)
   const removeGeneration = useAIGenerationStore((state) => state.removeGeneration)
+  const moveToCompleting = useAIGenerationStore((state) => state.moveToCompleting)
+  const clearCompletingGeneration = useAIGenerationStore((state) => state.clearCompletingGeneration)
   const addToHistory = useAIGenerationStore((state) => state.addToHistory)
   const toggleFavorite = useAIGenerationStore((state) => state.toggleFavorite)
   const removeFromHistory = useAIGenerationStore((state) => state.removeFromHistory)
@@ -282,6 +284,9 @@ export default function AIGenerationPanel() {
             progress: 100,
           })
 
+          // Move to completing state to keep skeleton visible
+          moveToCompleting(generation.id)
+
           // ✅ REMOVED: importFromUrl() call
           // The backend webhook now handles importing to S3 automatically.
           // The MediaAsset will be created by the worker after successful S3 upload.
@@ -289,19 +294,21 @@ export default function AIGenerationPanel() {
 
           console.log(`[AIGenerationPanel] Job completed. Backend webhook will handle import automatically.`)
 
-          // Refresh media library to show newly imported asset
+          // Refresh media library to show newly imported asset and clear skeleton
           // Add a small delay to ensure worker has time to create MediaAsset
-          setTimeout(() => {
+          setTimeout(async () => {
             console.log('[AIGenerationPanel] Refreshing media library after job completion')
-            loadAssets()
-              .then(() => {
-                console.log('[AIGenerationPanel] Media library refreshed successfully')
-                // Note: loadAssets() already shows a toast notification
-              })
-              .catch((error) => {
-                console.error('[AIGenerationPanel] Failed to refresh media library:', error)
-              })
-          }, 2000) // 2 second delay for worker to complete (reduced from 3s)
+            try {
+              await loadAssets()
+              console.log('[AIGenerationPanel] Media library refreshed successfully')
+              // Clear the completing generation after assets are loaded
+              clearCompletingGeneration(generation.id)
+            } catch (error) {
+              console.error('[AIGenerationPanel] Failed to refresh media library:', error)
+              // Still clear the completing generation on error to prevent stuck skeletons
+              clearCompletingGeneration(generation.id)
+            }
+          }, 1500) // 2 second delay for worker to complete (reduced from 3s)
         } else {
           console.warn(
             `[AIGenerationPanel] Job ${generation.jobId} succeeded but no result URL found`,
@@ -365,7 +372,7 @@ export default function AIGenerationPanel() {
         }
       }
     })
-  }, [wsJobs, activeGenerations, updateGenerationStatus, resolveResultUrl, loadAssets])
+  }, [wsJobs, activeGenerations, updateGenerationStatus, resolveResultUrl, loadAssets, moveToCompleting, clearCompletingGeneration])
 
   return (
     <div className="flex flex-col h-full bg-zinc-950">

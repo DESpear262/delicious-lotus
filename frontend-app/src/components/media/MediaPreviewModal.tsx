@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from '../ui/dialog'
-import { ExternalLink, X, Copy, Check } from 'lucide-react'
+import { ExternalLink, Copy, Check } from 'lucide-react'
 import type { MediaAsset } from '../../types/stores'
 import { useEffect, useRef, useState } from 'react'
 
@@ -46,18 +46,6 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                navigator.clipboard.writeText(cleanUrl)
-                setIsCopied(true)
-                setTimeout(() => setIsCopied(false), 2000)
-              }}
-              className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition-colors text-sm"
-            >
-              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {isCopied ? 'Copied!' : 'Copy Link'}
-            </button>
             <a
               href={cleanUrl}
               target="_blank"
@@ -69,10 +57,16 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
               Open Source
             </a>
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-zinc-100"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigator.clipboard.writeText(cleanUrl)
+                setIsCopied(true)
+                setTimeout(() => setIsCopied(false), 2000)
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition-colors text-sm"
             >
-              <X className="w-5 h-5" />
+              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {isCopied ? 'Copied!' : 'Copy Link'}
             </button>
           </div>
         </div>
@@ -116,6 +110,6 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
           )}
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }

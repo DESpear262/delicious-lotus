@@ -1,0 +1,103 @@
+/* Banner Container */
+.banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-modal);
+  padding: var(--spacing-3) var(--spacing-4);
+  box-shadow: var(--shadow-md);
+  animation: slideDown 300ms ease-out;
+}
+
+/* Banner Content */
+.content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Icon Wrapper */
+.iconWrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Message */
+.message {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+/* Offline Variant */
+.bannerOffline {
+  background-color: var(--color-error, #ef4444);
+  color: white;
+  border-bottom: 2px solid var(--color-error-dark, #dc2626);
+}
+
+.bannerOffline .icon {
+  color: white;
+}
+
+.bannerOffline .message {
+  color: white;
+}
+
+/* Online Variant */
+.bannerOnline {
+  background-color: var(--color-success, #10b981);
+  color: white;
+  border-bottom: 2px solid var(--color-success-dark, #059669);
+}
+
+.bannerOnline .icon {
+  color: white;
+}
+
+.bannerOnline .message {
+  color: white;
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+  .banner {
+    padding: var(--spacing-2) var(--spacing-3);
+  }
+
+  .content {
+    gap: var(--spacing-2);
+  }
+
+  .icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .message {
+    font-size: var(--font-size-xs);
+  }
+}

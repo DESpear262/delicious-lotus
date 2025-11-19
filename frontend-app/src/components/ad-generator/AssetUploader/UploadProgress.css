@@ -1,0 +1,157 @@
+.upload-progress {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.upload-progress__info {
+  margin-bottom: 0.5rem;
+}
+
+.upload-progress__filename {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-progress__size {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.upload-progress__bar-container {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.upload-progress__bar {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress__bar--success {
+  background: #10b981;
+}
+
+.upload-progress__bar--error {
+  background: #ef4444;
+}
+
+.upload-progress__status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.upload-progress__cancel {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+.upload-progress__cancel:hover {
+  color: #374151;
+}
+
+.upload-progress__success {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #10b981;
+}
+
+.upload-progress__error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ef4444;
+  font-size: 12px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Larger drop zone for easy file selection */
+  .dropZone {
+    min-height: 140px;
+    padding: var(--spacing-6);
+  }
+
+  .dropZone__text {
+    font-size: var(--font-size-base);
+  }
+
+  .dropZone__button {
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-3) var(--spacing-6);
+  }
+
+  /* 2-column grid for file previews */
+  .filePreview__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+  }
+
+  .filePreview__item {
+    padding: var(--spacing-3);
+  }
+
+  .filePreview__thumbnail {
+    height: 80px;
+  }
+
+  /* Larger delete button for touch */
+  .filePreview__deleteButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    top: var(--spacing-1);
+    right: var(--spacing-1);
+  }
+
+  /* Full-width progress bars */
+  .uploadProgress {
+    width: 100%;
+  }
+
+  .uploadProgress__bar {
+    height: 8px;
+  }
+
+  /* Larger cancel button */
+  .uploadProgress__cancelButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Asset uploader container */
+  .assetUploader {
+    padding: var(--spacing-4);
+  }
+}
+
+@media (max-width: 375px) {
+  /* Single column for file previews on small phones */
+  .filePreview__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dropZone {
+    min-height: 120px;
+    padding: var(--spacing-4);
+  }
+}

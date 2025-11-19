@@ -1,0 +1,135 @@
+/* Breadcrumbs Container */
+.breadcrumbs {
+  margin-bottom: var(--spacing-6);
+}
+
+.breadcrumbsList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--spacing-2);
+}
+
+.breadcrumbsItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+}
+
+/* Links */
+.breadcrumbsLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: color var(--transition-fast);
+}
+
+.breadcrumbsLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.breadcrumbsLink:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Current Page */
+.breadcrumbsCurrent {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Separator */
+.breadcrumbsSeparator {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  user-select: none;
+}
+
+/* Mobile Optimization */
+@media (max-width: 767px) {
+  .breadcrumbsLink,
+  .breadcrumbsCurrent,
+  .breadcrumbsSeparator {
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Pagination - compact on mobile */
+  .pagination {
+    gap: var(--spacing-2);
+  }
+
+  .paginationButton,
+  .pageNumber {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2);
+  }
+
+  /* Hide intermediate page numbers on mobile */
+  .pageNumber:not(.active):not(:first-child):not(:last-child):not(:nth-child(2)):not(:nth-last-child(2)) {
+    display: none;
+  }
+
+  /* Breadcrumbs - horizontal scroll */
+  .breadcrumbs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .breadcrumb {
+    min-height: var(--touch-target-min);
+  }
+
+  /* Video actions - vertical stack */
+  .videoActions {
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .videoAction,
+  .actionButton {
+    width: 100%;
+    min-height: var(--touch-target-min);
+  }
+
+  /* Card - reduced padding */
+  .card {
+    padding: var(--spacing-4);
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .cardActions {
+    width: 100%;
+  }
+
+  .cardAction {
+    min-height: var(--touch-target-min);
+  }
+}
+
+@media (max-width: 375px) {
+  .card {
+    padding: var(--spacing-3);
+  }
+
+  .pagination {
+    gap: var(--spacing-1);
+  }
+}

@@ -45,7 +45,7 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
               {asset.duration && ` • ${Math.floor(asset.duration / 60)}:${String(Math.floor(asset.duration % 60)).padStart(2, '0')}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-10">
             <a
               href={cleanUrl}
               target="_blank"

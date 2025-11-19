@@ -9,6 +9,7 @@ import type { GenerationType, QualityTier } from '../../types/stores'
 
 export default function AIGenerationPanel() {
   const [activeTab, setActiveTab] = useState('generate')
+  const [isPending, setIsPending] = useState(false)
 
   // Get state and actions from stores - get the Map directly without transformation
   const activeGenerationsMap = useAIGenerationStore((state) => state.activeGenerations)
@@ -52,6 +53,9 @@ export default function AIGenerationPanel() {
       qualityTier: QualityTier
       aspectRatio: '16:9' | '9:16' | '1:1' | '4:3'
     }) => {
+      // Disable button while API call is in progress
+      setIsPending(true)
+
       try {
         // Queue the generation in the store
         const generationId = queueGeneration({
@@ -115,11 +119,12 @@ export default function AIGenerationPanel() {
           jobId: response.job_id,
         })
 
-        // Switch to queue tab to show progress
-        setActiveTab('queue')
+        // Re-enable button after successful generation
+        setIsPending(false)
       } catch (error) {
         console.error('Failed to start generation:', error)
-        // Note: Can't get generationId after error, would need to track it
+        // Re-enable button after error
+        setIsPending(false)
       }
     },
     [queueGeneration, updateGenerationStatus]
@@ -402,7 +407,7 @@ export default function AIGenerationPanel() {
                 </p>
               </div>
             )}
-            <PromptInput onGenerate={handleGenerate} isGenerating={!canGenerate} />
+            <PromptInput onGenerate={handleGenerate} isGenerating={isPending || !canGenerate} />
           </TabsContent>
 
           <TabsContent value="queue" className="p-4 m-0">

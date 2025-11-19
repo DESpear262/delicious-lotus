@@ -1,0 +1,239 @@
+/* Toast Container */
+.container {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  pointer-events: none;
+  max-width: 420px;
+}
+
+.container > * {
+  pointer-events: auto;
+}
+
+/* Position Variants */
+.container-top-right {
+  top: 0;
+  right: 0;
+}
+
+.container-top-left {
+  top: 0;
+  left: 0;
+}
+
+.container-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+.container-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.container-top-center {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.container-bottom-center {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Toast Base */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  min-width: 300px;
+  max-width: 100%;
+  transition: all var(--transition-base);
+}
+
+/* Toast Types */
+.toast-info {
+  border-left: 4px solid var(--color-info);
+}
+
+.toast-success {
+  border-left: 4px solid var(--color-success);
+}
+
+.toast-warning {
+  border-left: 4px solid var(--color-warning);
+}
+
+.toast-error {
+  border-left: 4px solid var(--color-error);
+}
+
+/* Icon Wrapper */
+.iconWrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.toast-info .icon {
+  color: var(--color-info);
+}
+
+.toast-success .icon {
+  color: var(--color-success);
+}
+
+.toast-warning .icon {
+  color: var(--color-warning);
+}
+
+.toast-error .icon {
+  color: var(--color-error);
+}
+
+/* Content */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* Close Button */
+.closeButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-1);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast);
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.closeIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Animations */
+.toastEnter {
+  animation: slideIn 300ms ease-out;
+}
+
+.toastExit {
+  animation: slideOut 300ms ease-in forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+  /* Move toasts to bottom center on mobile */
+  .container {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    max-width: 100%;
+    padding: var(--spacing-3);
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: auto;
+    width: 100%;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Larger dismiss button for touch */
+  .closeButton {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Better padding for mobile */
+  .toast {
+    padding: var(--spacing-4);
+  }
+
+  /* Larger icons and text */
+  .icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .message {
+    font-size: var(--font-size-base);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-2);
+  }
+}

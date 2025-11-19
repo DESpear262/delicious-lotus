@@ -1,0 +1,237 @@
+/* Card Base - Glassmorphism */
+.card {
+  background: var(--color-bg-tertiary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: box-shadow var(--transition-base),
+              transform var(--transition-base),
+              border-color var(--transition-base);
+  position: relative;
+}
+
+/* Variants */
+.card-default {
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.card-bordered {
+  border: 2px solid var(--color-border);
+  box-shadow: none;
+}
+
+.card-elevated {
+  border: 1px solid var(--color-border-bright);
+  box-shadow: var(--shadow-md), var(--glow-subtle);
+}
+
+/* Padding */
+.padding-none {
+  padding: 0;
+}
+
+.padding-sm {
+  padding: var(--spacing-3);
+}
+
+.padding-md {
+  padding: var(--spacing-4);
+}
+
+.padding-lg {
+  padding: var(--spacing-6);
+}
+
+/* Hoverable */
+.hoverable {
+  cursor: pointer;
+}
+
+.hoverable:hover {
+  box-shadow: var(--shadow-lg), var(--glow-subtle);
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--color-border-bright);
+}
+
+.hoverable:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 229, 255, 0.1),
+    transparent
+  );
+  animation: holographicShimmer 1.5s ease-in-out;
+}
+
+.card-default.hoverable:hover,
+.card-bordered.hoverable:hover {
+  border-color: var(--color-border-bright);
+}
+
+/* Card Header */
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+.cardHeader::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gradient-blue-purple);
+  opacity: 0.5;
+}
+
+.cardHeaderContent {
+  flex: 1;
+}
+
+.cardTitle {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-1) 0;
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.cardSubtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* Card Body */
+.cardBody {
+  padding: var(--spacing-4);
+}
+
+/* Card Footer */
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+  background-color: rgba(17, 24, 32, 0.5);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 767px) {
+  .cardHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cardActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .cardFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cardFooter > * {
+    width: 100%;
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Pagination - compact on mobile */
+  .pagination {
+    gap: var(--spacing-2);
+  }
+
+  .paginationButton,
+  .pageNumber {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2);
+  }
+
+  /* Hide intermediate page numbers on mobile */
+  .pageNumber:not(.active):not(:first-child):not(:last-child):not(:nth-child(2)):not(:nth-last-child(2)) {
+    display: none;
+  }
+
+  /* Breadcrumbs - horizontal scroll */
+  .breadcrumbs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .breadcrumb {
+    min-height: var(--touch-target-min);
+  }
+
+  /* Video actions - vertical stack */
+  .videoActions {
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .videoAction,
+  .actionButton {
+    width: 100%;
+    min-height: var(--touch-target-min);
+  }
+
+  /* Card - reduced padding */
+  .card {
+    padding: var(--spacing-4);
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .cardActions {
+    width: 100%;
+  }
+
+  .cardAction {
+    min-height: var(--touch-target-min);
+  }
+}
+
+@media (max-width: 375px) {
+  .card {
+    padding: var(--spacing-3);
+  }
+
+  .pagination {
+    gap: var(--spacing-1);
+  }
+}

@@ -1,0 +1,31 @@
+# docker-compose.override.yml.example
+# Copy this file to docker-compose.override.yml and customize as needed
+# This file is gitignored and will automatically be loaded by docker-compose
+
+services:
+  # Uncomment to expose PostgreSQL port for local database access
+  # db:
+  #   ports:
+  #     - "5432:5432"
+
+  # Uncomment to expose Redis port for local Redis access
+  # redis:
+  #   ports:
+  #     - "6379:6379"
+
+  # Customize API service
+  # api:
+  #   environment:
+  #     LOG_LEVEL: DEBUG
+  #   # Add additional port mappings
+  #   ports:
+  #     - "8001:8000"  # Alternative port
+
+  # Adjust worker replicas
+  # worker:
+  #   deploy:
+  #     replicas: 4  # Increase for more parallel processing
+
+  # Enable Redis Insight for debugging (also requires profile: debug)
+  # redis-insight:
+  #   profiles: []  # Remove profile restriction to always run

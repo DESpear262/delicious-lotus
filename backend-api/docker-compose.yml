@@ -1,0 +1,124 @@
+services:
+  # PostgreSQL 17 database
+  db:
+    image: postgres:17-alpine
+    container_name: ffmpeg-backend-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ffmpeg_backend}
+      POSTGRES_USER: ${POSTGRES_USER:-ffmpeg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ffmpeg}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ffmpeg}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ffmpeg-network
+
+  # Redis 7 for job queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: ffmpeg-backend-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ffmpeg-network
+
+  # FastAPI application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ffmpeg-backend-api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ffmpeg}:${POSTGRES_PASSWORD:-ffmpeg}@db:5432/${POSTGRES_DB:-ffmpeg_backend}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      DEBUG: "true"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests:ro
+      - ./migrations:/app/migrations:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - media_data:/app/media
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - ffmpeg-network
+
+  # RQ worker for background job processing (media import, thumbnail generation, etc.)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: python -m workers.run_worker
+    container_name: ffmpeg-backend-worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ffmpeg}:${POSTGRES_PASSWORD:-ffmpeg}@db:5432/${POSTGRES_DB:-ffmpeg_backend}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      WORKER_QUEUES: media_import,default
+      PYTHONPATH: /app/src
+    volumes:
+      - ./src:/app/src
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ffmpeg-network
+
+  # Optional: RedisInsight for debugging Redis
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: ffmpeg-backend-redis-insight
+    ports:
+      - "${REDIS_INSIGHT_PORT:-5540}:5540"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - ffmpeg-network
+    profiles:
+      - debug
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  media_data:
+    driver: local
+
+networks:
+  ffmpeg-network:
+    driver: bridge

@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from '../ui/dialog'
-import { ExternalLink, X } from 'lucide-react'
+import { ExternalLink, X, Copy, Check } from 'lucide-react'
 import type { MediaAsset } from '../../types/stores'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface MediaPreviewModalProps {
   asset: MediaAsset | null
@@ -15,6 +15,7 @@ interface MediaPreviewModalProps {
  */
 export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [isCopied, setIsCopied] = useState(false)
 
   // Reset video when modal closes
   useEffect(() => {
@@ -28,6 +29,8 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
 
   const isVideo = asset.type === 'video'
   const isImage = asset.type === 'image'
+
+  const cleanUrl = asset.url.split('?')[0]
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -43,8 +46,20 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                navigator.clipboard.writeText(cleanUrl)
+                setIsCopied(true)
+                setTimeout(() => setIsCopied(false), 2000)
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition-colors text-sm"
+            >
+              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {isCopied ? 'Copied!' : 'Copy Link'}
+            </button>
             <a
-              href={asset.url}
+              href={cleanUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
@@ -66,7 +81,7 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
         <div className="flex items-center justify-center p-4 bg-black" style={{ maxHeight: 'calc(95vh - 80px)' }}>
           {isImage && (
             <img
-              src={asset.url}
+              src={cleanUrl}
               alt={asset.name}
               className="max-w-full max-h-full object-contain"
               style={{ maxWidth: '95vw', maxHeight: 'calc(95vh - 80px)' }}
@@ -76,7 +91,7 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
           {isVideo && (
             <video
               ref={videoRef}
-              src={asset.url}
+              src={cleanUrl}
               controls
               autoPlay
               className="max-w-full max-h-full"
@@ -90,7 +105,7 @@ export function MediaPreviewModal({ asset, isOpen, onClose }: MediaPreviewModalP
             <div className="text-center text-zinc-400 p-8">
               <p className="mb-2">Preview not available for this media type</p>
               <a
-                href={asset.url}
+                href={cleanUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 underline"

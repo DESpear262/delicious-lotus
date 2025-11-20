@@ -1,5 +1,5 @@
-import { memo, useCallback, type KeyboardEvent } from 'react';
-import { Image, Video, Music, Trash2, Download, CheckSquare, Square } from 'lucide-react';
+import { memo, useCallback, useState, type KeyboardEvent } from 'react';
+import { Image, Video, Music, Trash2, Download, CheckSquare, Square, Copy, Check } from 'lucide-react';
 import { Card } from '../ui/card';
 import type { MediaAsset } from '../../types/stores';
 import { formatRelativeTime } from '../../lib/relativeTime';
@@ -17,6 +17,8 @@ interface MediaAssetCardProps {
  */
 export const MediaAssetCard = memo(
   ({ asset, isSelected, onClick, onDelete, onPreview }: MediaAssetCardProps) => {
+    const [isCopied, setIsCopied] = useState(false);
+
     // Format file size
     const formatSize = (bytes: number): string => {
       if (bytes < 1024) return `${bytes} B`;
@@ -84,6 +86,17 @@ export const MediaAssetCard = memo(
       [onPreview]
     );
 
+    const handleCopy = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const cleanUrl = asset.url.split('?')[0];
+        navigator.clipboard.writeText(cleanUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      },
+      [asset.url]
+    );
+
     return (
       <Card
         className={`
@@ -104,7 +117,7 @@ export const MediaAssetCard = memo(
           {/* For images, use main URL if thumbnail not available. For videos, only show thumbnail. */}
           {asset.thumbnailUrl || (asset.type === 'image' && asset.url) ? (
             <img
-              src={asset.thumbnailUrl || asset.url}
+              src={(asset.thumbnailUrl || asset.url).split('?')[0]}
               alt={asset.name}
               className="w-full h-full object-cover"
               loading="lazy"
@@ -123,6 +136,13 @@ export const MediaAssetCard = memo(
               title="Delete"
             >
               <Trash2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleCopy}
+              className="p-2 bg-zinc-500/80 hover:bg-zinc-500 rounded-lg text-white transition-colors"
+              title="Copy Clean URL"
+            >
+              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
             <a
               href={asset.url}

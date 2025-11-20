@@ -17,13 +17,12 @@ interface PromptInputProps {
 export default function PromptInput({ onGenerate, isGenerating = false }: PromptInputProps) {
   const [prompt, setPrompt] = useState('')
   const [generationType, setGenerationType] = useState<GenerationType>('image')
-  const [qualityTier, setQualityTier] = useState<QualityTier>('draft')
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (prompt.trim()) {
-      onGenerate({ prompt, type: generationType, qualityTier, aspectRatio })
+      onGenerate({ prompt, type: generationType, qualityTier: 'draft', aspectRatio })
     }
   }
 
@@ -39,11 +38,10 @@ export default function PromptInput({ onGenerate, isGenerating = false }: Prompt
           <button
             type="button"
             onClick={() => setGenerationType('image')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${
-              generationType === 'image'
-                ? 'bg-blue-500 border-blue-500 text-white'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${generationType === 'image'
+              ? 'bg-blue-500 border-blue-500 text-white'
+              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+              }`}
           >
             <Image className="w-5 h-5" />
             <span>Image</span>
@@ -51,11 +49,10 @@ export default function PromptInput({ onGenerate, isGenerating = false }: Prompt
           <button
             type="button"
             onClick={() => setGenerationType('video')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${
-              generationType === 'video'
-                ? 'bg-blue-500 border-blue-500 text-white'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${generationType === 'video'
+              ? 'bg-blue-500 border-blue-500 text-white'
+              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+              }`}
           >
             <Video className="w-5 h-5" />
             <span>Video</span>
@@ -83,36 +80,7 @@ export default function PromptInput({ onGenerate, isGenerating = false }: Prompt
         />
       </div>
 
-      {/* Quality Tier (Images only) */}
-      {generationType === 'image' && (
-        <div className="space-y-2">
-          <Label>Quality</Label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setQualityTier('draft')}
-              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
-                qualityTier === 'draft'
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-              }`}
-            >
-              Draft
-            </button>
-            <button
-              type="button"
-              onClick={() => setQualityTier('production')}
-              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
-                qualityTier === 'production'
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-              }`}
-            >
-              Production
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Aspect Ratio */}
       <div className="space-y-2">
@@ -123,11 +91,10 @@ export default function PromptInput({ onGenerate, isGenerating = false }: Prompt
               key={ratio}
               type="button"
               onClick={() => setAspectRatio(ratio)}
-              className={`px-4 py-2 rounded-lg border transition-colors ${
-                aspectRatio === ratio
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-              }`}
+              className={`px-4 py-2 rounded-lg border transition-colors ${aspectRatio === ratio
+                ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                }`}
             >
               {ratio}
             </button>

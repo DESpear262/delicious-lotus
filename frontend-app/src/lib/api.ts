@@ -5,13 +5,20 @@
 const API_BASE = '/api/v1'
 
 export class APIError extends Error {
+  public status: number
+  public statusText: string
+  public data?: unknown
+
   constructor(
-    public status: number,
-    public statusText: string,
-    public data?: unknown
+    status: number,
+    statusText: string,
+    data?: unknown
   ) {
     super(`API Error: ${status} ${statusText}`)
     this.name = 'APIError'
+    this.status = status
+    this.statusText = statusText
+    this.data = data
   }
 }
 
@@ -107,4 +114,11 @@ export const api = {
 
   delete: <T>(endpoint: string, options?: FetchOptions) =>
     apiRequest<T>(endpoint, { ...options, method: 'DELETE' }),
+}
+
+/**
+ * Update media asset attributes
+ */
+export async function updateMediaAsset(id: string, data: { name?: string }): Promise<any> {
+  return api.patch(`/media/${id}/attributes`, data)
 }

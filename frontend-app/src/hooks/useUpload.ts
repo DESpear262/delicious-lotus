@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useContext } from 'react'
 import { UploadManager } from '../services/uploadManager'
+import { importFromUrl } from '../services/uploadService'
 import { MediaStoreContext } from '../contexts/StoreContext'
 import { useMediaStore } from '../contexts/StoreContext'
 import type { UploadItem } from '../types/stores'
@@ -44,6 +45,11 @@ export interface UseUploadReturn {
    * Get upload speeds for active uploads
    */
   uploadSpeeds: Map<string, number>
+
+  /**
+   * Import media from a URL
+   */
+  importMediaFromUrl: (url: string, name: string, type: 'image' | 'video' | 'audio') => Promise<void>
 }
 
 /**
@@ -116,5 +122,43 @@ export function useUpload(): UseUploadReturn {
 
     uploads,
     uploadSpeeds,
+
+    importMediaFromUrl: async (url: string, name: string, type: 'image' | 'video' | 'audio') => {
+      const state = mediaStoreContext!.getState()
+
+      try {
+        const result = await importFromUrl(url, name, type)
+
+        state.addAsset({
+          id: result.id,
+          name: result.name,
+          type: getAssetType(result.type),
+          url: result.url,
+          thumbnailUrl: result.thumbnail_url || undefined,
+          size: result.size,
+          createdAt: new Date(result.created_at),
+          metadata: result.metadata,
+        })
+      } catch (error) {
+        console.error('Failed to import media from URL:', error)
+        throw error
+      }
+    },
   }
+}
+
+/**
+ * Helper to determine asset type from MIME type or simple type string
+ */
+function getAssetType(fileType: string): 'image' | 'video' | 'audio' {
+  const lowerType = fileType.toLowerCase()
+
+  // Handle simple type strings from backend (e.g., "image", "video", "audio")
+  if (lowerType === 'image' || lowerType.startsWith('image/')) return 'image'
+  if (lowerType === 'video' || lowerType.startsWith('video/')) return 'video'
+  if (lowerType === 'audio' || lowerType.startsWith('audio/')) return 'audio'
+
+  // Fallback to image for unknown types
+  console.warn(`Unknown file type: ${fileType}, defaulting to image`)
+  return 'image'
 }

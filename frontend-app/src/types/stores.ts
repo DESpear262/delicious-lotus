@@ -402,6 +402,7 @@ export interface GenerationHistory {
 
 export interface AIGenerationState {
   activeGenerations: Map<string, GenerationRequest>
+  completingGenerations: Map<string, GenerationRequest> // Tracks generations that are complete but waiting for assets
   generationHistory: GenerationHistory[]
   maxConcurrentGenerations: number
 }
@@ -413,6 +414,8 @@ export interface AIGenerationActions {
   updateGenerationProgress: (generationId: string, progress: number) => void
   cancelGeneration: (generationId: string) => void
   removeGeneration: (generationId: string) => void
+  moveToCompleting: (generationId: string) => void
+  clearCompletingGeneration: (generationId: string) => void
 
   // History operations
   addToHistory: (generation: GenerationRequest, assetId?: string) => void

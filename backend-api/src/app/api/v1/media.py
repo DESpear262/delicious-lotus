@@ -19,6 +19,7 @@ from workers.s3_manager import s3_manager
 from app.api.schemas.media import (
     MediaAssetLightResponse,
     MediaAssetResponse,
+    MediaAssetUpdateRequest,
     MediaBatchDeleteRequest,
     MediaBatchDeleteResponse,
     MediaBatchMoveRequest,
@@ -322,6 +323,100 @@ async def confirm_media_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to confirm upload",
+        ) from e
+
+
+@router.patch("/{asset_id}/attributes", response_model=MediaAssetResponse)
+async def update_media_attributes(
+    asset_id: uuid.UUID,
+    update_request: MediaAssetUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MediaAssetResponse:
+    """Update media asset attributes (e.g., name).
+
+    Args:
+        asset_id: Media asset UUID
+        update_request: Fields to update
+        db: Database session (injected)
+
+    Returns:
+        MediaAssetResponse: Updated media asset
+
+    Raises:
+        HTTPException: 404 if asset not found
+        HTTPException: 500 for server errors
+    """
+    logger.info(
+        "Updating media asset attributes",
+        extra={"asset_id": str(asset_id), "update_data": update_request.model_dump(exclude_unset=True)},
+    )
+
+    try:
+        # Fetch asset from database
+        result = await db.execute(select(MediaAsset).where(MediaAsset.id == asset_id))
+        media_asset = result.scalar_one_or_none()
+
+        if not media_asset:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Media asset {asset_id} not found",
+            )
+
+        # Update fields if provided
+        if update_request.name is not None:
+            media_asset.name = update_request.name
+
+        media_asset.updated_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(media_asset)
+
+        # Generate presigned URLs for the response
+        try:
+            url = s3_manager.generate_presigned_url(media_asset.s3_key, expiration=3600)
+            thumbnail_url = None
+            if media_asset.thumbnail_s3_key:
+                thumbnail_url = s3_manager.generate_presigned_url(
+                    media_asset.thumbnail_s3_key, expiration=3600
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to generate presigned URL for asset {asset_id}: {e}",
+                extra={"asset_id": str(asset_id), "s3_key": media_asset.s3_key}
+            )
+            url = None
+            thumbnail_url = None
+
+        return MediaAssetResponse(
+            id=media_asset.id,
+            user_id=media_asset.user_id,
+            name=media_asset.name,
+            file_size=media_asset.file_size,
+            file_type=media_asset.file_type,
+            s3_key=media_asset.s3_key,
+            url=url,
+            thumbnail_s3_key=media_asset.thumbnail_s3_key,
+            thumbnail_url=thumbnail_url,
+            status=media_asset.status,
+            checksum=media_asset.checksum,
+            file_metadata=media_asset.file_metadata,
+            folder_id=media_asset.folder_id,
+            tags=media_asset.tags,
+            is_deleted=media_asset.is_deleted,
+            created_at=media_asset.created_at,
+            updated_at=media_asset.updated_at,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to update media attributes",
+            extra={"error": str(e), "asset_id": str(asset_id)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update media attributes",
         ) from e
 
 

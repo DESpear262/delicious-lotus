@@ -9,6 +9,7 @@ import type { GenerationType, QualityTier } from '../../types/stores'
 
 export default function AIGenerationPanel() {
   const [activeTab, setActiveTab] = useState('generate')
+  const [isPending, setIsPending] = useState(false)
 
   // Get state and actions from stores - get the Map directly without transformation
   const activeGenerationsMap = useAIGenerationStore((state) => state.activeGenerations)
@@ -20,6 +21,8 @@ export default function AIGenerationPanel() {
   const updateGenerationStatus = useAIGenerationStore((state) => state.updateGenerationStatus)
   const cancelGeneration = useAIGenerationStore((state) => state.cancelGeneration)
   const removeGeneration = useAIGenerationStore((state) => state.removeGeneration)
+  const moveToCompleting = useAIGenerationStore((state) => state.moveToCompleting)
+  const clearCompletingGeneration = useAIGenerationStore((state) => state.clearCompletingGeneration)
   const addToHistory = useAIGenerationStore((state) => state.addToHistory)
   const toggleFavorite = useAIGenerationStore((state) => state.toggleFavorite)
   const removeFromHistory = useAIGenerationStore((state) => state.removeFromHistory)
@@ -50,6 +53,9 @@ export default function AIGenerationPanel() {
       qualityTier: QualityTier
       aspectRatio: '16:9' | '9:16' | '1:1' | '4:3'
     }) => {
+      // Disable button while API call is in progress
+      setIsPending(true)
+
       try {
         // Queue the generation in the store
         const generationId = queueGeneration({
@@ -113,11 +119,12 @@ export default function AIGenerationPanel() {
           jobId: response.job_id,
         })
 
-        // Switch to queue tab to show progress
-        setActiveTab('queue')
+        // Re-enable button after successful generation
+        setIsPending(false)
       } catch (error) {
         console.error('Failed to start generation:', error)
-        // Note: Can't get generationId after error, would need to track it
+        // Re-enable button after error
+        setIsPending(false)
       }
     },
     [queueGeneration, updateGenerationStatus]
@@ -282,6 +289,9 @@ export default function AIGenerationPanel() {
             progress: 100,
           })
 
+          // Move to completing state to keep skeleton visible
+          moveToCompleting(generation.id)
+
           // ✅ REMOVED: importFromUrl() call
           // The backend webhook now handles importing to S3 automatically.
           // The MediaAsset will be created by the worker after successful S3 upload.
@@ -289,19 +299,21 @@ export default function AIGenerationPanel() {
 
           console.log(`[AIGenerationPanel] Job completed. Backend webhook will handle import automatically.`)
 
-          // Refresh media library to show newly imported asset
+          // Refresh media library to show newly imported asset and clear skeleton
           // Add a small delay to ensure worker has time to create MediaAsset
-          setTimeout(() => {
+          setTimeout(async () => {
             console.log('[AIGenerationPanel] Refreshing media library after job completion')
-            loadAssets()
-              .then(() => {
-                console.log('[AIGenerationPanel] Media library refreshed successfully')
-                // Note: loadAssets() already shows a toast notification
-              })
-              .catch((error) => {
-                console.error('[AIGenerationPanel] Failed to refresh media library:', error)
-              })
-          }, 2000) // 2 second delay for worker to complete (reduced from 3s)
+            try {
+              await loadAssets()
+              console.log('[AIGenerationPanel] Media library refreshed successfully')
+              // Clear the completing generation after assets are loaded
+              clearCompletingGeneration(generation.id)
+            } catch (error) {
+              console.error('[AIGenerationPanel] Failed to refresh media library:', error)
+              // Still clear the completing generation on error to prevent stuck skeletons
+              clearCompletingGeneration(generation.id)
+            }
+          }, 1500) // 2 second delay for worker to complete (reduced from 3s)
         } else {
           console.warn(
             `[AIGenerationPanel] Job ${generation.jobId} succeeded but no result URL found`,
@@ -365,7 +377,7 @@ export default function AIGenerationPanel() {
         }
       }
     })
-  }, [wsJobs, activeGenerations, updateGenerationStatus, resolveResultUrl, loadAssets])
+  }, [wsJobs, activeGenerations, updateGenerationStatus, resolveResultUrl, loadAssets, moveToCompleting, clearCompletingGeneration])
 
   return (
     <div className="flex flex-col h-full bg-zinc-950">
@@ -395,7 +407,7 @@ export default function AIGenerationPanel() {
                 </p>
               </div>
             )}
-            <PromptInput onGenerate={handleGenerate} isGenerating={!canGenerate} />
+            <PromptInput onGenerate={handleGenerate} isGenerating={isPending || !canGenerate} />
           </TabsContent>
 
           <TabsContent value="queue" className="p-4 m-0">

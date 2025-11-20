@@ -191,6 +191,17 @@ class MediaMetadataUpdate(BaseModel):
     )
 
 
+class MediaAssetUpdateRequest(BaseModel):
+    """Request model for updating media asset attributes."""
+
+    name: str | None = Field(
+        None,
+        min_length=1,
+        max_length=500,
+        description="New name for the asset",
+    )
+
+
 class MediaBatchDeleteRequest(BaseModel):
     """Request model for batch deleting media assets."""
 

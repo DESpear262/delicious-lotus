@@ -48,8 +48,8 @@ export default function MediaLibraryPage() {
   const selectAsset = useMediaStore((state) => state.selectAsset);
   const clearAssetSelection = useMediaStore((state) => state.clearAssetSelection);
   const deleteAsset = useMediaStore((state) => state.deleteAsset);
-  const searchAssets = useMediaStore((state) => state.searchAssets);
   const loadAssets = useMediaStore((state) => state.loadAssets);
+  const updateAsset = useMediaStore((state) => state.updateAsset);
 
   // Get active and completing generations for skeletons
   const activeGenerationsMap = useAIGenerationStore((state) => state.activeGenerations);
@@ -471,6 +471,10 @@ export default function MediaLibraryPage() {
         asset={previewAsset}
         isOpen={!!previewAsset}
         onClose={() => setPreviewAsset(null)}
+        onUpdate={(updatedAsset) => {
+          updateAsset(updatedAsset.id, updatedAsset);
+          setPreviewAsset(updatedAsset);
+        }}
       />
     </div>
   );

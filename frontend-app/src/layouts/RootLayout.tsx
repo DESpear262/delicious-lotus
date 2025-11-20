@@ -134,10 +134,9 @@ export default function RootLayout() {
             <NavLink
               to={ROUTES.PROJECTS}
               className={({ isActive }) =>
-                `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 }`
               }
             >
@@ -150,10 +149,9 @@ export default function RootLayout() {
             <NavLink
               to={ROUTES.MEDIA}
               className={({ isActive }) =>
-                `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 }`
               }
             >

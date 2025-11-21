@@ -414,7 +414,7 @@ export const createMediaStore = () => {
             if (upload) {
               upload.status = 'completed'
               upload.progress = 100
-              upload.assetId = assetId
+              upload.uploadedAssetId = assetId
             }
 
             // Add asset to store with presigned URLs
@@ -635,7 +635,7 @@ export const createMediaStore = () => {
             const persisted = persistedState as any
 
             // Reconstruct assets Map with proper Date objects
-            const assetsMap = new Map(
+            const assetsMap = new Map<string, any>(
               (persisted.assets || []).map(([id, asset]: [string, any]) => [
                 id,
                 {
@@ -643,7 +643,7 @@ export const createMediaStore = () => {
                   createdAt: new Date(asset.createdAt),
                 }
               ])
-            )
+            ) as Map<string, MediaAsset>
 
             return {
               ...currentState,

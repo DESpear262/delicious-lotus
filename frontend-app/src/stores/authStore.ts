@@ -160,7 +160,7 @@ export const createAuthStore = () => {
         })),
         {
           name: 'auth-store',
-          storage: createIndexedDBStorage(STORE_NAMES.AUTH),
+          storage: createIndexedDBStorage(STORE_NAMES.AUTH) as any,
           // Custom serialization to avoid persisting sensitive data
           serialize: (state: any) => {
             return JSON.stringify({
@@ -187,7 +187,7 @@ export const createAuthStore = () => {
               version: parsed.version,
             }
           },
-        }
+        } as any
       ),
       { name: 'AuthStore' }
     )

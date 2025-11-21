@@ -52,7 +52,7 @@ export function VideoControls({
   const [showControls, setShowControls] = useState(true);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showPlaybackMenu, setShowPlaybackMenu] = useState(false);
-  const hideControlsTimer = useRef<number | undefined>(undefined);
+  const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Auto-hide controls after 3 seconds of inactivity
   const handleMouseMove = () => {

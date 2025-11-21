@@ -190,7 +190,7 @@ export function validateFiles(
       validFiles.push(file)
     } else {
       // Type guard: result.valid === false means error exists
-      invalidFiles.push({ file, error: result.error as FileValidationError })
+      invalidFiles.push({ file, error: (result as { valid: false; error: FileValidationError }).error })
     }
   }
 

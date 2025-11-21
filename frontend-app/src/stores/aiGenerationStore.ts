@@ -173,7 +173,7 @@ export const createAIGenerationStore = () => {
             const persisted = persistedState as any
 
             // Reconstruct activeGenerations Map with proper Date objects
-            const activeGenerationsMap = new Map(
+            const activeGenerationsMap = new Map<string, any>(
               (persisted.activeGenerations || []).map(([id, gen]: [string, any]) => [
                 id,
                 {
@@ -182,10 +182,10 @@ export const createAIGenerationStore = () => {
                   completedAt: gen.completedAt ? new Date(gen.completedAt) : undefined,
                 }
               ])
-            )
+            ) as Map<string, GenerationRequest>
 
             // Reconstruct completingGenerations Map with proper Date objects
-            const completingGenerationsMap = new Map(
+            const completingGenerationsMap = new Map<string, any>(
               (persisted.completingGenerations || []).map(([id, gen]: [string, any]) => [
                 id,
                 {
@@ -194,7 +194,7 @@ export const createAIGenerationStore = () => {
                   completedAt: gen.completedAt ? new Date(gen.completedAt) : undefined,
                 }
               ])
-            )
+            ) as Map<string, GenerationRequest>
 
             return {
               ...currentState,

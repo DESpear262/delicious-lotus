@@ -9,6 +9,19 @@ import {
   validateCompositionData,
 } from '@/lib/compositionSerializer'
 import type { ExportSettings } from '@/types/export'
+import type { JobStatus } from '@/types/websocket'
+
+// Map API status to JobStatus
+function mapApiStatusToJobStatus(apiStatus: 'queued' | 'processing' | 'completed' | 'failed'): JobStatus {
+  switch (apiStatus) {
+    case 'processing':
+      return 'running'
+    case 'completed':
+      return 'succeeded'
+    default:
+      return apiStatus
+  }
+}
 
 export interface UseExportResult {
   isExporting: boolean
@@ -73,7 +86,7 @@ export function useExport(): UseExportResult {
         addJob({
           id: response.jobId,
           type: 'export',
-          status: response.status,
+          status: mapApiStatusToJobStatus(response.status),
           progress: 0,
           message: response.message,
           createdAt: new Date(response.createdAt),

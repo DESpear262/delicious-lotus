@@ -63,28 +63,28 @@ export function StoreProvider({ children }: StoreProviderProps) {
   const uiStore = useRef<UiStoreInstance>()
 
   if (!timelineStore.current) {
-    timelineStore.current = createTimelineStore()
+    timelineStore.current = (createTimelineStore as any)()
   }
   if (!mediaStore.current) {
-    mediaStore.current = createMediaStore()
+    mediaStore.current = (createMediaStore as any)()
   }
   if (!projectStore.current) {
-    projectStore.current = createProjectStore()
+    projectStore.current = (createProjectStore as any)()
   }
   if (!editorStore.current) {
-    editorStore.current = createEditorStore()
+    editorStore.current = (createEditorStore as any)()
   }
   if (!webSocketStore.current) {
-    webSocketStore.current = createWebSocketStore()
+    webSocketStore.current = (createWebSocketStore as any)()
   }
   if (!aiGenerationStore.current) {
-    aiGenerationStore.current = createAIGenerationStore()
+    aiGenerationStore.current = (createAIGenerationStore as any)()
   }
   if (!authStore.current) {
-    authStore.current = createAuthStore()
+    authStore.current = (createAuthStore as any)()
   }
   if (!uiStore.current) {
-    uiStore.current = createUiStore()
+    uiStore.current = (createUiStore as any)()
   }
 
   return (

@@ -48,7 +48,7 @@ docker run -p 8000:8000 ai-video-backend:latest
 
 ```bash
 # Basic backend only
-cd fastapi
+cd backend-api
 docker-compose -f docker-compose.test.yml up
 
 # With full stack (postgres + redis)
@@ -110,7 +110,7 @@ This enables single-container deployment (Option B) with unified CORS and simpli
 ### Build Command
 
 ```bash
-docker build -t ai-video-backend:latest ./fastapi
+docker build -t ai-video-backend:latest ./backend-api
 ```
 
 ### Build Arguments
@@ -481,7 +481,7 @@ docker system prune -a --volumes
 ```bash
 # Enable BuildKit for faster builds
 export DOCKER_BUILDKIT=1
-docker build -t ai-video-backend:latest ./fastapi
+docker build -t ai-video-backend:latest ./backend-api
 ```
 
 ### Runtime Performance
@@ -507,9 +507,9 @@ docker build -t ai-video-backend:latest ./fastapi
 
 ### Created Files
 
-- `fastapi/Dockerfile` - Multi-stage production build
-- `fastapi/.dockerignore` - Build exclusions
-- `fastapi/docker-compose.test.yml` - Local testing
+- `backend-api/Dockerfile` - Multi-stage production build
+- `backend-api/.dockerignore` - Build exclusions
+- `backend-api/docker-compose.test.yml` - Local testing
 - `scripts/build-backend.sh` - Build automation
 - `scripts/test-backend.sh` - Testing automation
 - `docs/docker-backend.md` - This document
@@ -533,7 +533,7 @@ After completing PR-D002:
 
 ## References
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [FastAPI Documentation](https://backend-api.tiangolo.com/)
 - [Docker Multi-Stage Builds](https://docs.docker.com/build/building/multi-stage/)
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
 - [AWS ECS Task Definitions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html)

@@ -158,7 +158,7 @@ install_tools() {
 scan_dependencies() {
   echo -e "${BLUE}[1/6] Scanning Python dependencies for vulnerabilities...${NC}"
 
-  local requirements_file="$PROJECT_ROOT/fastapi/requirements.txt"
+  local requirements_file="$PROJECT_ROOT/backend-api/requirements.txt"
 
   if [ ! -f "$requirements_file" ]; then
     echo -e "${RED}✗ requirements.txt not found at $requirements_file${NC}"
@@ -194,7 +194,7 @@ scan_dependencies() {
 scan_code() {
   echo -e "${BLUE}[2/6] Scanning Python code for security issues...${NC}"
 
-  local app_dir="$PROJECT_ROOT/fastapi/app"
+  local app_dir="$PROJECT_ROOT/backend-api/src"
 
   if [ ! -d "$app_dir" ]; then
     echo -e "${RED}✗ Application directory not found at $app_dir${NC}"
@@ -244,7 +244,7 @@ scan_docker_images() {
 
   echo -e "${BLUE}[3/6] Scanning Docker images for vulnerabilities...${NC}"
 
-  local dockerfile="$PROJECT_ROOT/fastapi/Dockerfile"
+  local dockerfile="$PROJECT_ROOT/backend-api/Dockerfile"
 
   if [ ! -f "$dockerfile" ]; then
     echo -e "${RED}✗ Dockerfile not found at $dockerfile${NC}"
@@ -254,8 +254,8 @@ scan_docker_images() {
   echo -e "${YELLOW}  Building Docker image for scanning...${NC}"
 
   # Build image with temporary tag
-  local image_name="delicious-lotus-backend:security-scan"
-  if docker build -t "$image_name" -f "$dockerfile" "$PROJECT_ROOT/fastapi" > /dev/null 2>&1; then
+  local image_name="backend-api:security-scan"
+  if docker build -t "$image_name" -f "$dockerfile" "$PROJECT_ROOT/backend-api" > /dev/null 2>&1; then
     echo -e "${GREEN}  ✓ Image built successfully${NC}"
   else
     echo -e "${RED}  ✗ Failed to build Docker image${NC}"

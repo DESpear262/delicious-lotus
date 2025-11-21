@@ -233,7 +233,7 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
             onClick={handleCreateComposition}
             variant="primary"
             disabled={clips.length === 0 || isCreatingComposition}
-            isLoading={isCreatingComposition}
+            loading={isCreatingComposition}
             title="Create final composition"
           >
             {isCreatingComposition ? 'Creating...' : 'Create Composition'}

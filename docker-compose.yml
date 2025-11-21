@@ -42,7 +42,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./fastapi/Dockerfile
+      dockerfile: ./backend-api/Dockerfile
     container_name: ai-video-backend
     environment:
       # Database
@@ -78,7 +78,7 @@ services:
   # FFmpeg Backend API Service
   ffmpeg-backend-api:
     build:
-      context: ./ffmpeg-backend
+      context: ./backend-api
       dockerfile: Dockerfile.dev
     container_name: ffmpeg-backend-api
     environment:
@@ -102,10 +102,10 @@ services:
       S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
       AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes:
-      - ./ffmpeg-backend/src:/app/src
-      - ./ffmpeg-backend/tests:/app/tests:ro
-      - ./ffmpeg-backend/migrations:/app/migrations:ro
-      - ./ffmpeg-backend/alembic.ini:/app/alembic.ini:ro
+      - ./backend-api/src:/app/src
+      - ./backend-api/tests:/app/tests:ro
+      - ./backend-api/migrations:/app/migrations:ro
+      - ./backend-api/alembic.ini:/app/alembic.ini:ro
       - ffmpeg_media_data:/app/media
     ports:
       - "${FFMPEG_API_PORT:-8001}:8000"
@@ -127,7 +127,7 @@ services:
   # FFmpeg Backend RQ Worker for background job processing
   ffmpeg-backend-worker:
     build:
-      context: ./ffmpeg-backend
+      context: ./backend-api
       dockerfile: Dockerfile.dev
     command: rq worker --url redis://redis:6379/0 default high low
     container_name: ffmpeg-backend-worker
@@ -144,7 +144,7 @@ services:
       S3_BUCKET: ${S3_BUCKET:-ai-video-dev-bucket}
       AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes:
-      - ./ffmpeg-backend/src:/app/src:ro
+      - ./backend-api/src:/app/src:ro
       - ffmpeg_media_data:/app/media
     depends_on:
       postgres:

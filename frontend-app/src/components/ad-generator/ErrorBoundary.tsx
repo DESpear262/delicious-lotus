@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { logError } from '@/utils/ad-generator/errors';
 import styles from './ErrorBoundary.module.css';
 import { Button } from './ui/Button';
@@ -45,6 +46,8 @@ export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
+  static displayName = 'ErrorBoundary';
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -189,5 +192,3 @@ export class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-ErrorBoundary.displayName = 'ErrorBoundary';

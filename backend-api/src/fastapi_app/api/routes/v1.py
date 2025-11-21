@@ -356,258 +356,75 @@ async def create_generation(
     # Generate video clips using the centralized function
     # TODO: Move this to a background task/worker for production
     if scenes and micro_prompts and len(scenes) == len(micro_prompts):
-        # logger.info(f"[VIDEO_GENERATION] Starting video generation for generation {generation_id}")
-        # logger.info(f"[VIDEO_GENERATION] Number of clips to generate: {len(micro_prompts)}")
+        parallelize = generation_request.options.parallelize_generations if generation_request.options else False
+        aspect_ratio = (
+            str(generation_request.parameters.aspect_ratio.value)
+            if hasattr(generation_request.parameters.aspect_ratio, "value")
+            else str(generation_request.parameters.aspect_ratio)
+        )
 
-        # Try to import ffmpeg-backend function first, fall back to HTTP call if import fails
-        import_success = False
-        try:
-            # Import the video generation function
-            import sys
-            import os
-            from pathlib import Path
+        print(f"\n[STEP 4] Generating videos...")
+        logger.warning(f"[VIDEO_GENERATION] Starting video generation for {len(micro_prompts)} clips")
+        logger.warning(f"[VIDEO_GENERATION] Configuration: parallelize={parallelize}, aspect_ratio={aspect_ratio}")
+        print(f"[INFO] Generating {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
 
-            # logger.info(f"[VIDEO_GENERATION] Attempting to import generate_video_clips function")
-            # logger.info(f"[VIDEO_GENERATION] Current working directory: {os.getcwd()}")
-            # logger.info(f"[VIDEO_GENERATION] Python path: {sys.path[:3]}...")  # Log first 3 entries
-
-            # In Docker, ffmpeg-backend is copied to /app/ffmpeg-backend/src
-            # In local dev, it's at project_root/ffmpeg-backend/src
-            # Try Docker path first, then fall back to project root
-            app_home = Path("/app")
-            project_root = Path(__file__).parent.parent.parent.parent.parent
-
-            # Try Docker container path first (standard Docker layout: /app/src)
-            ffmpeg_backend_src_docker = app_home / 'src'
-            
-            # Try project root path (for local development)
-            # If project_root is 'ffmpeg-backend', then src is directly under it
-            ffmpeg_backend_src_local = project_root / 'src'
-
-            # logger.info(f"[VIDEO_GENERATION] Checking Docker path: {ffmpeg_backend_src_docker}")
-            # logger.info(f"[VIDEO_GENERATION] Docker path exists: {ffmpeg_backend_src_docker.exists()}")
-            # logger.info(f"[VIDEO_GENERATION] Checking local path: {ffmpeg_backend_src_local}")
-            # logger.info(f"[VIDEO_GENERATION] Local path exists: {ffmpeg_backend_src_local.exists()}")
-
-            # Determine which path to use
-            if ffmpeg_backend_src_docker.exists():
-                ffmpeg_backend_src = ffmpeg_backend_src_docker
-                # logger.info(f"[VIDEO_GENERATION] Using Docker container path")
-            elif ffmpeg_backend_src_local.exists():
-                ffmpeg_backend_src = ffmpeg_backend_src_local
-                # logger.info(f"[VIDEO_GENERATION] Using local development path")
+        # Extract prompt_text from micro_prompts (they're dicts with 'prompt_text' field)
+        micro_prompt_texts: list[str] = []
+        for mp in micro_prompts:
+            if isinstance(mp, dict):
+                prompt_text = mp.get("prompt_text", "")
+                if not prompt_text:
+                    prompt_text = mp.get("prompt", "") or str(mp)
+                micro_prompt_texts.append(prompt_text)
             else:
-                # Fallback to old logic just in case
-                ffmpeg_backend_src_docker_old = app_home / 'ffmpeg-backend' / 'src'
-                if ffmpeg_backend_src_docker_old.exists():
-                    ffmpeg_backend_src = ffmpeg_backend_src_docker_old
-                else:
-                    # logger.error(f"[VIDEO_GENERATION] Neither Docker nor local path exists")
-                    raise ImportError(f"Could not find ffmpeg-backend/src directory. Checked: {ffmpeg_backend_src_docker}, {ffmpeg_backend_src_local}")
+                micro_prompt_texts.append(getattr(mp, "prompt_text", str(mp)))
 
-            ffmpeg_backend_src_str = str(ffmpeg_backend_src.resolve())
-            # logger.info(f"[VIDEO_GENERATION] Using ffmpeg-backend src path: {ffmpeg_backend_src_str}")
+        webhook_base_url = settings.webhook_base_url or os.getenv("WEBHOOK_BASE_URL")
+        if not webhook_base_url:
+            try:
+                webhook_base_url = f"{request.url.scheme}://{request.url.hostname}"
+                if request.url.port and request.url.port not in [80, 443]:
+                    webhook_base_url += f":{request.url.port}"
+            except Exception:
+                logger.warning("Could not determine webhook base URL - webhooks will not work")
+                webhook_base_url = None
 
-            # Add to sys.path so that imports within replicate.py work (e.g., from fastapi_app.api.schemas.replicate import ...)
-            if ffmpeg_backend_src_str not in sys.path:
-                sys.path.insert(0, ffmpeg_backend_src_str)
-                # logger.info(f"[VIDEO_GENERATION] Added {ffmpeg_backend_src_str} to Python path")
+        ffmpeg_request = {
+            "scenes": scenes,
+            "micro_prompts": micro_prompt_texts,
+            "generation_id": generation_id,
+            "aspect_ratio": aspect_ratio,
+            "parallelize": parallelize,
+            "webhook_base_url": webhook_base_url,
+        }
+        logger.warning(f"[VIDEO_GENERATION] Request payload prepared with {len(ffmpeg_request)} fields")
+        logger.warning(f"[VIDEO_GENERATION] Scenes count: {len(scenes)}")
+        logger.warning(f"[VIDEO_GENERATION] Micro-prompts count: {len(micro_prompt_texts)}")
+        for i, prompt in enumerate(micro_prompt_texts):
+            logger.warning(f"[VIDEO_GENERATION] Micro-prompt {i+1} to Replicate: {prompt}")
 
-            # Verify the path exists and contains the module
-            replicate_module_path = ffmpeg_backend_src / 'app' / 'api' / 'v1' / 'replicate.py'
-            # logger.info(f"[VIDEO_GENERATION] Checking for replicate.py at: {replicate_module_path}")
-            # logger.info(f"[VIDEO_GENERATION] Replicate module exists: {replicate_module_path.exists()}")
+        import httpx
 
-            if not replicate_module_path.exists():
-                # Log all files in the directory for debugging
-                if ffmpeg_backend_src.exists():
-                    # logger.warning(f"[VIDEO_GENERATION] FFmpeg backend src exists but replicate.py not found")
-                    # logger.warning(f"[VIDEO_GENERATION] Listing contents of {ffmpeg_backend_src}:")
-                    try:
-                        for item in ffmpeg_backend_src.iterdir():
-                            # logger.warning(f"[VIDEO_GENERATION]   - {item.name} ({'dir' if item.is_dir() else 'file'})")
-                            pass
-                        # Also check if app directory exists
-                        app_dir = ffmpeg_backend_src / 'app'
-                        if app_dir.exists():
-                            # logger.warning(f"[VIDEO_GENERATION] app/ directory exists, listing contents:")
-                            for item in app_dir.iterdir():
-                                # logger.warning(f"[VIDEO_GENERATION]     - {item.name} ({'dir' if item.is_dir() else 'file'})")
-                                pass
-                    except Exception as list_error:
-                        # logger.warning(f"[VIDEO_GENERATION] Could not list directory: {list_error}")
-                        pass
-                raise ImportError(f"Could not find replicate.py at {replicate_module_path}")
-
-            # For now, use a mock implementation since importing from ffmpeg-backend
-            # in the FastAPI container is complex due to module conflicts.
-            # The CLI works because it runs in isolation, but the FastAPI app
-            # has already imported the main app module.
-            # logger.info(f"[VIDEO_GENERATION] Using mock video generation (ffmpeg-backend integration pending)")
-
-            async def generate_video_clips(scenes, micro_prompts, generation_id, **kwargs):
-                """Mock implementation of generate_video_clips"""
-                # logger.info(f"[MOCK_VIDEO_GENERATION] Generating {len(micro_prompts)} clips for generation {generation_id}")
-                video_results = []
-                for i, (scene, prompt) in enumerate(zip(scenes, micro_prompts)):
-                    clip_id = f"clip_{i:03d}_{hash(prompt) % 10000}"
-                    video_results.append({
-                        'clip_id': clip_id,
-                        'scene_id': f"scene_{i}",
-                        'status': 'completed',
-                        'video_url': f"https://example.com/videos/{generation_id}/{clip_id}.mp4",
-                        'prediction_id': f"pred_{i}_{hash(prompt) % 1000000}"
-                    })
-                    # logger.info(f"[MOCK_VIDEO_GENERATION] Created clip {clip_id} for scene {i}")
-                return video_results
-
-            import_success = True
-
-        except ImportError as e:
-            logger.warning(f"[VIDEO_GENERATION] Import failed: {e}")
-            logger.warning(f"[VIDEO_GENERATION] Falling back to HTTP call to ffmpeg-backend-api")
-            import_success = False
-
-        # Now handle video generation - either via import or HTTP call
-        if import_success:
-            # Use the imported mock function
-            # Get parallelization setting from request
-            parallelize = generation_request.options.parallelize_generations if generation_request.options else False
-            # logger.info(f"[VIDEO_GENERATION] Parallelization enabled: {parallelize}")
-
-            # Extract aspect ratio - AspectRatio enum values are already strings like "16:9"
-            aspect_ratio = str(generation_request.parameters.aspect_ratio.value) if hasattr(generation_request.parameters.aspect_ratio, 'value') else str(generation_request.parameters.aspect_ratio)
-            # logger.info(f"[VIDEO_GENERATION] Aspect ratio: {aspect_ratio}")
-
-            print(f"\n[STEP 4] Generating videos...")
-            # logger.info(f"[VIDEO_GENERATION] Starting video generation for {len(micro_prompts)} clips")
-            # logger.info(f"[VIDEO_GENERATION] Configuration: parallelize={parallelize}, aspect_ratio={aspect_ratio}")
-            print(f"[INFO] Generating {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
-
-            # Extract prompt_text from micro_prompts (they're dicts with 'prompt_text' field)
-            micro_prompt_texts = []
-            for mp in micro_prompts:
-                if isinstance(mp, dict):
-                    prompt_text = mp.get('prompt_text', '')
-                    if not prompt_text:
-                        # Fallback: try to get from nested structure
-                        prompt_text = mp.get('prompt', '') or str(mp)
-                    micro_prompt_texts.append(prompt_text)
-                else:
-                    # If it's already a string or has prompt_text attribute
-                    micro_prompt_texts.append(getattr(mp, 'prompt_text', str(mp)))
-
-            # Get webhook base URL from settings or environment (needed for webhook handlers)
-            webhook_base_url = settings.webhook_base_url or os.getenv('WEBHOOK_BASE_URL')
-            if not webhook_base_url:
-                # Try to construct from request if available
-                try:
-                    webhook_base_url = f"{request.url.scheme}://{request.url.hostname}"
-                    if request.url.port and request.url.port not in [80, 443]:
-                        webhook_base_url += f":{request.url.port}"
-                except:
-                    logger.warning("Could not determine webhook base URL - webhooks will not work")
-                    webhook_base_url = None
-
-            # Call the mock function
-            video_results = await generate_video_clips(scenes, micro_prompt_texts, generation_id)
-
-            # Store results and update status
-            # (rest of the mock processing code)
-
-        else:
-            # Use HTTP call to ffmpeg-backend-api
-            # Get parallelization setting from request
-            parallelize = generation_request.options.parallelize_generations if generation_request.options else False
-            logger.warning(f"[VIDEO_GENERATION] Parallelization enabled: {parallelize}")
-
-            # Extract aspect ratio - AspectRatio enum values are already strings like "16:9"
-            aspect_ratio = str(generation_request.parameters.aspect_ratio.value) if hasattr(generation_request.parameters.aspect_ratio, 'value') else str(generation_request.parameters.aspect_ratio)
-            logger.warning(f"[VIDEO_GENERATION] Aspect ratio: {aspect_ratio}")
-
-            print(f"\n[STEP 4] Generating videos...")
-            logger.warning(f"[VIDEO_GENERATION] Starting video generation for {len(micro_prompts)} clips")
-            logger.warning(f"[VIDEO_GENERATION] Configuration: parallelize={parallelize}, aspect_ratio={aspect_ratio}")
-            print(f"[INFO] Generating {len(micro_prompts)} clips (parallelize={parallelize}, aspect_ratio={aspect_ratio})")
-
-            # Extract prompt_text from micro_prompts (they're dicts with 'prompt_text' field)
-            micro_prompt_texts = []
-            for mp in micro_prompts:
-                if isinstance(mp, dict):
-                    prompt_text = mp.get('prompt_text', '')
-                    if not prompt_text:
-                        # Fallback: try to get from nested structure
-                        prompt_text = mp.get('prompt', '') or str(mp)
-                    micro_prompt_texts.append(prompt_text)
-                else:
-                    # If it's already a string or has prompt_text attribute
-                    micro_prompt_texts.append(getattr(mp, 'prompt_text', str(mp)))
-
-            # Get webhook base URL from settings or environment
-            webhook_base_url = settings.webhook_base_url or os.getenv('WEBHOOK_BASE_URL')
-            if not webhook_base_url:
-                # Try to construct from request if available
-                try:
-                    webhook_base_url = f"{request.url.scheme}://{request.url.hostname}"
-                    if request.url.port and request.url.port not in [80, 443]:
-                        webhook_base_url += f":{request.url.port}"
-                except:
-                    logger.warning("Could not determine webhook base URL - webhooks will not work")
-                    webhook_base_url = None
-
-            # Call ffmpeg-backend API service to generate clips
-            # logger.warning(f"[VIDEO_GENERATION] ===== STARTING FFMPEG-BACKEND API CALL =====")
-            # logger.warning(f"[VIDEO_GENERATION] Calling ffmpeg-backend API with {len(micro_prompt_texts)} micro-prompts")
-            # logger.warning(f"[VIDEO_GENERATION] Webhook base URL: {webhook_base_url}")
-            # logger.warning(f"[VIDEO_GENERATION] Generation ID: {generation_id}")
-            # logger.warning(f"[VIDEO_GENERATION] Aspect ratio: {aspect_ratio}")
-            # logger.warning(f"[VIDEO_GENERATION] Parallelize: {parallelize}")
-
-            # Prepare request payload for ffmpeg-backend API
-            ffmpeg_request = {
-                "scenes": scenes,
-                "micro_prompts": micro_prompt_texts,
-                "generation_id": generation_id,
-                "aspect_ratio": aspect_ratio,
-                "parallelize": parallelize,
-                "webhook_base_url": webhook_base_url
-            }
-            logger.warning(f"[VIDEO_GENERATION] Request payload prepared with {len(ffmpeg_request)} fields")
-            logger.warning(f"[VIDEO_GENERATION] Scenes count: {len(scenes)}")
-            logger.warning(f"[VIDEO_GENERATION] Micro-prompts count: {len(micro_prompt_texts)}")
-            for i, prompt in enumerate(micro_prompt_texts):
-                logger.warning(f"[VIDEO_GENERATION] Micro-prompt {i+1} to Replicate: {prompt}")
-
-            # Make HTTP call to ffmpeg-backend API
-            import httpx
-            logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO FFMPEG-BACKEND-API =====")
-            logger.warning(f"[VIDEO_GENERATION] Target URL: http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips")
-            # logger.warning(f"[VIDEO_GENERATION] Request payload keys: {list(ffmpeg_request.keys())}")
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                # logger.warning(f"[VIDEO_GENERATION] HTTPX client created successfully")
-                try:
-                    # logger.warning(f"[VIDEO_GENERATION] About to call client.post()...")
-                    ffmpeg_http_response = await client.post(
-                        "http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips",
-                        json=ffmpeg_request,
-                        timeout=60.0
-                    )
-                    # logger.warning(f"[VIDEO_GENERATION] HTTP POST call completed!")
-                    # logger.warning(f"[VIDEO_GENERATION] Response status: {ffmpeg_http_response.status_code}")
-                    # logger.warning(f"[VIDEO_GENERATION] Response headers: {dict(ffmpeg_http_response.headers)}")
-                    # logger.warning(f"[VIDEO_GENERATION] Response content length: {len(ffmpeg_http_response.text)}")
-                    ffmpeg_http_response.raise_for_status()
-                    # logger.warning(f"[VIDEO_GENERATION] Response passed raise_for_status() check")
-                    ffmpeg_response = ffmpeg_http_response.json()
-                    # logger.warning(f"[VIDEO_GENERATION] Successfully parsed JSON response")
-                    video_results = ffmpeg_response.get("video_results", [])
-                    # logger.warning(f"[VIDEO_GENERATION] Extracted {len(video_results)} video results from response")
-                except httpx.RequestError as e:
-                    logger.error(f"[VIDEO_GENERATION] Failed to call ffmpeg-backend API: {e}")
-                    raise HTTPException(status_code=500, detail=f"Video generation service unavailable: {str(e)}")
-                except httpx.HTTPStatusError as e:
-                    logger.error(f"[VIDEO_GENERATION] FFmpeg backend returned error {e.response.status_code}: {e.response.text}")
-                    raise HTTPException(status_code=500, detail=f"Video generation failed: {e.response.text}")
+        logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO FFMPEG-BACKEND-API =====")
+        logger.warning(f"[VIDEO_GENERATION] Target URL: http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips")
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                ffmpeg_http_response = await client.post(
+                    "http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips",
+                    json=ffmpeg_request,
+                    timeout=60.0,
+                )
+                ffmpeg_http_response.raise_for_status()
+                ffmpeg_response = ffmpeg_http_response.json()
+                video_results = ffmpeg_response.get("video_results", [])
+            except httpx.RequestError as e:
+                logger.error(f"[VIDEO_GENERATION] Failed to call ffmpeg-backend API: {e}")
+                raise HTTPException(status_code=500, detail=f"Video generation service unavailable: {str(e)}")
+            except httpx.HTTPStatusError as e:
+                logger.error(
+                    f"[VIDEO_GENERATION] FFmpeg backend returned error {e.response.status_code}: {e.response.text}"
+                )
+                raise HTTPException(status_code=500, detail=f"Video generation failed: {e.response.text}")
 
         # Common processing for both import and HTTP call paths
         # logger.warning(f"[VIDEO_GENERATION] Video generation completed")

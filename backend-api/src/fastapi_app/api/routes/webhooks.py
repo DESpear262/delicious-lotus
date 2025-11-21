@@ -3,6 +3,7 @@ Webhook endpoints for external service callbacks
 Handles Replicate completion notifications
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -15,6 +16,7 @@ from fastapi_app.services.websocket_broadcast import (
     broadcast_completed,
     broadcast_status_change,
 )
+from workers.redis_pool import get_redis_connection
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,9 @@ logger = logging.getLogger(__name__)
 webhook_router = APIRouter(prefix="/api/v1/webhooks", tags=["webhooks"])
 
 # Store prediction_id → generation_id/clip_id mapping
-# In production, this should be Redis or database
 _prediction_mapping: Dict[str, Dict[str, str]] = {}
+_PREDICTION_MAPPING_PREFIX = "prediction_mapping:"
+_PREDICTION_MAPPING_TTL_SECONDS = 86400
 
 
 def _update_in_memory_store(
@@ -165,17 +168,41 @@ def store_prediction_mapping(prediction_id: str, generation_id: str, clip_id: st
         clip_id: Our clip ID
         scene_id: Our scene ID
     """
-    _prediction_mapping[prediction_id] = {
+    mapping = {
         "generation_id": generation_id,
         "clip_id": clip_id,
-        "scene_id": scene_id
+        "scene_id": scene_id,
     }
+    _prediction_mapping[prediction_id] = mapping
     logger.info(f"Stored prediction mapping: {prediction_id} -> {generation_id}/{clip_id}")
+
+    # Persist to Redis so data survives restarts / multiple workers
+    try:
+        redis_conn = get_redis_connection()
+        redis_key = f"{_PREDICTION_MAPPING_PREFIX}{prediction_id}"
+        redis_conn.setex(redis_key, _PREDICTION_MAPPING_TTL_SECONDS, json.dumps(mapping))
+    except Exception as exc:
+        logger.warning(f"Failed to cache prediction mapping in Redis: {exc}")
 
 
 def get_prediction_mapping(prediction_id: str) -> Optional[Dict[str, str]]:
     """Get mapping for a prediction_id"""
-    return _prediction_mapping.get(prediction_id)
+    if prediction_id in _prediction_mapping:
+        return _prediction_mapping[prediction_id]
+
+    # Attempt to read from Redis cache
+    try:
+        redis_conn = get_redis_connection()
+        redis_key = f"{_PREDICTION_MAPPING_PREFIX}{prediction_id}"
+        payload = redis_conn.get(redis_key)
+        if payload:
+            mapping = json.loads(payload)
+            _prediction_mapping[prediction_id] = mapping
+            return mapping
+    except Exception as exc:
+        logger.warning(f"Failed to load prediction mapping from Redis: {exc}")
+
+    return None
 
 
 @webhook_router.post("/replicate", status_code=200)
@@ -199,7 +226,7 @@ async def replicate_webhook(
     mapping = get_prediction_mapping(payload.id)
     if not mapping:
         logger.warning(f"[WEBHOOK] No mapping found for prediction {payload.id}, ignoring webhook")
-        logger.warning(f"[WEBHOOK] Current mappings: {list(_prediction_mappings.keys())[:5]}...")
+        logger.warning(f"[WEBHOOK] Current mappings: {list(_prediction_mapping.keys())[:5]}...")
         return JSONResponse(
             status_code=200,
             content={"status": "ignored", "reason": "unknown_prediction"}
@@ -297,6 +324,7 @@ async def replicate_webhook(
                 logger.warning(f"[WEBHOOK] No storage service available, using Replicate URL: {video_url}")
             
             # Update generation metadata with completed clip
+            video_results: list[dict[str, Any]] = []
             if generation_storage_service:
                 try:
                     # Get current metadata
@@ -308,7 +336,7 @@ async def replicate_webhook(
                             metadata = json.loads(metadata)
                         
                         # Add or update video_results
-                        video_results = metadata.get("video_results", [])
+                        video_results = metadata.get("video_results", []) or []
                         
                         # Find existing clip result or create new one
                         clip_result = None

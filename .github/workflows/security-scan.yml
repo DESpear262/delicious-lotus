@@ -49,7 +49,7 @@ jobs:
         id: safety
         continue-on-error: true
         run: |
-          safety check --file=fastapi/requirements.txt --json > safety-report.json || true
+          safety check --file=backend-api/requirements.txt --json > safety-report.json || true
           cat safety-report.json
 
           # Check if vulnerabilities found
@@ -62,7 +62,7 @@ jobs:
         id: pip-audit
         continue-on-error: true
         run: |
-          pip-audit --requirement=fastapi/requirements.txt --format=json > pip-audit-report.json || true
+          pip-audit --requirement=backend-api/requirements.txt --format=json > pip-audit-report.json || true
           cat pip-audit-report.json
 
           # Check if vulnerabilities found
@@ -113,7 +113,7 @@ jobs:
         id: bandit
         continue-on-error: true
         run: |
-          bandit -r fastapi/app/ -f json -o bandit-report.json || true
+          bandit -r backend-api/src/ -f json -o bandit-report.json || true
           cat bandit-report.json | jq '.'
 
       - name: Check for critical/high issues
@@ -157,8 +157,8 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi
-          file: ./fastapi/Dockerfile
+          context: ./backend-api
+          file: ./backend-api/Dockerfile
           push: false
           load: true
           tags: delicious-lotus-backend:${{ github.sha }}

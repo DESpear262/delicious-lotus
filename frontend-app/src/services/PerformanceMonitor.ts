@@ -160,11 +160,12 @@ export class PerformanceMonitor {
    * RequestIdleCallback wrapper for non-critical updates
    */
   static runWhenIdle(callback: () => void, options?: IdleRequestOptions): number {
-    if ('requestIdleCallback' in window) {
-      return window.requestIdleCallback(callback, options)
+    const win = window as any
+    if ('requestIdleCallback' in win) {
+      return win.requestIdleCallback(callback, options)
     } else {
       // Fallback to setTimeout
-      return window.setTimeout(callback, 1) as unknown as number
+      return win.setTimeout(callback, 1)
     }
   }
 
@@ -172,10 +173,11 @@ export class PerformanceMonitor {
    * Cancel idle callback
    */
   static cancelIdle(id: number): void {
-    if ('cancelIdleCallback' in window) {
-      window.cancelIdleCallback(id)
+    const win = window as any
+    if ('cancelIdleCallback' in win) {
+      win.cancelIdleCallback(id)
     } else {
-      window.clearTimeout(id)
+      win.clearTimeout(id)
     }
   }
 

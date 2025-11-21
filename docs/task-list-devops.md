@@ -311,9 +311,9 @@ This task list covers infrastructure, deployment, and operational concerns for t
 **Description:** Create production-ready Dockerfile for Python FastAPI backend with FFmpeg support, optimized for Option B (static file serving).
 
 **Files to Create:**
-- `fastapi/Dockerfile` - Multi-stage production build
-- `fastapi/.dockerignore` - Exclude unnecessary files from build context
-- `fastapi/docker-compose.test.yml` - Local testing configuration
+- `backend-api/Dockerfile` - Multi-stage production build
+- `backend-api/.dockerignore` - Exclude unnecessary files from build context
+- `backend-api/docker-compose.test.yml` - Local testing configuration
 - `scripts/build-backend.sh` - Build script for local and CI use
 - `scripts/test-backend.sh` - Testing script
 - `docs/docker-backend.md` - Documentation
@@ -584,10 +584,10 @@ All dependencies have been satisfied. The following PRs are ready to start:
   - [ ] Checkout code
   - [ ] Setup Docker Buildx
   - [ ] Cache Docker layers for faster builds
-  - [ ] Build image from `fastapi/Dockerfile`
+  - [ ] Build image from `backend-api/Dockerfile`
   - [ ] Tag with commit SHA and `latest`
 - [ ] Test job:
-  - [ ] Run pytest suite (`fastapi/tests/`)
+  - [ ] Run pytest suite (`backend-api/tests/`)
   - [ ] Code coverage reporting
   - [ ] Lint checks (black, flake8, mypy)
   - [ ] Fail pipeline if tests fail
@@ -640,7 +640,7 @@ All dependencies have been satisfied. The following PRs are ready to start:
   - [ ] Python versions: 3.13 (primary), 3.12 (compatibility)
   - [ ] OS: ubuntu-latest (Linux for Docker compat)
 - [ ] Unit tests:
-  - [ ] Run all tests in `fastapi/tests/`
+  - [ ] Run all tests in `backend-api/tests/`
   - [ ] Parallel test execution for speed
   - [ ] Generate JUnit XML report
 - [ ] Integration tests (if available):
@@ -775,7 +775,7 @@ All dependencies have been satisfied. The following PRs are ready to start:
 
 **3. Logging Configuration**
 - [ ] CloudWatch Log Groups:
-  - [ ] `/ecs/fastapi-backend` - Application logs
+  - [ ] `/ecs/backend-api-backend` - Application logs
   - [ ] `/ecs/migrations` - Database migration logs
   - [ ] `/aws/rds/postgresql` - Database slow queries (if enabled)
 - [ ] Log retention policies:
@@ -1154,12 +1154,12 @@ All dependencies have been satisfied. The following PRs are ready to start:
 - [ ] Docker image scanning:
   ```bash
   # Install Trivy
-  trivy image fastapi:latest
+  trivy image backend-api:latest
   ```
 - [ ] Code security scanning:
   ```bash
   # Install Bandit (Python security linter)
-  bandit -r fastapi/app/
+  bandit -r backend-api/app/
   ```
 - [ ] Configuration scanning:
   ```bash

@@ -230,7 +230,7 @@ export interface ProjectActions {
   // Save operations
   saveProject: () => Promise<void>
   loadProject: (projectId: string) => Promise<void>
-  exportProject: () => Promise<void>
+  exportProject: () => Promise<string>
 
   // Autosave
   enableAutoSave: (enabled: boolean) => void

@@ -19,11 +19,8 @@ const VolumeIcon = () => <span>🔊</span>
 const MuteIcon = () => <span>🔇</span>
 
 export const PlaybackControls: React.FC = () => {
-  const timelineStore = useTimelineStore()
-  const editorStore = useEditorStore()
-
-  const { playhead, fps, duration } = timelineStore.getState()
-  const { isPlaying, playbackRate, volume } = editorStore.getState()
+  const { playhead, fps, duration, setPlayhead } = useTimelineStore()
+  const { isPlaying, playbackRate, volume, togglePlayback, pause, play, setPlaybackRate, setVolume } = useEditorStore()
 
   const scrubberRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
@@ -32,24 +29,22 @@ export const PlaybackControls: React.FC = () => {
    * Toggle play/pause
    */
   const handlePlayPause = useCallback(() => {
-    editorStore.getState().togglePlayback()
-  }, [editorStore])
+    togglePlayback()
+  }, [togglePlayback])
 
   /**
    * Step backward one frame
    */
   const handleStepBack = useCallback(() => {
-    const currentFrame = timelineStore.getState().playhead
-    timelineStore.getState().setPlayhead(Math.max(0, currentFrame - 1))
-  }, [timelineStore])
+    setPlayhead(Math.max(0, playhead - 1))
+  }, [playhead, setPlayhead])
 
   /**
    * Step forward one frame
    */
   const handleStepForward = useCallback(() => {
-    const { playhead, duration } = timelineStore.getState()
-    timelineStore.getState().setPlayhead(Math.min(duration, playhead + 1))
-  }, [timelineStore])
+    setPlayhead(Math.min(duration, playhead + 1))
+  }, [playhead, duration, setPlayhead])
 
   /**
    * Handle scrubber click/drag
@@ -61,9 +56,9 @@ export const PlaybackControls: React.FC = () => {
       isDraggingRef.current = true
 
       // Pause playback while scrubbing
-      const wasPlaying = editorStore.getState().isPlaying
+      const wasPlaying = isPlaying
       if (wasPlaying) {
-        editorStore.getState().pause()
+        pause()
       }
 
       const updatePlayhead = (clientX: number) => {
@@ -73,7 +68,7 @@ export const PlaybackControls: React.FC = () => {
         const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
         const frame = Math.floor(percent * duration)
 
-        timelineStore.getState().setPlayhead(frame)
+        setPlayhead(frame)
       }
 
       updatePlayhead(e.clientX)
@@ -90,14 +85,14 @@ export const PlaybackControls: React.FC = () => {
 
         // Resume playback if it was playing
         if (wasPlaying) {
-          editorStore.getState().play()
+          play()
         }
       }
 
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [duration, timelineStore, editorStore]
+    [duration, isPlaying, pause, play, setPlayhead]
   )
 
   /**
@@ -105,9 +100,9 @@ export const PlaybackControls: React.FC = () => {
    */
   const handleSpeedChange = useCallback(
     (speed: number) => {
-      editorStore.getState().setPlaybackRate(speed)
+      setPlaybackRate(speed)
     },
-    [editorStore]
+    [setPlaybackRate]
   )
 
   /**
@@ -115,9 +110,9 @@ export const PlaybackControls: React.FC = () => {
    */
   const handleVolumeChange = useCallback(
     (newVolume: number) => {
-      editorStore.getState().setVolume(newVolume)
+      setVolume(newVolume)
     },
-    [editorStore]
+    [setVolume]
   )
 
   /**

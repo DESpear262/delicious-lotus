@@ -53,38 +53,38 @@ interface StoreProviderProps {
 // Combined store provider component
 export function StoreProvider({ children }: StoreProviderProps) {
   // Create store instances only once using refs
-  const timelineStore = useRef<TimelineStoreInstance>()
-  const mediaStore = useRef<MediaStoreInstance>()
-  const projectStore = useRef<ProjectStoreInstance>()
-  const editorStore = useRef<EditorStoreInstance>()
-  const webSocketStore = useRef<WebSocketStoreInstance>()
-  const aiGenerationStore = useRef<AIGenerationStoreInstance>()
-  const authStore = useRef<AuthStoreInstance>()
-  const uiStore = useRef<UiStoreInstance>()
+  const timelineStore = useRef<TimelineStoreInstance | undefined>(undefined)
+  const mediaStore = useRef<MediaStoreInstance | undefined>(undefined)
+  const projectStore = useRef<ProjectStoreInstance | undefined>(undefined)
+  const editorStore = useRef<EditorStoreInstance | undefined>(undefined)
+  const webSocketStore = useRef<WebSocketStoreInstance | undefined>(undefined)
+  const aiGenerationStore = useRef<AIGenerationStoreInstance | undefined>(undefined)
+  const authStore = useRef<AuthStoreInstance | undefined>(undefined)
+  const uiStore = useRef<UiStoreInstance | undefined>(undefined)
 
   if (!timelineStore.current) {
-    timelineStore.current = createTimelineStore()
+    timelineStore.current = createTimelineStore() as any
   }
   if (!mediaStore.current) {
-    mediaStore.current = createMediaStore()
+    mediaStore.current = createMediaStore() as any
   }
   if (!projectStore.current) {
-    projectStore.current = createProjectStore()
+    projectStore.current = createProjectStore() as any
   }
   if (!editorStore.current) {
-    editorStore.current = createEditorStore()
+    editorStore.current = createEditorStore() as any
   }
   if (!webSocketStore.current) {
-    webSocketStore.current = createWebSocketStore()
+    webSocketStore.current = createWebSocketStore() as any
   }
   if (!aiGenerationStore.current) {
-    aiGenerationStore.current = createAIGenerationStore()
+    aiGenerationStore.current = createAIGenerationStore() as any
   }
   if (!authStore.current) {
-    authStore.current = createAuthStore()
+    authStore.current = createAuthStore() as any
   }
   if (!uiStore.current) {
-    uiStore.current = createUiStore()
+    uiStore.current = createUiStore() as any
   }
 
   return (

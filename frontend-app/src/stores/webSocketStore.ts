@@ -2,7 +2,7 @@ import { createStore } from 'zustand/vanilla'
 import { immer } from 'zustand/middleware/immer'
 import { devtools } from 'zustand/middleware'
 import type { WebSocketStore, JobState } from '../types/stores'
-import type { ConnectionStatus, ConnectionMetrics, JobUpdateMessage } from '../types/websocket'
+import type { ConnectionStatus, ConnectionMetrics, JobUpdateMessage, JobType } from '../types/websocket'
 import { getWebSocketService } from '../services/WebSocketService'
 
 // Initial connection metrics
@@ -148,11 +148,11 @@ export const createWebSocketStore = () => {
 
           // Backend sends snake_case (job_id), frontend uses camelCase (jobId)
           const jobId = message.jobId || message.job_id
-          const jobType = message.jobType || message.type || 'export'
+          const jobType = (message.jobType || message.type || 'export') as JobType
           const compositionId = message.composition_id || message.compositionId
 
           // Map backend status values to frontend values
-          const backendStatus = message.status
+          const backendStatus = message.status as string
           let status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' = 'queued'
           if (backendStatus === 'in_progress') status = 'running'
           else if (backendStatus === 'completed') status = 'succeeded'

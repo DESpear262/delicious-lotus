@@ -48,7 +48,7 @@ export function ExportModal({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9')
   const [resolution, setResolution] = useState<Resolution>('1080p')
   const [format, setFormat] = useState<ExportFormat>('mp4')
-  const [quality, setQuality] = useState(QUALITY_PRESETS.high)
+  const [quality, setQuality] = useState<number>(QUALITY_PRESETS.high)
   const [frameRate, setFrameRate] = useState<FrameRate>(30)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])

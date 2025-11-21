@@ -62,7 +62,7 @@ export class UploadManager {
       } else {
         // Show validation error to user (could emit event or use toast)
         // Type guard: result.valid === false means error exists
-        console.error(`Validation failed for ${file.name}:`, result.error.message)
+        console.error(`Validation failed for ${file.name}:`, (result as { valid: false; error: { message: string } }).error.message)
       }
     }
 

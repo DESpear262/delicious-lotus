@@ -36,7 +36,7 @@ export { useDebouncedCallback, useThrottledCallback } from './PerformanceMonitor
 export type { PerformanceProfile, InteractionMetrics } from './PerformanceMonitor'
 
 // Upload Services
-export { uploadService } from './uploadService'
+export * from './uploadService'
 export { UploadManager } from './uploadManager'
 
 // WebSocket Service

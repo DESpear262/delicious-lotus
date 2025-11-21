@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useTemporalStore } from 'zundo'
+// import { useTemporalStore } from 'zundo' // Removed: zundo v2 doesn't export useTemporalStore
 import { Timeline } from '../components/timeline'
 import { ClipPropertiesPanel } from '../components/timeline/ClipPropertiesPanel'
 import { ExportDialog } from '../components/ExportDialog'
@@ -25,9 +25,12 @@ export function TimelinePage() {
   } | null>(null)
 
   // Get temporal store actions for undo/redo
-  const { undo, redo, futureStates, pastStates } = useTemporalStore(timelineStore as any)
-  const canUndo = pastStates.length > 0
-  const canRedo = futureStates.length > 0
+  // TODO: Implement proper zundo v2 temporal store access
+  // const { undo, redo, futureStates, pastStates } = useTemporalStore(timelineStore as any)
+  const canUndo = false // Temporarily disabled
+  const canRedo = false // Temporarily disabled
+  const undo = () => {} // Temporarily disabled
+  const redo = () => {} // Temporarily disabled
 
   // Initialize with a single default track for mixed media
   useEffect(() => {

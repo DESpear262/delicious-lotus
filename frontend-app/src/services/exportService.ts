@@ -7,13 +7,18 @@ const API_TIMEOUT = 30000 // 30 seconds
 
 // Custom error types
 export class ExportError extends Error {
+  statusCode?: number
+  details?: unknown
+
   constructor(
     message: string,
-    public statusCode?: number,
-    public details?: unknown
+    statusCode?: number,
+    details?: unknown
   ) {
     super(message)
     this.name = 'ExportError'
+    this.statusCode = statusCode
+    this.details = details
   }
 }
 

@@ -6,12 +6,12 @@ on:
       - main
       - develop
     paths:
-      - 'fastapi/**'
+      - 'backend-api/**'
       - '.github/workflows/test.yml'
 
   pull_request:
     paths:
-      - 'fastapi/**'
+      - 'backend-api/**'
       - '.github/workflows/test.yml'
 
   # Allow manual trigger
@@ -47,14 +47,14 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-xdist pytest-cov httpx
 
       - name: Run unit tests with parallel execution
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Run tests in parallel using pytest-xdist
           pytest tests/ \
@@ -71,7 +71,7 @@ jobs:
         if: always()
         with:
           name: test-results-python-${{ matrix.python-version }}
-          path: fastapi/test-results-py${{ matrix.python-version }}.xml
+          path: backend-api/test-results-py${{ matrix.python-version }}.xml
           retention-days: 30
 
       - name: Upload coverage report
@@ -79,7 +79,7 @@ jobs:
         if: matrix.python-version == env.PYTHON_VERSION_PRIMARY
         with:
           name: coverage-report-unit
-          path: fastapi/coverage.xml
+          path: backend-api/coverage.xml
           retention-days: 30
 
   # Job 2: Integration tests with Docker Compose
@@ -123,7 +123,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -163,7 +163,7 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d videogen -c "SELECT version();"
 
       - name: Run integration tests
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/videogen
           REDIS_URL: redis://localhost:6379/0
@@ -182,14 +182,14 @@ jobs:
         if: always()
         with:
           name: integration-test-results
-          path: fastapi/integration-test-results.xml
+          path: backend-api/integration-test-results.xml
           retention-days: 30
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-integration
-          path: fastapi/coverage.xml
+          path: backend-api/coverage.xml
           retention-days: 30
 
   # Job 3: Docker Compose integration tests
@@ -207,8 +207,8 @@ jobs:
       - name: Build backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi
-          file: ./fastapi/Dockerfile
+          context: ./backend-api
+          file: ./backend-api/Dockerfile
           push: false
           load: true
           tags: ai-video-backend:test
@@ -216,7 +216,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start services with Docker Compose
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Start the backend service
           docker-compose -f docker-compose.test.yml up -d backend
@@ -237,7 +237,7 @@ jobs:
           # Test the health endpoint
           curl -f http://localhost:8000/health || (
             echo "Health check failed!"
-            docker-compose -f fastapi/docker-compose.test.yml logs backend
+            docker-compose -f backend-api/docker-compose.test.yml logs backend
             exit 1
           )
 
@@ -253,7 +253,7 @@ jobs:
           curl -f http://localhost:8000/openapi.json || echo "OpenAPI endpoint test failed"
 
       - name: Run tests inside container
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Run pytest inside the container
           docker-compose -f docker-compose.test.yml exec -T backend \
@@ -261,14 +261,14 @@ jobs:
 
       - name: View backend logs
         if: always()
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           echo "=== Backend Logs ==="
           docker-compose -f docker-compose.test.yml logs backend
 
       - name: Cleanup
         if: always()
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           docker-compose -f docker-compose.test.yml down -v
 
@@ -287,8 +287,8 @@ jobs:
       - name: Build backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi
-          file: ./fastapi/Dockerfile
+          context: ./backend-api
+          file: ./backend-api/Dockerfile
           push: false
           load: true
           tags: ai-video-backend:test
@@ -296,7 +296,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start all services with Docker Compose
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Start all services including postgres and redis
           docker-compose -f docker-compose.test.yml --profile full up -d
@@ -305,7 +305,7 @@ jobs:
           sleep 15
 
       - name: Check service health
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Check if all services are running
           docker-compose -f docker-compose.test.yml --profile full ps
@@ -321,7 +321,7 @@ jobs:
           done
 
       - name: Run full integration tests
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           # Test database connectivity through the API
           curl -f http://localhost:8000/health || (
@@ -332,14 +332,14 @@ jobs:
 
       - name: View all service logs
         if: always()
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           echo "=== All Service Logs ==="
           docker-compose -f docker-compose.test.yml --profile full logs
 
       - name: Cleanup
         if: always()
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           docker-compose -f docker-compose.test.yml --profile full down -v
 

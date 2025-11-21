@@ -602,7 +602,7 @@ docker stats
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [Redis Documentation](https://redis.io/documentation)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [FastAPI Documentation](https://backend-api.tiangolo.com/)
 
 ### Project Documentation
 

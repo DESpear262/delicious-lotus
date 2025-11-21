@@ -5,7 +5,7 @@ are transcribed verbatim where possible so they can be tracked in version contro
 
 ## Action Items
 
-- [ ] Make sure full AI pipeline is integrated
+- [x] Make sure full AI pipeline is integrated
 - [ ] Deploy (rework terraform)
 ### Merge to main here
 - [ ] Add script/lyric gen + music gen

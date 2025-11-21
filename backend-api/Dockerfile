@@ -1,6 +1,18 @@
 # Multi-stage Dockerfile for production
 
-# Stage 1: Build dependencies
+# ============================================================================
+# Stage 1: Build Frontend
+# ============================================================================
+FROM node:20-slim AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend-app/package.json frontend-app/package-lock.json ./
+RUN npm ci
+COPY frontend-app/ .
+RUN npm run build
+
+# ============================================================================
+# Stage 2: Build dependencies
+# ============================================================================
 FROM python:3.13-slim AS builder
 
 WORKDIR /app
@@ -14,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files and minimal source structure for installation
-# Note: Build context must be project root for this to work
+# NOTE: paths are relative to project root because build context is root
 COPY backend-api/pyproject.toml ./
 COPY backend-api/src/ ./src/
 
@@ -22,7 +34,9 @@ COPY backend-api/src/ ./src/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir .
 
-# Stage 2: Runtime image
+# ============================================================================
+# Stage 3: Runtime image
+# ============================================================================
 FROM python:3.13-slim
 
 # Set environment variables
@@ -31,7 +45,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     FFMPEG_VERSION=7.1 \
-    PATH="/usr/local/bin:${PATH}"
+    PATH="/usr/local/bin:${PATH}" \
+    FRONTEND_PATH="/app/src/frontend/dist"
 
 WORKDIR /app
 
@@ -68,9 +83,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --chown=appuser:appuser backend-api/src/ /app/src/
 
-# Copy frontend build files (assumes build context is project root)
-# These files are built by the frontend-app build process before Docker build
-COPY --chown=appuser:appuser frontend-app/dist/ /app/frontend/dist/
+# Copy frontend build artifacts
+RUN mkdir -p /app/src/frontend/dist && \
+    chown -R appuser:appuser /app/src/frontend
+COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist /app/src/frontend/dist
 
 # Switch to non-root user
 USER appuser

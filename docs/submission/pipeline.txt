@@ -1,0 +1,59 @@
+AI Video Generation Pipeline – Executive Summary
+
+Step 1 · User Prompt Intake
+---------------------------
+- `POST /api/v1/generations` (FastAPI) receives prompt, duration, aspect ratio,
+  brand config, and options such as parallel clip generation.
+- A `gen_<uuid>` identifier is issued immediately so UI + downstream services
+  can track the job.
+
+Step 2 · Overall Direction & Brand Interpretation
+-------------------------------------------------
+- `PromptAnalysisService` (OpenAI) extracts tone, style, themes, key elements,
+  and CTA guidance; `BrandAnalysisService` augments color palettes, typography,
+  and compliance rules when brand context exists.
+- The resulting analysis object is cached in-memory and in Postgres so later
+  stages remain consistent even if a service restarts.
+
+Step 3 · Scene Direction & Planning
+-----------------------------------
+- A rule-based `SceneDecompositionRequest` divides runtime into Intro /
+  Development / CTA segments and assigns narrative purpose, pacing, and key
+  elements drawn from the prior analysis.
+- Scenes form the backbone for later prompts and ensure timing totals match the
+  requested duration.
+
+Step 4 · Micro-Prompts
+----------------------
+- `MicroPromptBuilderService` converts each scene into a Replicate-ready micro
+  prompt, injecting brand tones, accessibility reminders, quality hints, and
+  optional negative prompts.
+- Micro prompts land in `GenerationStorageService` metadata plus an in-memory
+  `_generation_store`, providing redundancy while DB/Redis are still coming up.
+
+Step 5 · Video Clip Generation
+------------------------------
+- FastAPI always posts to the FFmpeg backend (`/api/v1/replicate/generate-clips`);
+  the payload includes scenes, stringified prompts, generation ID, aspect ratio,
+  parallelization flag, and webhook URL.
+- The FFmpeg service’s `generate_video_clips` helper submits Wan Video
+  predictions via Replicate, registers per-clip webhooks, and returns queued
+  `video_results` (clip_id, scene_id, prediction_id, status).
+
+Step 6 · Storage & Webhook Completion
+-------------------------------------
+- Prediction IDs are cached in Redis (`prediction_mapping:<id>`) so any backend
+  worker can resolve future webhooks.
+- When Replicate calls back, the FastAPI webhook pulls the mapping, downloads
+  the video through `StorageService.upload_from_url` (S3 in production, local
+  storage in dev), updates `video_results[*]` metadata, emits websocket status
+  changes, and marks the generation complete once all clips report `completed`.
+
+Step 7 · Retrieval & History
+----------------------------
+- `GET /api/v1/generations` lists jobs with pagination; `GET /api/v1/generations/{id}`
+  merges DB metadata with clip-assembly output (when available) for detailed
+  progress readouts.
+- Final MP4s reside under `generations/{generation_id}/clips/{clip_id}.mp4`
+  in S3 or `/storage`, and history views fall back to in-memory data if Postgres
+  is temporarily unavailable.

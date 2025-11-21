@@ -11,10 +11,17 @@ from workers.redis_pool import get_redis_connection
 
 from ..schemas.replicate import (
     AsyncJobResponse,
+    Hailuo23FastRequest,
+    KlingV25TurboProRequest,
+    Lyria2Request,
+    Music01Request,
     NanoBananaErrorResponse,
     NanoBananaRequest,
     NanoBananaResponse,
     ReplicateWebhookPayload,
+    Seedance1ProFastRequest,
+    StableAudio25Request,
+    Veo31FastRequest,
     WanVideoI2VRequest,
     WanVideoT2VRequest,
 )
@@ -599,6 +606,1077 @@ async def generate_wan_video_t2v(request_body: WanVideoT2VRequest) -> JSONRespon
 
     except Exception as e:
         logger.exception("Unexpected error in Wan Video 2.5 T2V endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/seedance-1-pro-fast",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate video with Seedance-1-Pro-Fast model (Async)",
+    description="Start async video generation using Seedance-1-Pro-Fast model via Replicate",
+)
+async def generate_seedance_1_pro_fast(request_body: Seedance1ProFastRequest) -> JSONResponse:
+    """Generate video using Seedance-1-Pro-Fast model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+    Supports both text-to-video and image-to-video generation.
+
+    Args:
+        request_body: Request containing prompt and optional image input
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        # Check if Replicate API key is configured
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Seedance-1-Pro-Fast async request",
+            extra={
+                "prompt": request_body.prompt,
+                "has_image": request_body.image is not None,
+                "duration": request_body.duration,
+                "resolution": request_body.resolution,
+                "aspect_ratio": request_body.aspect_ratio,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Seedance-1-Pro-Fast
+        model_input = {
+            "prompt": request_body.prompt,
+            "duration": request_body.duration,
+            "resolution": request_body.resolution,
+            "aspect_ratio": request_body.aspect_ratio,
+            "fps": request_body.fps,
+            "camera_fixed": request_body.camera_fixed,
+        }
+
+        # Add optional parameters
+        if request_body.image:
+            model_input["image"] = str(request_body.image)
+
+        if request_body.seed is not None:
+            model_input["seed"] = request_body.seed
+
+        # Create async prediction
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "bytedance/seedance-1-pro-fast",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            # Using Seedance-1-Pro-Fast model
+            prediction = replicate.predictions.create(
+                model="bytedance/seedance-1-pro-fast",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            # Store job metadata
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="bytedance/seedance-1-pro-fast",
+                generation_type="video"
+            )
+
+            # Publish initial status
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Seedance-1-Pro-Fast async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                    "duration": request_body.duration,
+                    "resolution": request_body.resolution,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Video generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start video generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Seedance-1-Pro-Fast endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/veo-3.1-fast",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate video with Google Veo 3.1 Fast model (Async)",
+    description="Start async video generation using Google Veo 3.1 Fast model via Replicate",
+)
+async def generate_veo_31_fast(request_body: Veo31FastRequest) -> JSONResponse:
+    """Generate video using Google Veo 3.1 Fast model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+    Supports text-to-video, image-to-video, and video interpolation.
+
+    Args:
+        request_body: Request containing prompt and optional image inputs
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        # Check if Replicate API key is configured
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Veo 3.1 Fast async request",
+            extra={
+                "prompt": request_body.prompt,
+                "has_image": request_body.image is not None,
+                "has_last_frame": request_body.last_frame is not None,
+                "duration": request_body.duration,
+                "resolution": request_body.resolution,
+                "aspect_ratio": request_body.aspect_ratio,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Veo 3.1 Fast
+        model_input = {
+            "prompt": request_body.prompt,
+            "aspect_ratio": request_body.aspect_ratio,
+            "duration": request_body.duration,
+            "resolution": request_body.resolution,
+            "generate_audio": request_body.generate_audio,
+        }
+
+        # Add optional parameters
+        if request_body.image:
+            model_input["image"] = str(request_body.image)
+
+        if request_body.last_frame:
+            model_input["last_frame"] = str(request_body.last_frame)
+
+        if request_body.negative_prompt:
+            model_input["negative_prompt"] = request_body.negative_prompt
+
+        if request_body.seed is not None:
+            model_input["seed"] = request_body.seed
+
+        # Create async prediction
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "google/veo-3.1-fast",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            # Using Google Veo 3.1 Fast model
+            prediction = replicate.predictions.create(
+                model="google/veo-3.1-fast",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            # Store job metadata
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="google/veo-3.1-fast",
+                generation_type="video"
+            )
+
+            # Publish initial status
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Veo 3.1 Fast async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                    "duration": request_body.duration,
+                    "resolution": request_body.resolution,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Video generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start video generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Veo 3.1 Fast endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/hailuo-2.3-fast",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate video with MiniMax Hailuo 2.3 Fast model (Async)",
+    description="Start async video generation using MiniMax Hailuo 2.3 Fast model via Replicate",
+)
+async def generate_hailuo_23_fast(request_body: Hailuo23FastRequest) -> JSONResponse:
+    """Generate video using MiniMax Hailuo 2.3 Fast model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+    Requires a first frame image - the output video will have the same aspect ratio.
+
+    Args:
+        request_body: Request containing prompt and first frame image
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        # Check if Replicate API key is configured
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Hailuo 2.3 Fast async request",
+            extra={
+                "prompt": request_body.prompt,
+                "first_frame_image": str(request_body.first_frame_image),
+                "duration": request_body.duration,
+                "resolution": request_body.resolution,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Hailuo 2.3 Fast
+        model_input = {
+            "prompt": request_body.prompt,
+            "first_frame_image": str(request_body.first_frame_image),
+            "duration": request_body.duration,
+            "resolution": request_body.resolution,
+            "prompt_optimizer": request_body.prompt_optimizer,
+        }
+
+        # Create async prediction
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "minimax/hailuo-2.3-fast",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            # Using MiniMax Hailuo 2.3 Fast model
+            prediction = replicate.predictions.create(
+                model="minimax/hailuo-2.3-fast",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            # Store job metadata
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="minimax/hailuo-2.3-fast",
+                generation_type="video"
+            )
+
+            # Publish initial status
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Hailuo 2.3 Fast async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                    "duration": request_body.duration,
+                    "resolution": request_body.resolution,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Video generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start video generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Hailuo 2.3 Fast endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/kling-v2.5-turbo-pro",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate video with Kling v2.5 Turbo Pro model (Async)",
+    description="Start async video generation using Kuaishou Kling v2.5 Turbo Pro model via Replicate",
+)
+async def generate_kling_v25_turbo_pro(request_body: KlingV25TurboProRequest) -> JSONResponse:
+    """Generate video using Kling v2.5 Turbo Pro model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+    Supports text-to-video and image-to-video generation.
+
+    Args:
+        request_body: Request containing prompt and optional start image
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        # Check if Replicate API key is configured
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Kling v2.5 Turbo Pro async request",
+            extra={
+                "prompt": request_body.prompt,
+                "has_start_image": request_body.start_image is not None,
+                "duration": request_body.duration,
+                "aspect_ratio": request_body.aspect_ratio,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Kling v2.5 Turbo Pro
+        model_input = {
+            "prompt": request_body.prompt,
+            "aspect_ratio": request_body.aspect_ratio,
+            "duration": request_body.duration,
+            "negative_prompt": request_body.negative_prompt,
+        }
+
+        # Add optional start image
+        if request_body.start_image:
+            model_input["start_image"] = str(request_body.start_image)
+
+        # Create async prediction
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "kwaivgi/kling-v2.5-turbo-pro",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            # Using Kling v2.5 Turbo Pro model
+            prediction = replicate.predictions.create(
+                model="kwaivgi/kling-v2.5-turbo-pro",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            # Store job metadata
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="kwaivgi/kling-v2.5-turbo-pro",
+                generation_type="video"
+            )
+
+            # Publish initial status
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Kling v2.5 Turbo Pro async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                    "duration": request_body.duration,
+                    "aspect_ratio": request_body.aspect_ratio,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Video generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start video generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Kling v2.5 Turbo Pro endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+# ============================================================================
+# Audio Generation Endpoints
+# ============================================================================
+
+
+@router.post(
+    "/lyria-2",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate audio with Google Lyria 2 model (Async)",
+    description="Start async audio generation using Google Lyria 2 model via Replicate",
+)
+async def generate_lyria_2(request_body: Lyria2Request) -> JSONResponse:
+    """Generate audio using Google Lyria 2 model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+
+    Args:
+        request_body: Request containing prompt and optional parameters
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Lyria 2 async request",
+            extra={
+                "prompt": request_body.prompt,
+                "has_negative_prompt": request_body.negative_prompt is not None,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Lyria 2
+        model_input = {
+            "prompt": request_body.prompt,
+        }
+
+        # Add optional parameters
+        if request_body.negative_prompt:
+            model_input["negative_prompt"] = request_body.negative_prompt
+
+        if request_body.seed is not None:
+            model_input["seed"] = request_body.seed
+
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "google/lyria-2",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            prediction = replicate.predictions.create(
+                model="google/lyria-2",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="google/lyria-2",
+                generation_type="audio"
+            )
+
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Lyria 2 async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Audio generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start audio generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Lyria 2 endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/music-01",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate music with MiniMax Music-01 model (Async)",
+    description="Start async music generation using MiniMax Music-01 model via Replicate",
+)
+async def generate_music_01(request_body: Music01Request) -> JSONResponse:
+    """Generate music using MiniMax Music-01 model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+    Supports lyrics, voice references, and instrumental references.
+
+    Args:
+        request_body: Request containing lyrics and optional reference files
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Music-01 async request",
+            extra={
+                "has_lyrics": bool(request_body.lyrics),
+                "has_voice_file": request_body.voice_file is not None,
+                "has_song_file": request_body.song_file is not None,
+                "has_instrumental_file": request_body.instrumental_file is not None,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Music-01
+        model_input = {
+            "lyrics": request_body.lyrics,
+            "sample_rate": request_body.sample_rate,
+            "bitrate": request_body.bitrate,
+        }
+
+        # Add optional parameters
+        if request_body.voice_id:
+            model_input["voice_id"] = request_body.voice_id
+
+        if request_body.voice_file:
+            model_input["voice_file"] = str(request_body.voice_file)
+
+        if request_body.song_file:
+            model_input["song_file"] = str(request_body.song_file)
+
+        if request_body.instrumental_id:
+            model_input["instrumental_id"] = request_body.instrumental_id
+
+        if request_body.instrumental_file:
+            model_input["instrumental_file"] = str(request_body.instrumental_file)
+
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "minimax/music-01",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            prediction = replicate.predictions.create(
+                model="minimax/music-01",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.lyrics or "music generation",
+                model="minimax/music-01",
+                generation_type="audio"
+            )
+
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Music-01 async job created",
+                extra={
+                    "job_id": job_id,
+                    "has_lyrics": bool(request_body.lyrics),
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Music generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start music generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Music-01 endpoint", extra={"error": str(e)})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+@router.post(
+    "/stable-audio-2.5",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate audio with Stable Audio 2.5 model (Async)",
+    description="Start async audio generation using Stability AI Stable Audio 2.5 model via Replicate",
+)
+async def generate_stable_audio_25(request_body: StableAudio25Request) -> JSONResponse:
+    """Generate audio using Stability AI Stable Audio 2.5 model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+
+    Args:
+        request_body: Request containing prompt and generation parameters
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Stable Audio 2.5 async request",
+            extra={
+                "prompt": request_body.prompt,
+                "duration": request_body.duration,
+                "steps": request_body.steps,
+                "cfg_scale": request_body.cfg_scale,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Stable Audio 2.5
+        model_input = {
+            "prompt": request_body.prompt,
+            "duration": request_body.duration,
+            "steps": request_body.steps,
+            "cfg_scale": request_body.cfg_scale,
+        }
+
+        # Add optional seed
+        if request_body.seed is not None:
+            model_input["seed"] = request_body.seed
+
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "stability-ai/stable-audio-2.5",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            prediction = replicate.predictions.create(
+                model="stability-ai/stable-audio-2.5",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            logger.info(
+                "Replicate prediction created successfully",
+                extra={
+                    "job_id": job_id,
+                    "prediction_status": prediction.status,
+                    "webhook_registered": bool(webhook_url),
+                },
+            )
+
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="stability-ai/stable-audio-2.5",
+                generation_type="audio"
+            )
+
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Stable Audio 2.5 async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                    "duration": request_body.duration,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Audio generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start audio generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Stable Audio 2.5 endpoint", extra={"error": str(e)})
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

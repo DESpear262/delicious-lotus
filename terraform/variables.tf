@@ -139,6 +139,13 @@ variable "replicate_api_token" {
   default     = "" # Must be provided
 }
 
+variable "cloudfront_secret" {
+  description = "Secret header value to verify requests come from CloudFront"
+  type        = string
+  sensitive   = true
+  default     = "change-me-in-production"
+}
+
 # CloudWatch Monitoring Configuration
 variable "alarm_email" {
   description = "Email address for CloudWatch alarm notifications"

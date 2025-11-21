@@ -81,6 +81,18 @@ module "security" {
   environment = var.environment
 }
 
+# Application Load Balancer
+module "alb" {
+  source = "./modules/alb"
+
+  project_name          = "ai-video"
+  environment           = var.environment
+  vpc_id                = data.aws_vpc.default.id
+  subnet_ids            = local.public_subnet_ids
+  alb_security_group_id = module.security.alb_security_group_id
+  backend_port          = 8000
+}
+
 # RDS - PostgreSQL Database
 module "rds" {
   source = "./modules/rds"
@@ -160,6 +172,9 @@ module "ecs" {
   log_group_name = module.cloudwatch.log_group_name
   aws_region     = var.aws_region
 
+  # Load balancer integration
+  target_group_arn = module.alb.target_group_arn
+
   # Environment variables for the container
   environment_variables = {
     APP_ENV             = var.environment
@@ -168,9 +183,19 @@ module "ecs" {
     REDIS_URL           = "redis://${module.elasticache.endpoint}:6379/0"
     S3_BUCKET           = module.s3.bucket_name
     AWS_REGION          = var.aws_region
-    CORS_ORIGINS        = var.cors_origins
+    CORS_ORIGINS        = "${var.cors_origins},https://${module.cloudfront.cloudfront_domain_name}"
     REPLICATE_API_TOKEN = var.replicate_api_token
   }
 
   environment = var.environment
+}
+
+# CloudFront - CDN with HTTPS
+module "cloudfront" {
+  source = "./modules/cloudfront"
+
+  project_name      = "ai-video"
+  environment       = var.environment
+  alb_dns_name      = module.alb.alb_dns_name
+  cloudfront_secret = var.cloudfront_secret
 }

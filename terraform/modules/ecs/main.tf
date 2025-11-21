@@ -81,6 +81,16 @@ resource "aws_ecs_service" "backend" {
     assign_public_ip = true # Required for Fargate to pull images from ECR
   }
 
+  # Load balancer configuration (if target group ARN is provided)
+  dynamic "load_balancer" {
+    for_each = var.target_group_arn != "" ? [1] : []
+    content {
+      target_group_arn = var.target_group_arn
+      container_name   = "backend"
+      container_port   = 8000
+    }
+  }
+
   # Deployment configuration
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 100

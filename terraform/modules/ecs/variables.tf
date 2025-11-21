@@ -83,3 +83,9 @@ variable "environment" {
   description = "Environment name"
   type        = string
 }
+
+variable "target_group_arn" {
+  description = "ARN of the target group for load balancer (optional)"
+  type        = string
+  default     = ""
+}

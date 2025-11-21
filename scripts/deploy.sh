@@ -110,7 +110,6 @@ build_frontend() {
 build_backend_image() {
     log_info "Building backend Docker image..."
     cd "$PROJECT_ROOT"
-    # Use project root as build context so we can copy frontend-app/dist
     docker build -t backend-api:latest -f backend-api/Dockerfile .
     log_info "Backend image built successfully ✓"
 }

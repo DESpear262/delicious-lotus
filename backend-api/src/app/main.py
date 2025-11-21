@@ -1,8 +1,11 @@
 """Main FastAPI application."""
 
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api.internal import router as internal_router
 from .api.v1 import router as api_v1_router
@@ -144,6 +147,41 @@ def create_app() -> FastAPI:  # noqa: C901
     app.include_router(fastapi_internal_v1_router)
     app.include_router(fastapi_webhook_router)
     app.include_router(fastapi_websocket_router)
+
+    # Mount static files for frontend
+    # Use env var for production/Docker, fallback to relative path for local dev
+    frontend_path_env = os.getenv("FRONTEND_PATH")
+    if frontend_path_env:
+        FRONTEND_DIST_PATH = Path(frontend_path_env)
+    else:
+        # backend-api/src/app/main.py -> parent=app -> parent=src -> frontend/dist
+        FRONTEND_DIST_PATH = Path(__file__).parent.parent / "frontend" / "dist"
+
+    FRONTEND_ASSETS_PATH = FRONTEND_DIST_PATH / "assets"
+    FRONTEND_INDEX_PATH = FRONTEND_DIST_PATH / "index.html"
+
+    # Only set up frontend serving if index.html exists (frontend is built)
+    if FRONTEND_INDEX_PATH.exists() and FRONTEND_INDEX_PATH.is_file():
+        # Mount assets directory if it exists
+        if FRONTEND_ASSETS_PATH.exists() and FRONTEND_ASSETS_PATH.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS_PATH)), name="static-assets")
+
+        # Serve index.html for SPA routing (catch-all for non-API routes)
+        # NOTE: This catch-all route MUST be defined after all API routes
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            """Serve frontend SPA, with fallback to index.html for client-side routing"""
+            # Skip API routes and health checks (they're already handled by previous routes)
+            if full_path.startswith("api/") or full_path.startswith("health") or full_path == "health" or full_path.startswith("internal/"):
+                raise HTTPException(status_code=404, detail="Not found")
+
+            # Try to serve the requested file
+            file_path = FRONTEND_DIST_PATH / full_path
+            if file_path.is_file():
+                return FileResponse(file_path)
+
+            # Fallback to index.html for SPA routing
+            return FileResponse(FRONTEND_INDEX_PATH)
 
     @app.on_event("startup")
     async def startup_event() -> None:

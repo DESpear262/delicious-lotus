@@ -111,6 +111,14 @@ export interface GenerationMetadata {
   parameters: GenerationParameters;
   created_at: string;
   updated_at: string;
+  video_results?: Array<{
+    clip_id: string;
+    scene_id?: string;
+    video_url?: string;
+    thumbnail_url?: string;
+    duration?: number;
+    status?: string;
+  }>;
 }
 
 export interface GetGenerationResponse {

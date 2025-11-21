@@ -10,6 +10,7 @@ import type {
   GenerationStatus,
   ClipInfo,
   GenerationProgress,
+  GenerationMetadata,
 } from '@/api/types';
 import type {
   ProgressEvent,
@@ -68,8 +69,65 @@ export interface UseGenerationProgressReturn {
 const DEFAULT_PROGRESS: GenerationProgress = {
   current_step: 'Initializing...',
   steps_completed: 0,
-  total_steps: 5,
+  total_steps: 6,
   percentage: 0,
+};
+
+const FALLBACK_PROGRESS: Record<GenerationStatus, GenerationProgress> = {
+  queued: {
+    current_step: 'Analyzing prompt...',
+    steps_completed: 1,
+    total_steps: 6,
+    percentage: 10,
+  },
+  processing: {
+    current_step: 'Generating videos...',
+    steps_completed: 4,
+    total_steps: 6,
+    percentage: 60,
+  },
+  composing: {
+    current_step: 'Video composition...',
+    steps_completed: 5,
+    total_steps: 6,
+    percentage: 80,
+  },
+  completed: {
+    current_step: 'Final rendering',
+    steps_completed: 6,
+    total_steps: 6,
+    percentage: 100,
+  },
+  failed: {
+    current_step: 'Generation failed',
+    steps_completed: 4,
+    total_steps: 6,
+    percentage: 60,
+  },
+  cancelled: {
+    current_step: 'Generation cancelled',
+    steps_completed: 0,
+    total_steps: 6,
+    percentage: 0,
+  },
+};
+
+const buildFallbackProgress = (status: GenerationStatus): GenerationProgress => {
+  return FALLBACK_PROGRESS[status] || DEFAULT_PROGRESS;
+};
+
+const extractClipsFromMetadata = (metadata?: GenerationMetadata): ClipInfo[] => {
+  if (!metadata?.video_results?.length) {
+    return [];
+  }
+
+  return metadata.video_results.map((clip, index) => ({
+    clip_id: clip.clip_id || `clip_${index + 1}`,
+    thumbnail_url: clip.thumbnail_url || '',
+    duration: clip.duration || 0,
+    status: clip.status || 'completed',
+    url: clip.video_url,
+  }));
 };
 
 /**
@@ -138,8 +196,16 @@ export function useGenerationProgress(
 
       // Update state
       setStatus(response.status);
-      setProgress(response.progress);
-      setClips(response.clips_generated || []);
+
+      if (response.progress) {
+        setProgress(response.progress);
+      } else {
+        setProgress(buildFallbackProgress(response.status));
+      }
+
+      const metadataClips = extractClipsFromMetadata(response.metadata);
+      const apiClips = response.clips_generated || [];
+      setClips(apiClips.length ? apiClips : metadataClips);
       setIsLoading(false);
       setError(null);
 

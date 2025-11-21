@@ -9,6 +9,7 @@ import {
   VideoParameters,
   ReviewStep,
 } from '@/components/GenerationForm';
+import { SubmissionProgressScreen } from '@/components/GenerationForm/SubmissionProgressScreen';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import styles from './AdCreativeForm.module.css';
 
@@ -101,6 +102,10 @@ export const AdCreativeForm: React.FC = () => {
         return null;
     }
   };
+
+  if (isSubmitting) {
+    return <SubmissionProgressScreen />;
+  }
 
   return (
     <div className={styles.page}>

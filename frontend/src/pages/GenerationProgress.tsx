@@ -3,7 +3,7 @@
  * Real-time progress tracking for video generation
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
 import { ProgressBar } from '@/components/Progress/ProgressBar';
@@ -64,6 +64,9 @@ export const GenerationProgress: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const previousStatus = useRef<GenerationStatus | null>(null);
+  const wasLoading = useRef(false);
+  const completionLogged = useRef(false);
 
   // Generation progress hook
   const {
@@ -91,6 +94,29 @@ export const GenerationProgress: React.FC = () => {
       console.error('Generation error:', errorData);
     },
   });
+
+  useEffect(() => {
+    if (isLoading && clips.length === 0 && !wasLoading.current) {
+      console.log(`[UI] GenerationProgress: loading generation ${id}`);
+    } else if (!isLoading && wasLoading.current) {
+      console.log(`[UI] GenerationProgress: initial load complete for ${id}`);
+    }
+    wasLoading.current = isLoading;
+  }, [isLoading, clips.length, id]);
+
+  useEffect(() => {
+    if (previousStatus.current !== status) {
+      console.log(
+        `[UI] GenerationProgress: status change ${previousStatus.current ?? 'unknown'} -> ${status}`
+      );
+      previousStatus.current = status;
+    }
+
+    if (status === 'completed' && !completionLogged.current) {
+      console.log(`[UI] GenerationProgress: generation ${id} completed, showing success UI`);
+      completionLogged.current = true;
+    }
+  }, [status, id]);
 
   /**
    * Build steps array from current progress (matching CLI format)
@@ -198,18 +224,6 @@ export const GenerationProgress: React.FC = () => {
         return 'primary';
     }
   };
-
-  // Loading state
-  if (isLoading && clips.length === 0) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.loadingContainer}>
-          <Spinner size="xl" />
-          <p className={styles.loadingText}>Loading generation status...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Error state
   if (error && !isLoading) {

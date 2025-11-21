@@ -34,6 +34,19 @@ data "aws_subnets" "default" {
   }
 }
 
+# Data source to get public subnets only (those with IGW routes)
+# Filter for subnets with map-public-ip-on-launch enabled
+data "aws_subnets" "public" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "map-public-ip-on-launch"
+    values = ["true"]
+  }
+}
+
 # Data source for availability zones in us-east-2
 data "aws_availability_zones" "available" {
   state = "available"
@@ -141,7 +154,7 @@ module "ecs" {
   desired_count = var.desired_count
 
   vpc_id            = data.aws_vpc.default.id
-  subnet_ids        = data.aws_subnets.default.ids
+  subnet_ids        = data.aws_subnets.public.ids # Use public subnets for internet access
   security_group_id = module.security.ecs_security_group_id
 
   task_execution_role_arn = module.iam.ecs_task_execution_role_arn

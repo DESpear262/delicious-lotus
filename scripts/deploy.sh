@@ -76,7 +76,7 @@ check_prerequisites() {
 build_backend_image() {
     log_info "Building backend Docker image..."
     cd "$PROJECT_ROOT"
-    docker build -t delicious-lotus-backend:latest -f backend/Dockerfile backend/
+    docker build -t backend-api:latest -f backend-api/Dockerfile backend-api/
     log_info "Backend image built successfully ✓"
 }
 
@@ -130,7 +130,7 @@ push_to_ecr() {
 
     # Tag and push image
     log_info "Tagging image..."
-    docker tag delicious-lotus-backend:latest "$ECR_URL:latest"
+    docker tag backend-api:latest "$ECR_URL:latest"
 
     log_info "Pushing to ECR (this may take a few minutes)..."
     docker push "$ECR_URL:latest"
@@ -143,7 +143,7 @@ update_ecs_service() {
     cd "$TERRAFORM_DIR"
 
     CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "ai-video-cluster")
-    SERVICE_NAME=$(terraform output -raw ecs_service_name 2>/dev/null || echo "ai-video-backend-service")
+    SERVICE_NAME=$(terraform output -raw ecs_service_name 2>/dev/null || echo "backend-api-service")
     AWS_REGION=$(terraform output -raw aws_region 2>/dev/null || echo "us-east-2")
 
     aws ecs update-service \

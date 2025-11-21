@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'fastapi/**'
+      - 'backend-api/**'
       - '.github/workflows/pr-checks.yml'
 
 env:
@@ -29,28 +29,28 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install black flake8 mypy
 
       - name: Run Black (code formatting check)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           echo "### Code Formatting Check (Black)" >> $GITHUB_STEP_SUMMARY
-          if black --check app/ tests/; then
+          if black --check src/ tests/; then
             echo "✅ Code formatting is correct" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Code formatting issues found. Run 'black app/ tests/' to fix." >> $GITHUB_STEP_SUMMARY
+            echo "❌ Code formatting issues found. Run 'black src/ tests/' to fix." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
       - name: Run Flake8 (linting)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           echo "### Linting Check (Flake8)" >> $GITHUB_STEP_SUMMARY
-          if flake8 app/ tests/ --max-line-length=100 --extend-ignore=E203,W503 --count --statistics; then
+          if flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503 --count --statistics; then
             echo "✅ No linting issues found" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Linting issues found. Please fix the issues above." >> $GITHUB_STEP_SUMMARY
@@ -58,10 +58,10 @@ jobs:
           fi
 
       - name: Run MyPy (type checking)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           echo "### Type Checking (MyPy)" >> $GITHUB_STEP_SUMMARY
-          if mypy app/ --ignore-missing-imports --no-error-summary; then
+          if mypy src/ --ignore-missing-imports --no-error-summary; then
             echo "✅ Type checking passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Type checking completed with warnings" >> $GITHUB_STEP_SUMMARY
@@ -83,17 +83,17 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio httpx
 
       - name: Run pytest with coverage
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           pytest tests/ \
-            --cov=app \
+            --cov=src \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-report=html \
@@ -101,7 +101,7 @@ jobs:
             --verbose
 
       - name: Check coverage threshold
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(float(root.attrib['line-rate']) * 100)")
           THRESHOLD=80
@@ -125,8 +125,8 @@ jobs:
         with:
           name: coverage-report
           path: |
-            fastapi/coverage.xml
-            fastapi/htmlcov/
+            backend-api/coverage.xml
+            backend-api/htmlcov/
           retention-days: 30
 
       - name: Upload test results
@@ -134,7 +134,7 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: fastapi/test-results.xml
+          path: backend-api/test-results.xml
           retention-days: 30
 
       - name: Comment PR with coverage
@@ -146,7 +146,7 @@ jobs:
             const xml2js = require('xml2js');
 
             try {
-              const xmlData = fs.readFileSync('fastapi/coverage.xml', 'utf8');
+              const xmlData = fs.readFileSync('backend-api/coverage.xml', 'utf8');
               const parser = new xml2js.Parser();
 
               parser.parseString(xmlData, (err, result) => {
@@ -185,19 +185,19 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi
-          file: ./fastapi/Dockerfile
+          context: ./backend-api
+          file: ./backend-api/Dockerfile
           push: false
           load: true
-          tags: ai-video-backend:pr-${{ github.event.pull_request.number }}
+          tags: backend-api:pr-${{ github.event.pull_request.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Check image size
         id: image-size
         run: |
-          IMAGE_SIZE=$(docker images ai-video-backend:pr-${{ github.event.pull_request.number }} --format "{{.Size}}")
-          IMAGE_SIZE_MB=$(docker images ai-video-backend:pr-${{ github.event.pull_request.number }} --format "{{.Size}}" | sed 's/MB//' | sed 's/GB/*1024/' | bc 2>/dev/null || echo "0")
+          IMAGE_SIZE=$(docker images backend-api:pr-${{ github.event.pull_request.number }} --format "{{.Size}}")
+          IMAGE_SIZE_MB=$(docker images backend-api:pr-${{ github.event.pull_request.number }} --format "{{.Size}}" | sed 's/MB//' | sed 's/GB/*1024/' | bc 2>/dev/null || echo "0")
 
           echo "Image size: $IMAGE_SIZE"
           echo "image-size=$IMAGE_SIZE" >> $GITHUB_OUTPUT
@@ -223,7 +223,7 @@ jobs:
           docker run -d --name test-backend \
             -p 8000:8000 \
             -e APP_ENV=test \
-            ai-video-backend:pr-${{ github.event.pull_request.number }}
+            backend-api:pr-${{ github.event.pull_request.number }}
 
           # Wait for container to start
           sleep 10

@@ -21,6 +21,12 @@ export interface JobUpdateMessage {
   error?: string
   result?: unknown // Job-specific result data
   timestamp: string
+  // Backend snake_case variants (optional for compatibility)
+  job_id?: string
+  type?: string
+  composition_id?: string
+  compositionId?: string
+  output_url?: string
 }
 
 export interface ExportJobResult {

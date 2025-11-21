@@ -97,7 +97,7 @@ output "deployment_instructions" {
 
   1. Push Docker image to ECR:
      aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${module.ecr.repository_url}
-     docker tag delicious-lotus-backend:latest ${module.ecr.repository_url}:latest
+     docker tag backend-api:latest ${module.ecr.repository_url}:latest
      docker push ${module.ecr.repository_url}:latest
 
   2. Initialize the database schema:

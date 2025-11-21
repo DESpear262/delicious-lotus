@@ -608,7 +608,7 @@ aws ecs execute-command \
 ```python
 # Check backend/app/main.py
 # Should have:
-from fastapi.staticfiles import StaticFiles
+from backend-api.staticfiles import StaticFiles
 
 app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")
 
@@ -637,7 +637,7 @@ app.mount("/", StaticFiles(...))  # Last
 # for same-origin requests
 
 # If using ALB or separate domains, add CORS:
-from fastapi.middleware.cors import CORSMiddleware
+from backend-api.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -1148,7 +1148,7 @@ aws ecs update-service \
 - [S3 Troubleshooting](https://docs.aws.amazon.com/AmazonS3/latest/userguide/troubleshooting.html)
 
 ### External Resources
-- [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)
+- [FastAPI Deployment](https://backend-api.tiangolo.com/deployment/)
 - [PostgreSQL Error Codes](https://www.postgresql.org/docs/current/errcodes-appendix.html)
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
 

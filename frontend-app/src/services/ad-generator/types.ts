@@ -32,6 +32,7 @@ export interface ErrorResponse {
 export interface PaginationParams {
   page?: number;
   limit?: number;
+  offset?: number;
   status?: GenerationStatus;
   sort?: string;
 }

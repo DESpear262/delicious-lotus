@@ -108,7 +108,7 @@ module "elasticache" {
 module "cloudwatch" {
   source = "./modules/cloudwatch"
 
-  log_group_name = "/ecs/${var.environment}/ai-video-backend"
+  log_group_name = "/ecs/${var.environment}/backend-api"
   environment    = var.environment
   aws_region     = var.aws_region
 

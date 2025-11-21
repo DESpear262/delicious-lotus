@@ -21,13 +21,13 @@ export const exportSettingsSchema = z.object({
     .max(100, 'Project name must be less than 100 characters')
     .trim(),
   aspectRatio: z.enum(['16:9', '9:16', '1:1', '4:3'], {
-    errorMap: () => ({ message: 'Invalid aspect ratio' }),
+    message: 'Invalid aspect ratio',
   }),
   resolution: z.enum(['1080p', '720p', '480p', '4k'], {
-    errorMap: () => ({ message: 'Invalid resolution' }),
+    message: 'Invalid resolution',
   }),
   format: z.enum(['mp4', 'webm'], {
-    errorMap: () => ({ message: 'Invalid export format' }),
+    message: 'Invalid export format',
   }),
   codec: z.enum(['h264', 'vp8', 'vp9']).optional(),
   quality: z
@@ -35,8 +35,8 @@ export const exportSettingsSchema = z.object({
     .min(18, 'Quality (CRF) must be between 18 and 28')
     .max(28, 'Quality (CRF) must be between 18 and 28')
     .int('Quality must be an integer'),
-  frameRate: z.enum([24, 30, 60], {
-    errorMap: () => ({ message: 'Frame rate must be 24, 30, or 60 fps' }),
+  frameRate: z.union([z.literal(24), z.literal(30), z.literal(60)], {
+    message: 'Frame rate must be 24, 30, or 60 fps',
   }),
 })
 
@@ -59,7 +59,7 @@ export function validateExportSettings(
   // Validate using Zod schema
   const result = exportSettingsSchema.safeParse(settings)
   if (!result.success) {
-    errors.push(...result.error.errors.map((err) => err.message))
+    errors.push(...result.error.issues.map((err) => err.message))
     return { valid: false, errors, warnings }
   }
 

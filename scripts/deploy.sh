@@ -58,6 +58,17 @@ check_prerequisites() {
         exit 1
     fi
 
+    # Check Node.js and npm (needed for frontend build)
+    if ! command -v node &> /dev/null; then
+        log_error "Node.js is not installed. Please install it first."
+        exit 1
+    fi
+
+    if ! command -v npm &> /dev/null; then
+        log_error "npm is not installed. Please install it first."
+        exit 1
+    fi
+
     # Check terraform.tfvars exists
     if [ ! -f "$TERRAFORM_DIR/terraform.tfvars" ]; then
         log_error "terraform.tfvars not found. Please copy terraform.tfvars.example and fill in your values."
@@ -73,10 +84,34 @@ check_prerequisites() {
     log_info "All prerequisites satisfied ✓"
 }
 
+build_frontend() {
+    log_info "Building frontend application..."
+    cd "$PROJECT_ROOT/frontend-app"
+
+    # Check if node_modules exists, if not run npm install
+    if [ ! -d "node_modules" ]; then
+        log_info "Installing frontend dependencies..."
+        npm install
+    fi
+
+    # Build the frontend
+    log_info "Building frontend dist files..."
+    npm run build
+
+    # Verify dist directory was created
+    if [ ! -d "dist" ]; then
+        log_error "Frontend build failed - dist directory not created"
+        exit 1
+    fi
+
+    log_info "Frontend built successfully ✓"
+}
+
 build_backend_image() {
     log_info "Building backend Docker image..."
     cd "$PROJECT_ROOT"
-    docker build -t backend-api:latest -f backend-api/Dockerfile backend-api/
+    # Use project root as build context so we can copy frontend-app/dist
+    docker build -t backend-api:latest -f backend-api/Dockerfile .
     log_info "Backend image built successfully ✓"
 }
 
@@ -181,6 +216,7 @@ terraform_destroy() {
 
 full_deployment() {
     check_prerequisites
+    build_frontend
     build_backend_image
     terraform_apply
     push_to_ecr

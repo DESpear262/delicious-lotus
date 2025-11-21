@@ -14,8 +14,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files and minimal source structure for installation
-COPY pyproject.toml ./
-COPY src/ ./src/
+# Note: Build context must be project root for this to work
+COPY backend-api/pyproject.toml ./
+COPY backend-api/src/ ./src/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
@@ -65,7 +66,11 @@ COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY --chown=appuser:appuser src/ /app/src/
+COPY --chown=appuser:appuser backend-api/src/ /app/src/
+
+# Copy frontend build files (assumes build context is project root)
+# These files are built by the frontend-app build process before Docker build
+COPY --chown=appuser:appuser frontend-app/dist/ /app/frontend/dist/
 
 # Switch to non-root user
 USER appuser

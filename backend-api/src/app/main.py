@@ -216,6 +216,46 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as e:
             logger.error(f"Error shutting down WebSocket services: {e}")
 
+    # Mount static files for frontend
+    from pathlib import Path
+    import os
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    # In Docker container, frontend is at /app/frontend/dist
+    # For local dev, check parent (repo root) / frontend-app / dist
+    FRONTEND_DIST_PATH = Path("/app/frontend/dist") if os.path.exists("/app/frontend/dist") else Path(__file__).parent.parent.parent.parent / "frontend-app" / "dist"
+    FRONTEND_ASSETS_PATH = FRONTEND_DIST_PATH / "assets"
+    FRONTEND_INDEX_PATH = FRONTEND_DIST_PATH / "index.html"
+
+    # Only set up frontend serving if index.html exists (frontend is built)
+    if FRONTEND_INDEX_PATH.exists() and FRONTEND_INDEX_PATH.is_file():
+        # Mount assets directory if it exists
+        if FRONTEND_ASSETS_PATH.exists() and FRONTEND_ASSETS_PATH.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS_PATH)), name="static-assets")
+            logger.info(f"Mounted frontend assets from {FRONTEND_ASSETS_PATH}")
+
+        # Serve index.html for SPA routing (catch-all for non-API routes)
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            """Serve frontend SPA, with fallback to index.html for client-side routing"""
+            # Skip API routes and docs - they're already handled
+            if full_path.startswith("api/") or full_path.startswith("internal/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
+                from fastapi import HTTPException
+                raise HTTPException(status_code=404, detail="Not found")
+
+            # Try to serve the requested file
+            file_path = FRONTEND_DIST_PATH / full_path
+            if file_path.is_file():
+                return FileResponse(file_path)
+
+            # Fallback to index.html for SPA routing
+            return FileResponse(FRONTEND_INDEX_PATH)
+
+        logger.info(f"Frontend serving enabled from {FRONTEND_DIST_PATH}")
+    else:
+        logger.warning(f"Frontend not found at {FRONTEND_DIST_PATH}, frontend serving disabled")
+
     return app
 
 

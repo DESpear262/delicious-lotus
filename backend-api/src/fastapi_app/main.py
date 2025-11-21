@@ -48,7 +48,9 @@ socketio_app = socketio.ASGIApp(sio, app)
 
 # Mount static files for frontend (Option B deployment)
 # Check if frontend/dist directory exists before mounting
-FRONTEND_DIST_PATH = Path(__file__).parent.parent / "frontend" / "dist"
+# In Docker container, frontend is at /app/frontend/dist
+# For local dev, check parent.parent (repo root) / frontend-app / dist
+FRONTEND_DIST_PATH = Path("/app/frontend/dist") if os.path.exists("/app/frontend/dist") else Path(__file__).parent.parent.parent.parent / "frontend-app" / "dist"
 FRONTEND_ASSETS_PATH = FRONTEND_DIST_PATH / "assets"
 FRONTEND_INDEX_PATH = FRONTEND_DIST_PATH / "index.html"
 

@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer'
 import { persist, devtools } from 'zustand/middleware'
 import { createIndexedDBStorage, STORE_NAMES } from '../lib/indexedDBStorage'
 import type { UiStore, Toast, ModalState, PanelStates, KeyboardShortcut } from '../types/stores'
+import { generateUUID } from '../utils/uuid'
 
 const MAX_TOASTS = 5
 
@@ -58,7 +59,7 @@ export const createUiStore = () => {
 
           // Toast operations
           addToast: (toast: Omit<Toast, 'id' | 'createdAt'>) => {
-            const toastId = crypto.randomUUID()
+            const toastId = generateUUID()
             const newToast: Toast = {
               ...toast,
               id: toastId,

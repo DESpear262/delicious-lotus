@@ -22,6 +22,7 @@ import type {
   PingMessage,
   PongMessage,
 } from '../types/websocket'
+import { generateUUID } from '../utils/uuid'
 
 type EventType = 'message' | 'connection' | 'error'
 type Callback = MessageHandler | ConnectionHandler | ErrorHandler
@@ -370,7 +371,7 @@ export class WebSocketService {
     }
 
     const queuedMessage: QueuedMessage = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       message,
       timestamp: new Date(),
       priority: 'normal',

@@ -8,6 +8,7 @@ import { toast } from '../lib/toast'
 import { debounce } from '../lib/debounce'
 import { getWebSocketService } from '../services/WebSocketService'
 import type { WebSocketMessage, JobUpdateMessage } from '../types/websocket'
+import { generateUUID } from '../utils/uuid'
 
 // Default project metadata
 const defaultMetadata: ProjectMetadata = {
@@ -299,7 +300,7 @@ export const createProjectStore = () => {
 
       // Project collection operations
       addProject: (metadata, settings) => {
-        const projectId = crypto.randomUUID()
+        const projectId = generateUUID()
         const now = new Date()
 
         const newProject: ProjectMetadata = {

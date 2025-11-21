@@ -5,13 +5,14 @@ import { createIndexedDBStorage, STORE_NAMES } from '../lib/indexedDBStorage'
 import type { AuthStore } from '../types/stores'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
+import { generateUUID } from '../utils/uuid'
 
 // Initial state
 const initialState = {
   userId: null as string | null,
   email: null as string | null,
   name: null as string | null,
-  shadowUserId: crypto.randomUUID(), // Generate shadow user ID for anonymous sessions
+  shadowUserId: generateUUID(), // Generate shadow user ID for anonymous sessions
   accessToken: null as string | null,
   refreshToken: null as string | null,
   tokenExpiresAt: null as number | null,
@@ -154,7 +155,7 @@ export const createAuthStore = () => {
           reset: () => {
             set({
               ...initialState,
-              shadowUserId: crypto.randomUUID(), // Generate new shadow user ID on reset
+              shadowUserId: generateUUID(), // Generate new shadow user ID on reset
             })
           },
         })),
@@ -182,7 +183,7 @@ export const createAuthStore = () => {
                 userId: parsed.state?.userId || null,
                 email: parsed.state?.email || null,
                 name: parsed.state?.name || null,
-                shadowUserId: parsed.state?.shadowUserId || crypto.randomUUID(),
+                shadowUserId: parsed.state?.shadowUserId || generateUUID(),
               },
               version: parsed.version,
             }

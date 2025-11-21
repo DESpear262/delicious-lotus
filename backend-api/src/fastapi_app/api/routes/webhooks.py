@@ -199,7 +199,7 @@ async def replicate_webhook(
     mapping = get_prediction_mapping(payload.id)
     if not mapping:
         logger.warning(f"[WEBHOOK] No mapping found for prediction {payload.id}, ignoring webhook")
-        logger.warning(f"[WEBHOOK] Current mappings: {list(_prediction_mappings.keys())[:5]}...")
+        logger.warning(f"[WEBHOOK] Current mappings: {list(_prediction_mapping.keys())[:5]}...")
         return JSONResponse(
             status_code=200,
             content={"status": "ignored", "reason": "unknown_prediction"}
@@ -297,6 +297,7 @@ async def replicate_webhook(
                 logger.warning(f"[WEBHOOK] No storage service available, using Replicate URL: {video_url}")
             
             # Update generation metadata with completed clip
+            video_results: list[dict[str, Any]] = []
             if generation_storage_service:
                 try:
                     # Get current metadata
@@ -308,7 +309,7 @@ async def replicate_webhook(
                             metadata = json.loads(metadata)
                         
                         # Add or update video_results
-                        video_results = metadata.get("video_results", [])
+                        video_results = metadata.get("video_results", []) or []
                         
                         # Find existing clip result or create new one
                         clip_result = None

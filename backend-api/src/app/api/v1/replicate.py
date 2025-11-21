@@ -795,45 +795,61 @@ async def get_ai_job_status(
     description="Internal endpoint to generate video clips from scenes and micro-prompts",
 )
 async def generate_clips(request: Request) -> JSONResponse:
-    """Generate video clips from scenes and micro-prompts.
-    
-    This is an internal endpoint used by the main API when direct import fails.
-    Currently returns a mock response for MVP.
-    """
+    """Generate video clips from scenes and micro-prompts via Replicate."""
     try:
         payload = await request.json()
         generation_id = payload.get("generation_id")
+        if not generation_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="generation_id is required",
+            )
+
         scenes = payload.get("scenes", [])
-        micro_prompts = payload.get("micro_prompts", [])
-        
-        logger.info(f"Received generate-clips request for generation {generation_id}")
-        
-        # Mock response
-        video_results = []
-        for i, (scene, prompt) in enumerate(zip(scenes, micro_prompts)):
-            # Handle prompt being a dict or string
-            prompt_str = str(prompt)
+        raw_micro_prompts = payload.get("micro_prompts", [])
+        aspect_ratio = payload.get("aspect_ratio", "16:9")
+        parallelize = bool(payload.get("parallelize", False))
+        webhook_base_url = payload.get("webhook_base_url")
+
+        # Normalize prompts into strings
+        micro_prompts: list[str] = []
+        for prompt in raw_micro_prompts:
             if isinstance(prompt, dict):
-                prompt_str = prompt.get('prompt_text', str(prompt))
-                
-            clip_id = f"clip_{i:03d}_{hash(prompt_str) % 10000}"
-            video_results.append({
-                'clip_id': clip_id,
-                'scene_id': f"scene_{i}",
-                'status': 'completed',
-                'video_url': f"https://example.com/videos/{generation_id}/{clip_id}.mp4",
-                'prediction_id': f"pred_{i}_{hash(prompt_str) % 1000000}"
-            })
-            
+                micro_prompts.append(prompt.get("prompt_text") or prompt.get("prompt") or str(prompt))
+            else:
+                micro_prompts.append(str(prompt))
+
+        logger.info(
+            "Received generate-clips request",
+            extra={
+                "generation_id": generation_id,
+                "scene_count": len(scenes),
+                "micro_prompt_count": len(micro_prompts),
+                "parallelize": parallelize,
+                "aspect_ratio": aspect_ratio,
+            },
+        )
+
+        video_results = await generate_video_clips(
+            scenes=scenes,
+            micro_prompts=micro_prompts,
+            generation_id=generation_id,
+            aspect_ratio=aspect_ratio,
+            parallelize=parallelize,
+            webhook_base_url=webhook_base_url,
+        )
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"video_results": video_results}
+            content={"video_results": video_results},
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error generating clips: {e}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e)}
+            content={"error": str(e)},
         )
 
 

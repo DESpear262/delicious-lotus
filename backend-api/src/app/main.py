@@ -1,5 +1,6 @@
 """Main FastAPI application."""
 
+import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -207,6 +208,15 @@ def create_app() -> FastAPI:  # noqa: C901
             except Exception as e:
                 logger.warning(f"Failed to start config watcher: {e}")
 
+        # Start Redis Bridge for Socket.io updates
+        try:
+            from fastapi_app.services.redis_bridge import get_redis_bridge
+            redis_bridge = get_redis_bridge()
+            await redis_bridge.start()
+            logger.info("Redis Bridge started for Socket.io updates")
+        except Exception as e:
+            logger.error(f"Failed to start Redis Bridge: {e}")
+
         # WebSocket services use lazy initialization - they'll be created
         # when the first WebSocket connection is established
         logger.info("WebSocket services will initialize on first connection")
@@ -254,12 +264,17 @@ def create_app() -> FastAPI:  # noqa: C901
         except Exception as e:
             logger.error(f"Error shutting down WebSocket services: {e}")
 
-    # Mount static files for frontend
-    from pathlib import Path
-    import os
-    from fastapi.responses import FileResponse
-    from fastapi.staticfiles import StaticFiles
+        # Stop Redis Bridge
+        try:
+            from fastapi_app.services.redis_bridge import get_redis_bridge
+            redis_bridge = get_redis_bridge()
+            await redis_bridge.stop()
+            logger.info("Redis Bridge stopped")
+        except Exception as e:
+            logger.error(f"Failed to stop Redis Bridge: {e}")
 
+    # Mount static files for frontend
+    
     # In Docker container, frontend is at /app/frontend/dist
     # For local dev, check parent (repo root) / frontend-app / dist
     FRONTEND_DIST_PATH = Path("/app/frontend/dist") if os.path.exists("/app/frontend/dist") else Path(__file__).parent.parent.parent.parent / "frontend-app" / "dist"

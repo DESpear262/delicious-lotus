@@ -291,7 +291,7 @@ def setup_logging(
         "staging": "INFO",
         "production": "WARNING",
     }
-    effective_level = log_level if log_level else level_map.get(environment, "INFO")
+    effective_level = log_level.upper() if log_level else level_map.get(environment, "INFO")
 
     # Create custom JSON formatter
     formatter = CustomJsonFormatter(

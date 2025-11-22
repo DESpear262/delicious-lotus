@@ -108,6 +108,12 @@ export function useGenerationProgress(
   const isMounted = useRef(true);
   const previousStatus = useRef<GenerationStatus>('queued');
 
+  // WebSocket error handler
+  const handleWebSocketError = useCallback((err: Error) => {
+    console.error('[useGenerationProgress] WebSocket error:', err);
+    // Don't set error state for connection issues - we'll fallback to polling
+  }, []);
+
   // WebSocket connection
   const {
     isConnected,
@@ -118,10 +124,7 @@ export function useGenerationProgress(
     endpoint: `/ws/generations/${generationId}`,
     autoConnect: autoStart,
     enablePollingFallback: true,
-    onError: (err) => {
-      console.error('[useGenerationProgress] WebSocket error:', err);
-      // Don't set error state for connection issues - we'll fallback to polling
-    },
+    onError: handleWebSocketError,
   });
 
   /**
@@ -355,6 +358,14 @@ export function useGenerationProgress(
     };
   }, [autoStart, isConnected, wsIsPolling, startPolling, stopPolling]);
 
+  // Track component mount state
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   /**
    * Initial fetch
    */
@@ -364,7 +375,6 @@ export function useGenerationProgress(
     }
 
     return () => {
-      isMounted.current = false;
       stopPolling();
       wsDisconnect();
     };

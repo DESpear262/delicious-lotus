@@ -1,8 +1,10 @@
 """Replicate API endpoints for AI generation with async job tracking."""
 
+import asyncio
 import json
 import logging
 import os
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -1866,6 +1868,115 @@ async def get_ai_job_status(
         )
 
 
+async def generate_video_clips(
+    scenes: list[dict],
+    micro_prompts: list[str],
+    generation_id: str,
+    aspect_ratio: str = "16:9",
+    parallelize: bool = False,
+    webhook_base_url: str | None = None,
+) -> list[dict]:
+    """Generate video clips for multiple prompts/scenes using Replicate.
+
+    Args:
+        scenes: List of scene dictionaries (for metadata)
+        micro_prompts: List of prompt strings
+        generation_id: Unique ID for the generation batch
+        aspect_ratio: Aspect ratio for the videos (e.g., "16:9")
+        parallelize: Whether to run generations in parallel
+        webhook_base_url: Base URL for webhooks
+
+    Returns:
+        list[dict]: List of video result objects with tracking info
+    """
+    import replicate
+    
+    # Configure Replicate API token
+    replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+    if not replicate_api_key:
+        raise Exception("REPLICATE_API_TOKEN environment variable not set")
+    os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+    results = []
+    
+    async def _process_single_clip(prompt: str, index: int) -> dict:
+        """Process a single clip generation."""
+        clip_id = f"clip_{index+1}_{uuid.uuid4().hex[:8]}"
+        scene_id = scenes[index].get("id") if index < len(scenes) else None
+        
+        try:
+            # Construct webhook URL if base URL provided
+            webhook_url = None
+            if webhook_base_url:
+                # Use the standard webhook endpoint
+                webhook_url = f"{webhook_base_url}/api/v1/replicate/webhook"
+            
+            logger.info(f"Starting generation for clip {clip_id}", extra={"prompt": prompt[:50], "webhook": webhook_url})
+            
+            # Run blocking Replicate call in thread pool
+            # Using Wan Video 2.5 T2V model as default
+            prediction = await asyncio.to_thread(
+                replicate.predictions.create,
+                model="wan-video/wan-2.5-t2v",
+                input={
+                    "prompt": prompt,
+                    "aspect_ratio": aspect_ratio,
+                    # Default parameters from generate_wan_video_t2v
+                    "size": "1280*720" if aspect_ratio == "16:9" else "720*1280",
+                    "duration": 5,
+                    "negative_prompt": "",
+                    "enable_prompt_expansion": True
+                },
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            # Store metadata for tracking
+            store_job_metadata(
+                job_id=prediction.id,
+                job_type="ai_generation",
+                prompt=prompt,
+                model="wan-video/wan-2.5-t2v",
+                generation_type="video",
+                clip_id=clip_id,
+                generation_id=generation_id,
+                scene_id=scene_id,
+                duration=5
+            )
+            
+            return {
+                "clip_id": clip_id,
+                "prediction_id": prediction.id,
+                "status": "queued",
+                "status_url": f"https://replicate.com/p/{prediction.id}",
+                "scene_id": scene_id
+            }
+            
+        except Exception as e:
+            logger.exception(f"Failed to generate clip {clip_id}: {e}")
+            return {
+                "clip_id": clip_id,
+                "status": "failed",
+                "error": str(e),
+                "scene_id": scene_id
+            }
+
+    # Execute generations
+    if parallelize:
+        # Run all concurrently
+        tasks = []
+        for i, prompt in enumerate(micro_prompts):
+            tasks.append(_process_single_clip(prompt, i))
+        results = await asyncio.gather(*tasks)
+    else:
+        # Run sequentially
+        for i, prompt in enumerate(micro_prompts):
+            result = await _process_single_clip(prompt, i)
+            results.append(result)
+            
+    return results
+
+
 @router.post(
     "/generate-clips",
     status_code=status.HTTP_200_OK,
@@ -1987,6 +2098,34 @@ async def replicate_webhook(request: Request) -> JSONResponse:
                 result_url=result_url,
                 result_output=normalized_output or payload.output
             )
+
+            # Broadcast to generation WebSocket if applicable
+            try:
+                # Get job metadata to find generation_id
+                redis_conn = get_redis_connection()
+                redis_key = f"ai_job:{payload.id}"
+                job_data_str = redis_conn.get(redis_key)
+                
+                if job_data_str:
+                    job_data = json.loads(job_data_str)
+                    generation_id = job_data.get("generation_id")
+                    
+                    if generation_id:
+                        # Import here to avoid circular dependency
+                        from fastapi_app.services.websocket_broadcast import broadcast_clip_completed
+                        
+                        internal_clip_id = job_data.get("clip_id", payload.id)
+                        duration = job_data.get("duration", 5.0)
+                        
+                        await broadcast_clip_completed(
+                            generation_id=generation_id,
+                            clip_id=internal_clip_id,
+                            thumbnail_url=result_url,
+                            duration=float(duration)
+                        )
+                        logger.info(f"Broadcasted clip completion for generation {generation_id}, clip {internal_clip_id}")
+            except Exception as e:
+                logger.error(f"Failed to broadcast generation update: {e}")
 
             # Enqueue background job to save video to permanent S3 storage
             if result_url:

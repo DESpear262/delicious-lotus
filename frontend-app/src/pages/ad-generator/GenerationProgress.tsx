@@ -199,13 +199,14 @@ export const GenerationProgress: React.FC = () => {
     }
   };
 
-  // Loading state
-  if (isLoading && clips.length === 0) {
+  // Loading state - only show spinner if we have NO data at all
+  // (meaning we haven't even started fetching yet or failed completely to init)
+  if (isLoading && !status && !error) {
     return (
       <div className="max-w-7xl mx-auto p-6 flex flex-col gap-6 md:p-4">
         <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
           <Spinner size="xl" />
-          <p className="text-lg text-muted-foreground m-0">Loading generation status...</p>
+          <p className="text-lg text-muted-foreground m-0">Initializing generation view...</p>
         </div>
       </div>
     );

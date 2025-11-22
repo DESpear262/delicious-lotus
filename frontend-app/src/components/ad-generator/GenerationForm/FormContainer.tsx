@@ -10,6 +10,8 @@ interface FormContainerProps {
   onSubmit: () => void;
   isSubmitting?: boolean;
   canGoNext?: boolean;
+  onGeneratePrompts?: () => void;
+  isGeneratingPrompts?: boolean;
 }
 
 export const FormContainer: React.FC<FormContainerProps> = ({
@@ -20,6 +22,8 @@ export const FormContainer: React.FC<FormContainerProps> = ({
   onSubmit,
   isSubmitting = false,
   canGoNext = true,
+  onGeneratePrompts,
+  isGeneratingPrompts = false,
 }) => {
   const isFirstStep = currentStep === 1;
   const isLastStep = currentStep === 4;
@@ -48,23 +52,44 @@ export const FormContainer: React.FC<FormContainerProps> = ({
         )}
 
         {isLastStep ? (
-          <Button
-            onClick={onSubmit}
-            disabled={isSubmitting}
-            className="w-full sm:w-auto gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Create Video
-              </>
-            )}
-          </Button>
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-3 sm:gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={onGeneratePrompts}
+              disabled={isGeneratingPrompts}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isGeneratingPrompts ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Generating Prompts...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generate Prompts
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={onSubmit}
+              disabled={isSubmitting}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Run Analysis
+                </>
+              )}
+            </Button>
+          </div>
         ) : (
           <Button
             onClick={onNext}

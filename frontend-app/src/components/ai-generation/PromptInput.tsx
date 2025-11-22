@@ -21,6 +21,9 @@ interface PromptInputProps {
     advancedParams?: Record<string, any>
   }) => void
   isGenerating?: boolean
+  defaultPrompt?: string
+  defaultType?: GenerationType
+  autoPrompts?: Partial<Record<GenerationType, string>>
 }
 
 // Model Configuration Definitions
@@ -160,6 +163,9 @@ const MODELS_BY_TYPE = {
 export function PromptInput({
   onGenerate,
   isPending,
+  defaultPrompt,
+  defaultType,
+  autoPrompts,
 }: {
   onGenerate: (params: {
     prompt: string
@@ -174,10 +180,13 @@ export function PromptInput({
     advancedParams?: Record<string, any>
   }) => void
   isPending: boolean
+  defaultPrompt?: string
+  defaultType?: GenerationType
+  autoPrompts?: Partial<Record<GenerationType, string>>
 }) {
   // Basic State
-  const [prompt, setPrompt] = useState('')
-  const [generationType, setGenerationType] = useState<GenerationType>('image')
+  const [prompt, setPrompt] = useState(defaultPrompt || '')
+  const [generationType, setGenerationType] = useState<GenerationType>(defaultType || 'image')
   const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell')
 
   // Input State
@@ -210,7 +219,18 @@ export function PromptInput({
     const defaultModel = MODELS_BY_TYPE[generationType][0]
     setSelectedModelId(defaultModel)
     setErrors({})
+    // Auto-fill prompt based on generation type if provided
+    if (autoPrompts && autoPrompts[generationType]) {
+      setPrompt(autoPrompts[generationType] as string)
+    }
   }, [generationType])
+
+  // Sync prompt when defaultPrompt changes
+  useEffect(() => {
+    if (defaultPrompt !== undefined) {
+      setPrompt(defaultPrompt)
+    }
+  }, [defaultPrompt])
 
   // Reset state when model changes
   useEffect(() => {

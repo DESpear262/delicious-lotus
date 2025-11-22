@@ -161,6 +161,9 @@ class Settings(BaseSettings):
         description="JWT token expiration time in minutes",
     )
 
+    # External API Keys
+    openai_api_key: str = Field(default="", description="OpenAI API Key for prompt generation")
+
     # Feature Flags
     feature_dev_api_enabled: bool = Field(
         default=False, description="Enable development/debugging API endpoints"

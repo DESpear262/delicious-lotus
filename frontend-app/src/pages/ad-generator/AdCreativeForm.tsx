@@ -10,6 +10,7 @@ import {
   ReviewStep,
 } from '@/components/ad-generator/GenerationForm';
 import { ConfirmDialog } from '@/components/ad-generator/ui/ConfirmDialog';
+import { Sparkles } from 'lucide-react';
 
 export const AdCreativeForm: React.FC = () => {
   const {
@@ -102,21 +103,32 @@ export const AdCreativeForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-background p-6 md:p-8 sm:p-4">
-      <div className="max-w-[900px] mx-auto flex flex-col gap-6 lg:max-w-[900px] md:max-w-[720px]">
-        <header className="text-center py-6 sm:py-4">
-          <h1 className="text-3xl font-bold text-foreground mb-2 leading-tight sm:text-2xl">Create Ad Creative Video</h1>
-          <p className="text-lg text-muted-foreground m-0 leading-normal sm:text-base">
+    <div className="min-h-screen bg-background pb-12">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Header */}
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 text-primary mb-3">
+            <Sparkles className="h-5 w-5" />
+            <span className="text-sm font-medium uppercase tracking-wider">AI Video Generator</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            Create Ad Creative Video
+          </h1>
+          <p className="mt-2 text-muted-foreground">
             Generate a professional ad creative video in minutes with AI
           </p>
         </header>
 
-        <StepIndicator
-          currentStep={currentStep}
-          completedSteps={completedSteps}
-          onStepClick={(step) => goToStep(step as 1 | 2 | 3 | 4)}
-        />
+        {/* Stepper */}
+        <div className="mb-8">
+          <StepIndicator
+            currentStep={currentStep}
+            completedSteps={completedSteps}
+            onStepClick={(step) => goToStep(step as 1 | 2 | 3 | 4)}
+          />
+        </div>
 
+        {/* Form Content */}
         <FormContainer
           currentStep={currentStep}
           onNext={nextStep}

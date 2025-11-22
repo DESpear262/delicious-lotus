@@ -38,6 +38,9 @@ try:
     from ai.models.scene_decomposition import SceneDecompositionRequest, SceneDecompositionResponse
     from ai.models.clip_assembly import ClipAssemblyRequest, ClipRetrievalRequest
     from ai.models.edit_intent import EditRequest, EditResponse
+    # Note: generate_video_clips is not currently exposed by any module. 
+    # It was referenced in app.api.v1.replicate but not imported there in previous steps.
+    # We will need to define a helper or fix the import if it exists elsewhere.
     AI_SERVICES_AVAILABLE = True
 except ImportError as e:
     AI_SERVICES_AVAILABLE = False
@@ -168,54 +171,43 @@ async def create_generation(
     if AI_SERVICES_AVAILABLE:
         try:
             print("\n[STEP 1] Analyzing prompt...")
-            # logger.info(f"[PROMPT_ANALYSIS] Starting analysis for generation {generation_id}")
-            # logger.info(f"[PROMPT_ANALYSIS] Prompt length: {len(generation_request.prompt)} characters")
+            logger.info(f"[PIPELINE] Step 1: Prompt Analysis - Start")
             # Use real OpenAI API key from environment
             from fastapi_app.core.config import settings
             if not settings.openai_api_key:
                 raise HTTPException(status_code=500, detail="OpenAI API key not configured")
             analysis_service = PromptAnalysisService(openai_api_key=settings.openai_api_key, use_mock=False)
             analysis_request = AnalysisRequest(prompt=generation_request.prompt)
-            # logger.info(f"[PROMPT_ANALYSIS] Calling analysis service...")
             analysis_response = await analysis_service.analyze_prompt(analysis_request)
             prompt_analysis = analysis_response.analysis.dict()
             confidence = prompt_analysis.get('confidence_score', 0)
-            # logger.info(f"[PROMPT_ANALYSIS] Analysis completed successfully")
-            # logger.info(f"[PROMPT_ANALYSIS] Confidence score: {confidence:.2f}")
-            # logger.info(f"[PROMPT_ANALYSIS] Video type: {prompt_analysis.get('video_type', 'unknown')}")
-            # logger.info(f"[PROMPT_ANALYSIS] Product focus: {prompt_analysis.get('product_focus', 'none')}")
+            logger.info(f"[PIPELINE] Step 1: Prompt Analysis - Complete (confidence: {confidence:.2f})")
+            logger.debug(f"[PIPELINE] Analysis Result: {json.dumps(prompt_analysis, default=str)}")
             print(f"[OK] Prompt analysis complete (confidence: {confidence:.2f})")
 
             # PR 102: Analyze brand configuration if available
             if generation_request.parameters.brand:
-                # logger.info(f"[BRAND_ANALYSIS] Starting brand analysis for generation {generation_id}")
-                # logger.info(f"[BRAND_ANALYSIS] Brand parameter: {generation_request.parameters.brand}")
+                logger.info(f"[PIPELINE] Step 1b: Brand Analysis - Start")
                 brand_service = BrandAnalysisService(openai_api_key=settings.openai_api_key, use_mock=False)
                 brand_config = await brand_service.analyze_brand(
                     analysis_response.analysis,
                     generation_request.parameters.brand
                 )
-                # logger.info(f"[BRAND_ANALYSIS] Brand analysis completed")
-                # logger.info(f"[BRAND_ANALYSIS] Brand name: {brand_config.name}")
-                # logger.info(f"[BRAND_ANALYSIS] Brand style: {brand_config.style if hasattr(brand_config, 'style') else 'default'}")
+                logger.info(f"[PIPELINE] Step 1b: Brand Analysis - Complete (Brand: {brand_config.name})")
             elif prompt_analysis.get('product_focus'):
                 # Even if no explicit brand config, check if prompt contains brand info
-                # logger.info("Checking prompt for implicit brand information...")
+                logger.info(f"[PIPELINE] Step 1b: Implicit Brand Analysis - Start")
                 brand_service = BrandAnalysisService(openai_api_key=settings.openai_api_key, use_mock=False)
                 brand_config = await brand_service.analyze_brand(analysis_response.analysis)
-                if brand_config.name != "Corporate Brand":  # Not using default
-                    # logger.info(f"Found implicit brand info: {brand_config.name}")
-                    pass
-                else:
+                if brand_config.name == "Corporate Brand":
                     brand_config = None
+                logger.info(f"[PIPELINE] Step 1b: Implicit Brand Analysis - Complete (Brand: {brand_config.name if brand_config else 'None'})")
             else:
-                # logger.info("No brand configuration needed for this generation")
                 pass
 
             # PR 301: Generate micro-prompts from scenes (PR 103 scene decomposition is conceptually complete)
             print("\n[STEP 2] Decomposing into scenes...")
-            # logger.info(f"[SCENE_DECOMPOSITION] Starting scene decomposition for generation {generation_id}")
-            # logger.info(f"[SCENE_DECOMPOSITION] Video type: ad, Duration: {generation_request.parameters.duration_seconds}s")
+            logger.info(f"[PIPELINE] Step 2: Scene Decomposition - Start")
             from ai.models.scene_decomposition import decompose_video_scenes
 
             # Decompose video into scenes using PR 103 logic
@@ -225,13 +217,11 @@ async def create_generation(
                 prompt_analysis=prompt_analysis,
                 brand_config=brand_config.dict() if brand_config else None
             )
-            # logger.info(f"[SCENE_DECOMPOSITION] Calling decompose_video_scenes...")
             scene_response = decompose_video_scenes(scene_request)
             scenes = [scene.dict() for scene in scene_response.scenes]
-            # logger.info(f"[SCENE_DECOMPOSITION] Scene decomposition completed")
-            # logger.info(f"[SCENE_DECOMPOSITION] Generated {len(scenes)} scenes")
-            # for i, scene in enumerate(scenes):
-            #     logger.info(f"[SCENE_DECOMPOSITION] Scene {i+1}: duration={scene.get('duration', 0)}s, description={scene.get('description', '')[:50]}")
+            logger.info(f"[PIPELINE] Step 2: Scene Decomposition - Complete ({len(scenes)} scenes)")
+            for i, s in enumerate(scenes):
+                logger.debug(f"[PIPELINE] Scene {i+1}: {s.get('description', '')[:50]}...")
             print(f"[OK] Generated {len(scenes)} scenes")
 
             # Build micro-prompts for each scene
@@ -252,6 +242,7 @@ async def create_generation(
             )
 
             print("\n[STEP 3] Building micro-prompts...")
+            logger.info(f"[PIPELINE] Step 3: Micro-Prompt Generation - Start")
             logger.info(f"[MICRO_PROMPTS] Starting micro-prompt generation for generation {generation_id}")
             logger.info(f"[MICRO_PROMPTS] Number of scenes: {len(scenes)}")
             logger.info(f"[MICRO_PROMPTS] Prompt analysis key_elements: {prompt_analysis.get('key_elements', [])}")
@@ -260,6 +251,7 @@ async def create_generation(
             logger.info(f"[MICRO_PROMPTS] Calling build_micro_prompts...")
             micro_prompt_response = await prompt_builder.build_micro_prompts(micro_prompt_request)
             micro_prompts = [mp.dict() for mp in micro_prompt_response.micro_prompts]
+            logger.info(f"[PIPELINE] Step 3: Micro-Prompt Generation - Complete ({len(micro_prompts)} prompts)")
             logger.info(f"[MICRO_PROMPTS] Micro-prompt generation completed")
             logger.info(f"[MICRO_PROMPTS] Generated {len(micro_prompts)} micro-prompts")
             for i, mp in enumerate(micro_prompts):
@@ -269,7 +261,7 @@ async def create_generation(
             print(f"[OK] Generated {len(micro_prompts)} micro-prompts")
 
         except Exception as e:
-            logger.error(f"AI analysis failed: {str(e)}")
+            logger.error(f"[PIPELINE] CRITICAL ERROR: {str(e)}", exc_info=True)
             # For MVP: fail the entire request as specified
             raise HTTPException(status_code=500, detail=f"Failed to analyze content: {str(e)}")
     else:
@@ -289,31 +281,9 @@ async def create_generation(
         websocket_url=f"/ws/generations/{generation_id}"
     )
 
-    # Log detailed analysis results for debugging
-    # logger.warning(f"[ANALYSIS_RESULTS] ===== PROMPT ANALYSIS RESULTS =====")
-    # logger.warning(f"[ANALYSIS_RESULTS] Prompt: {generation_request.prompt}")
-    # if prompt_analysis:
-    #     for key, value in prompt_analysis.items():
-    #         logger.warning(f"[ANALYSIS_RESULTS] {key}: {value}")
-    # else:
-    #     logger.warning(f"[ANALYSIS_RESULTS] No prompt analysis available")
-
-    # logger.warning(f"[ANALYSIS_RESULTS] ===== SCENES ({len(scenes)} total) =====")
-    # for i, scene in enumerate(scenes):
-    #     logger.warning(f"[ANALYSIS_RESULTS] Scene {i+1}: {scene}")
-
-    # logger.warning(f"[ANALYSIS_RESULTS] ===== MICRO-PROMPTS ({len(micro_prompts)} total) =====")
-    # for i, mp in enumerate(micro_prompts):
-    #     if isinstance(mp, dict):
-    #         prompt_text = mp.get('prompt_text', mp.get('prompt', str(mp)))
-    #     else:
-    #         prompt_text = getattr(mp, 'prompt_text', str(mp))
-    #     logger.warning(f"[ANALYSIS_RESULTS] Micro-prompt {i+1}: {prompt_text[:100]}{'...' if len(prompt_text) > 100 else ''}")
-
     # Always store basic generation metadata in in-memory store so that
     # GET /api/v1/generations/{id} can return a record even if database
     # or clip storage are unavailable.
-    # logger.info(f"[STORAGE] Storing generation {generation_id} in in-memory store")
     _generation_store[generation_id] = {
         "id": generation_id,
         "status": GenerationStatus.QUEUED,
@@ -326,11 +296,9 @@ async def create_generation(
         "updated_at": response.created_at,
         "progress": None,
     }
-    # logger.info(f"[STORAGE] In-memory store updated for generation {generation_id}")
 
     # Store generation metadata in database
     if generation_storage_service:
-        # logger.info(f"[DATABASE] Attempting to store generation {generation_id} in database")
         try:
             generation_storage_service.create_generation(
                 generation_id=generation_id,
@@ -346,15 +314,12 @@ async def create_generation(
                 },
                 duration_seconds=generation_request.parameters.duration_seconds
             )
-            # logger.info(f"[DATABASE] Successfully stored generation {generation_id} in database")
         except Exception as e:
             logger.error(f"[DATABASE] Failed to store generation {generation_id} in database: {str(e)}", exc_info=True)
     else:
-        # logger.warning(f"[DATABASE] Generation storage service not available, skipping database storage")
         pass
 
     # Generate video clips using the centralized function
-    # TODO: Move this to a background task/worker for production
     if scenes and micro_prompts and len(scenes) == len(micro_prompts):
         parallelize = generation_request.options.parallelize_generations if generation_request.options else False
         aspect_ratio = (
@@ -388,6 +353,10 @@ async def create_generation(
             except Exception:
                 logger.warning("Could not determine webhook base URL - webhooks will not work")
                 webhook_base_url = None
+        
+        if webhook_base_url and ("localhost" in webhook_base_url or "127.0.0.1" in webhook_base_url):
+            logger.warning(f"Webhook URL is local ({webhook_base_url}). Replicate callbacks will FAIL. Video generation status will not update automatically unless you use a tunnel (e.g. ngrok).")
+            # We still send it, as some local dev setups might strictly need it, but it likely won't work.
 
         ffmpeg_request = {
             "scenes": scenes,
@@ -405,12 +374,21 @@ async def create_generation(
 
         import httpx
 
-        logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO FFMPEG-BACKEND-API =====")
-        logger.warning(f"[VIDEO_GENERATION] Target URL: http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips")
+        # Use localhost for internal service-to-service communication
+        # If we are in Docker, we should use 'backend-api' or 'localhost' depending on network
+        # Assuming this code runs in the SAME container/process for now (monolith mode),
+        # we can call localhost. If separated, this needs env var config.
+        internal_api_url = os.getenv("INTERNAL_API_URL", "http://localhost:8000")
+        
+        logger.warning(f"[VIDEO_GENERATION] ===== MAKING HTTP CALL TO REPLICATE SERVICE =====")
+        logger.warning(f"[VIDEO_GENERATION] Target URL: {internal_api_url}/api/v1/replicate/generate-clips")
+        
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:
+                # We call our OWN internal endpoint to trigger clip generation
+                # This decouples the generation request from the actual Replicate calls
                 ffmpeg_http_response = await client.post(
-                    "http://ffmpeg-backend-api:8000/api/v1/replicate/generate-clips",
+                    f"{internal_api_url}/api/v1/replicate/generate-clips",
                     json=ffmpeg_request,
                     timeout=60.0,
                 )
@@ -418,22 +396,20 @@ async def create_generation(
                 ffmpeg_response = ffmpeg_http_response.json()
                 video_results = ffmpeg_response.get("video_results", [])
             except httpx.RequestError as e:
-                logger.error(f"[VIDEO_GENERATION] Failed to call ffmpeg-backend API: {e}")
-                raise HTTPException(status_code=500, detail=f"Video generation service unavailable: {str(e)}")
+                logger.error(f"[VIDEO_GENERATION] Failed to call internal generate-clips API: {e}")
+                # Don't fail the user request if internal call fails, just log it
+                # The user will see "Queued" but no progress
+                # raise HTTPException(status_code=500, detail=f"Video generation service unavailable: {str(e)}")
+                video_results = [] 
             except httpx.HTTPStatusError as e:
                 logger.error(
-                    f"[VIDEO_GENERATION] FFmpeg backend returned error {e.response.status_code}: {e.response.text}"
+                    f"[VIDEO_GENERATION] Internal backend returned error {e.response.status_code}: {e.response.text}"
                 )
-                raise HTTPException(status_code=500, detail=f"Video generation failed: {e.response.text}")
-
-        # Common processing for both import and HTTP call paths
-        # logger.warning(f"[VIDEO_GENERATION] Video generation completed")
-        # logger.warning(f"[VIDEO_GENERATION] Number of results: {len(video_results)}")
-        # for i, result in enumerate(video_results):
-        #     logger.warning(f"[VIDEO_GENERATION] Result {i+1}: clip_id={result.get('clip_id')}, status={result.get('status')}, scene_id={result.get('scene_id')}")
+                # raise HTTPException(status_code=500, detail=f"Video generation failed: {e.response.text}")
+                video_results = []
 
         # Store prediction_id mappings for webhook handler
-        if webhook_base_url:
+        if webhook_base_url and video_results:
             try:
                 from fastapi_app.api.routes.webhooks import store_prediction_mapping
                 for result in video_results:
@@ -452,22 +428,30 @@ async def create_generation(
         # Store initial video results (all will be "queued" status with webhooks)
         # Webhook handler will update status to "completed" when each clip finishes
         queued_count = len([r for r in video_results if r.get('status') == 'queued'])
+        failed_count = len([r for r in video_results if r.get('status') == 'failed'])
+        
+        # Determine initial status
+        initial_status = GenerationStatus.PROCESSING
+        if video_results and failed_count == len(video_results):
+            initial_status = GenerationStatus.FAILED
+            logger.error(f"[VIDEO_GENERATION] All {len(video_results)} clips failed to start")
+        
         if generation_storage_service:
             try:
-                # Update status to PROCESSING (generation started, waiting for webhooks)
+                # Update status
                 generation_storage_service.update_generation(
                     generation_id=generation_id,
-                    status=GenerationStatus.PROCESSING.value,
+                    status=initial_status.value,
                     metadata={"video_results": video_results}
                 )
-                logger.warning(f"Updated generation {generation_id} status to PROCESSING ({queued_count} clips queued)")
+                logger.warning(f"Updated generation {generation_id} status to {initial_status.value} ({queued_count} clips queued)")
             except Exception as e:
                 logger.error(f"Failed to update generation status in database: {str(e)}")
 
         # Also update in-memory store (fallback)
         if generation_id in _generation_store:
             _generation_store[generation_id]["video_results"] = video_results
-            _generation_store[generation_id]["status"] = GenerationStatus.PROCESSING
+            _generation_store[generation_id]["status"] = initial_status
 
         logger.warning(f"Video generation started: {queued_count}/{len(video_results)} clips queued (webhooks will update status when complete)")
         print(f"[OK] Video generation started: {queued_count}/{len(video_results)} clips queued")
@@ -498,47 +482,114 @@ async def list_generations(
     
     try:
         # Try to get from database first
+        db_generations = []
         if generation_storage_service:
-            generations = generation_storage_service.list_generations(
-                limit=limit,
-                offset=offset,
-                status=status
-            )
-            total = generation_storage_service.count_generations(status=status)
-        else:
-            # Fallback to in-memory store
-            all_generations = list(_generation_store.values())
-            
-            # Filter by status if provided
-            if status:
-                all_generations = [g for g in all_generations if g.get("status") == status]
-            
-            # Sort by created_at descending
-            all_generations.sort(key=lambda x: x.get("created_at", datetime.min), reverse=True)
-            
-            # Paginate
-            total = len(all_generations)
-            generations = all_generations[offset:offset + limit]
-            
-            # Convert to API format
-            generations = [
-                {
-                    "generation_id": g["id"],
-                    "status": g.get("status", "unknown"),
-                    "prompt": g.get("request", {}).get("prompt", "")[:100],  # Truncate for list view
-                    "thumbnail_url": None,  # TODO: Generate thumbnails
-                    "created_at": g.get("created_at", datetime.utcnow()).isoformat() + "Z",
-                    "duration_seconds": g.get("request", {}).get("parameters", {}).get("duration_seconds", 30)
-                }
-                for g in generations
-            ]
+            try:
+                db_generations = generation_storage_service.list_generations(
+                    limit=limit,
+                    offset=offset,
+                    status=status
+                )
+                total = generation_storage_service.count_generations(status=status)
+            except Exception as e:
+                logger.warning(f"Failed to fetch from DB: {e}")
+                db_generations = []
+                total = 0
+
+        # Fetch all in-memory generations (fallback/dev mode)
+        memory_generations = list(_generation_store.values())
         
+        # Filter by status if provided
+        if status:
+            memory_generations = [g for g in memory_generations if g.get("status") == status]
+
+        # Transform DB results to API format
+        db_list = [
+            {
+                "generation_id": g["id"],
+                "status": g["status"],
+                "prompt": g["prompt"],
+                "thumbnail_url": g["thumbnail_url"],
+                "created_at": g["created_at"],
+                "duration_seconds": g["duration_seconds"]
+            }
+            for g in db_generations
+        ]
+
+        # Transform in-memory results to API format
+        memory_list = [
+            {
+                "generation_id": g["id"],
+                "status": g.get("status", "unknown"),
+                "prompt": g.get("request", {}).get("prompt", "")[:100],
+                "thumbnail_url": None,
+                "created_at": g.get("created_at", datetime.utcnow()),
+                "duration_seconds": g.get("request", {}).get("parameters", {}).get("duration_seconds", 30)
+            }
+            for g in memory_generations
+        ]
+
+        # Merge lists (preferring in-memory for status updates, but including all IDs)
+        # Use dictionary keyed by generation_id to deduplicate
+        merged_map = {g["generation_id"]: g for g in db_list}
+        
+        # Update/Add from memory
+        # We prefer memory for status/progress if it exists there (as it's updated by webhooks/polling)
+        for g in memory_list:
+            merged_map[g["generation_id"]] = g
+        
+        # Convert back to list
+        final_list = list(merged_map.values())
+        
+        # Sort by created_at descending
+        # Handle mixed types (datetime vs string) by converting to string ISO format for comparison
+        def get_sort_key(item):
+            val = item.get("created_at")
+            if isinstance(val, datetime):
+                return val.isoformat()
+            return str(val)
+            
+        final_list.sort(key=get_sort_key, reverse=True)
+        
+        # Update total count if we found more in memory than DB knew about
+        total = max(total, len(final_list))
+        
+        # Apply pagination to the combined list
+        # Note: If DB pagination was used (offset > 0), we might be missing some DB items that were filtered out by DB query.
+        # However, for the "History" use case in MVP where users want to see "what I just made", 
+        # checking the in-memory store is critical.
+        # Ideally we would fetch ALL from DB if we want perfect merging, but that doesn't scale.
+        # For now, we assume users are looking at the first few pages.
+        
+        # If we are on page 1 (offset=0), we definitely want the merged head.
+        # If we are deeper, we might rely mostly on DB.
+        # But let's just slice the final_list which contains (Page N from DB) + (All from Memory).
+        # This isn't perfect pagination but ensures active jobs (in memory) always show up.
+        
+        if not generation_storage_service:
+            # If no DB, we must paginate manually
+            paginated_list = final_list[offset:offset + limit]
+        else:
+            # If DB is present, we used it for pagination. 
+            # But since we merged in-memory items, the list size might have grown.
+            # We should probably return the merged list, but capped at limit?
+            # Or just return the whole merged list if it's small?
+            # Let's respect the limit to avoid massive payloads.
+            paginated_list = final_list[:limit] 
+
+        # Ensure created_at is string for JSON response
+        for g in paginated_list:
+            if isinstance(g["created_at"], datetime):
+                g["created_at"] = g["created_at"].isoformat() + "Z"
+            if "duration_seconds" not in g or g["duration_seconds"] is None:
+                g["duration_seconds"] = 30 # Default fallback
+
         # Calculate pagination metadata
         pages = (total + limit - 1) // limit if limit > 0 else 1
         page = (offset // limit) + 1 if limit > 0 else 1
         
         return {
-            "generations": generations,
+            "generations": paginated_list,
             "pagination": {
                 "total": total,
                 "page": page,
@@ -725,6 +776,112 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
             current_clip=completed_clips,
             total_clips=total_clips
         )
+
+        # === SELF-HEALING LOGIC START ===
+        # Check if we should poll Replicate for updates because webhooks might have failed (or we are local)
+        should_poll = False
+        if video_results_metadata and not completed_clips == total_clips:
+            # If we have active clips that are still "queued" or "processing"
+            active_clips = [c for c in video_results_metadata if c.get("status") in ["queued", "processing"]]
+            if active_clips:
+                # Basic rate limiting: only poll if last update was > 10s ago? 
+                # For MVP simplicity, we just do it on GET if it's been a while since creation.
+                # Real implementations should use a background task or cache this.
+                should_poll = True
+        
+        if should_poll:
+            logger.info(f"[GET_GENERATION] Polling Replicate status for {len(active_clips)} active clips (self-healing)")
+            # We import here to avoid circular deps if any
+            import os
+            import asyncio
+            # We can reuse the get_ai_job_status logic from replicate.py but that's an endpoint.
+            # Instead, we'll check Redis directly via our shared helper or call Replicate if needed.
+            # Since we want to be robust, let's try to update the status for these clips.
+            
+            try:
+                from app.api.v1.replicate import get_ai_job_status
+                # Note: get_ai_job_status is an async endpoint function, so we can call it.
+                # But it returns a JSONResponse. We need the data.
+                # A better way is to use the redis bridge or shared logic. 
+                # Let's rely on the Redis cache first.
+                
+                from workers.redis_pool import get_redis_connection
+                redis_conn = get_redis_connection()
+                
+                updates_made = False
+                for clip in active_clips:
+                    prediction_id = clip.get("prediction_id")
+                    if not prediction_id:
+                        continue
+                        
+                    # 1. Check Redis cache for this specific job ID (maybe webhook updated Redis but not DB?)
+                    redis_key = f"ai_job:{prediction_id}"
+                    job_data_str = redis_conn.get(redis_key)
+                    
+                    current_status = clip.get("status")
+                    new_status = current_status
+                    new_url = clip.get("video_url")
+                    
+                    if job_data_str:
+                        job_data = json.loads(job_data_str)
+                        redis_status = job_data.get("status")
+                        
+                        # Map Replicate status to our internal status
+                        if redis_status == "succeeded":
+                            new_status = "completed"
+                            new_url = job_data.get("result_url")
+                        elif redis_status == "failed":
+                            new_status = "failed"
+                        elif redis_status == "canceled":
+                            new_status = "failed"
+                        elif redis_status == "processing":
+                            new_status = "processing"
+                            
+                        # If Redis has a newer/terminal status than our metadata, update it
+                        if new_status != current_status:
+                            logger.info(f"[SELF-HEAL] Updating clip {clip.get('clip_id')} from {current_status} to {new_status}")
+                            clip["status"] = new_status
+                            if new_url:
+                                clip["video_url"] = new_url
+                            updates_made = True
+                    else:
+                        # If not in Redis (expired?), we could technically call Replicate API here.
+                        # But that's slow and synchronous. 
+                        # For now, let's assume if it's not in Redis, we might have lost track or it's very old.
+                        pass
+
+                if updates_made:
+                    # Persist updated metadata back to DB/Memory
+                    if generation_storage_service:
+                        generation_storage_service.update_generation(
+                            generation_id=generation_id,
+                            status=GenerationStatus.PROCESSING.value, # Keep as processing until all done
+                            metadata={"video_results": video_results_metadata}
+                        )
+                    if generation_id in _generation_store:
+                        _generation_store[generation_id]["video_results"] = video_results_metadata
+                        
+                    # Re-calculate progress since we updated data
+                    completed_clips = sum(1 for r in video_results_metadata if r.get("status") == "completed")
+                    progress.steps_completed = completed_clips
+                    progress.percentage = (completed_clips / total_clips * 100) if total_clips > 0 else 0
+                    progress.current_clip = completed_clips
+                    
+                    # Check if ALL completed now?
+                    if completed_clips == total_clips:
+                        status = GenerationStatus.COMPLETED
+                        if generation_storage_service:
+                            generation_storage_service.update_generation(
+                                generation_id=generation_id,
+                                status=GenerationStatus.COMPLETED.value
+                            )
+                        if generation_id in _generation_store:
+                            _generation_store[generation_id]["status"] = GenerationStatus.COMPLETED
+                            
+            except Exception as e:
+                logger.warning(f"[SELF-HEAL] Failed to update clip statuses: {e}")
+        # === SELF-HEALING LOGIC END ===
+
     else:
         progress = None
 
@@ -802,7 +959,11 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
                 "prompt": generation_data.get("prompt", ""),
                 "parameters": metadata_obj.get("parameters", {}) if isinstance(metadata_obj, dict) else {},
                 "created_at": generation_data["created_at"].isoformat() + "Z" if isinstance(generation_data.get("created_at"), datetime) else str(generation_data.get("created_at", "")),
-                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
+                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", "")),
+                "scenes": metadata_obj.get("scenes") if isinstance(metadata_obj, dict) else [],
+                "micro_prompts": metadata_obj.get("micro_prompts") if isinstance(metadata_obj, dict) else [],
+                "prompt_analysis": metadata_obj.get("prompt_analysis") if isinstance(metadata_obj, dict) else None,
+                "brand_config": metadata_obj.get("brand_config") if isinstance(metadata_obj, dict) else None,
             })
         elif "request" in generation_data:
             # In-memory format
@@ -810,7 +971,11 @@ async def get_generation(generation_id: str, request: Request) -> GenerationResp
                 "prompt": generation_data["request"]["prompt"],
                 "parameters": generation_data["request"]["parameters"],
                 "created_at": generation_data["created_at"].isoformat() + "Z" if isinstance(generation_data.get("created_at"), datetime) else str(generation_data.get("created_at", "")),
-                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", ""))
+                "updated_at": generation_data["updated_at"].isoformat() + "Z" if isinstance(generation_data.get("updated_at"), datetime) else str(generation_data.get("updated_at", "")),
+                "scenes": generation_data.get("scenes", []),
+                "micro_prompts": generation_data.get("micro_prompts", []),
+                "prompt_analysis": generation_data.get("prompt_analysis"),
+                "brand_config": generation_data.get("brand_config"),
             })
 
     if video_results_metadata:

@@ -2,7 +2,7 @@
 
 **Purpose:** Track architectural decisions and patterns established during implementation.
 
-**Last Updated:** 2025-11-14 by Orange
+**Last Updated:** 2025-11-17 by Silver
 
 ---
 
@@ -25,16 +25,120 @@
 
 ## Technology Stack Decisions
 
-*(To be populated as implementation progresses)*
+### Frontend Theme: Cyberpunk Aesthetic
+**Date:** 2025-11-15
+**Context:** Frontend UI/UX styling requirements
+**Decision:** Implemented light cyberpunk theme with dark backgrounds, neon accents, and glassmorphism
+**Rationale:**
+- Matches project PRD aesthetic requirements
+- Modern, sleek appearance with high contrast
+- Neon accents provide clear visual hierarchy
+- Glassmorphism creates depth without overwhelming
+**Implementation Details:**
+- Color palette: Dark backgrounds (#0A0F14, #111820) with neon accents (Neon Blue #00E5FF, Holographic Purple #BD59FF, Soft Teal #43FFC9)
+- Typography: Inter (body), Orbitron (headings), JetBrains Mono (monospace)
+- Effects: Glassmorphism with backdrop blur, scanline patterns, holographic shimmer animations
+- Components: All UI components styled with neon glows, glassmorphism cards, dark theme inputs
 
 ---
 
 ## Integration Patterns
 
-*(To be populated as backend/frontend/ffmpeg integration patterns emerge)*
+### Pattern: Frontend → Backend API & WebSocket Integration (Dev)
+**Date:** 2025-11-17
+**Context:** Local development flow for web UI → FastAPI backend
+**Decision:** Use Vite dev proxy for REST + WebSockets and Socket.io ASGI wrapper in FastAPI.
+**Details:**
+- Frontend dev server proxies:
+  - `/api` → `http://localhost:8000` (REST API)
+  - `/socket.io` → `http://localhost:8000` (Socket.io Engine.IO endpoint)
+  - `/ws` → `ws://localhost:8000` (raw WebSocket endpoints if needed)
+- Backend runs `app.main:socketio_app` (Socket.io ASGI wrapper) so Socket.io and FastAPI share the same port.
+- Socket.io client always connects to `/socket.io` and passes `generation_id` via query parameters; backend extracts it in `handle_connect` and/or `subscribe` to validate and subscribe to the correct generation room.
+- `GET /api/v1/generations/{id}` first tries persisted clip/progress data (Postgres/Redis via `ClipAssemblyService`), then falls back to in-memory `_generation_store` so status lookups work even when DB/Redis are misconfigured in dev.
 
 ---
 
+## Storage Architecture
+
+### Decision: Environment-Aware Storage Service
+**Date:** 2025-11-15
+**Context:** Need to support both local development (filesystem) and production (S3)
+**Decision:** Created unified StorageService that automatically switches between backends based on USE_LOCAL_STORAGE env var
+**Rationale:**
+- Single code path for both environments
+- Easy local development without AWS credentials
+- Production-ready S3 integration
+- Presigned URL support for secure access
+**Implementation:**
+- Local: Files stored in `./storage` directory with same folder structure as S3
+- Production: Files uploaded to S3 bucket with path `generations/{generation_id}/clips/{clip_id}.mp4`
+- Automatic fallback if S3 upload fails (uses Replicate URL as backup)
+
+### Decision: PostgreSQL for Generation Metadata
+**Date:** 2025-11-15
+**Context:** Need persistent storage for generation metadata
+**Decision:** Created GenerationStorageService using PostgreSQL with JSONB fields for flexible metadata
+**Rationale:**
+- Structured data (generation_id, status, timestamps) in columns
+- Flexible metadata (prompt_analysis, brand_config, scenes) in JSONB
+- Connection pooling for performance
+- Automatic table creation on first connection
+**Implementation:**
+- Tables: `generations` (id, status, prompt, metadata JSONB, thumbnail_url, duration_seconds, timestamps)
+- Indexes: status, created_at (for fast filtering and sorting)
+- Fallback: In-memory `_generation_store` if database unavailable
+
 ## Data Flow Patterns
 
-*(To be populated as video generation pipeline is implemented)*
+### Video Generation → Storage Flow
+1. User submits generation request via POST /api/v1/generations
+2. Generation metadata stored in PostgreSQL immediately (status: QUEUED)
+3. AI pipeline generates scenes and micro-prompts
+4. `generate_video_clips` called with storage_service parameter
+5. For each clip:
+   - Replicate generates video → returns URL
+   - StorageService downloads from Replicate URL
+   - StorageService uploads to S3/local storage
+   - Returns storage URL (S3 path or local path)
+6. Generation status updated to PROCESSING with video_results metadata
+7. Frontend can list generations via GET /api/v1/generations
+
+## Docker Architecture
+
+### Pattern: Unified Docker Compose with Service Isolation
+**Date:** 2025-11-17
+**Context:** Need to run both main backend and FFmpeg backend services together while maintaining team independence
+**Decision:** Integrated FFmpeg backend services into root `docker-compose.yml` while keeping `ffmpeg-backend/docker-compose.yml` unchanged
+**Details:**
+- Root docker-compose.yml includes:
+  - Shared infrastructure: `postgres` (port 5432), `redis` (port 6379)
+  - Main backend: `backend` service (port 8000)
+  - FFmpeg backend: `ffmpeg-backend-api` (port 8001), `ffmpeg-backend-worker` (RQ worker)
+- Both backends share the same postgres instance but use separate databases:
+  - Main backend: `ai_video_pipeline` database
+  - FFmpeg backend: `ffmpeg_backend` database
+- Both backends share the same redis instance (different keyspaces via database number)
+- All services on `ai-video-network` for inter-service communication
+- FFmpeg backend team can still run `ffmpeg-backend/docker-compose.yml` independently for isolated development
+**Rationale:**
+- Single command to start all services: `docker-compose up --build`
+- Resource efficiency (shared postgres/redis)
+- Team independence maintained (no changes to ffmpeg-backend docker-compose.yml)
+- Automatic database creation via init script
+
+### Pattern: Automatic Database Initialization
+**Date:** 2025-11-17
+**Context:** Need to automatically create `ffmpeg_backend` database when postgres container starts
+**Decision:** Created shell script (`docker/postgres/init-ffmpeg-db.sh`) that runs during postgres initialization
+**Details:**
+- Script runs as postgres superuser during container initialization
+- Checks if database exists before creating (idempotent)
+- Grants privileges to application user
+- Runs after main database initialization (alphabetical ordering: 01-init.sql, then 02-init-ffmpeg-db.sh)
+**Rationale:**
+- No manual database creation required
+- Works on first startup and subsequent restarts
+- Follows PostgreSQL Docker image initialization pattern
+
+*(Additional patterns to be populated as video generation pipeline evolves)*

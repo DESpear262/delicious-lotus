@@ -53,7 +53,7 @@ resource "aws_ecs_task_definition" "backend" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+        command     = ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').read()\" || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -79,6 +79,16 @@ resource "aws_ecs_service" "backend" {
     subnets          = var.subnet_ids
     security_groups  = [var.security_group_id]
     assign_public_ip = true # Required for Fargate to pull images from ECR
+  }
+
+  # Load balancer configuration (if target group ARN is provided)
+  dynamic "load_balancer" {
+    for_each = var.target_group_arn != "" ? [1] : []
+    content {
+      target_group_arn = var.target_group_arn
+      container_name   = "backend"
+      container_port   = 8000
+    }
   }
 
   # Deployment configuration

@@ -1,0 +1,259 @@
+/* ClipTrack Component Styles */
+
+.clipTrack {
+  position: relative;
+  min-height: 120px;
+  background-color: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.clipTrack__container {
+  position: relative;
+  height: 120px;
+  padding: var(--spacing-2) 0;
+}
+
+.clipTrack__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.clipTrack__emptyHint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-2);
+}
+
+/* Individual Clip */
+.clip {
+  position: absolute;
+  top: var(--spacing-2);
+  height: calc(100% - var(--spacing-4));
+  background-color: var(--color-bg-primary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: grab;
+  transition: all var(--transition-fast);
+  overflow: hidden;
+  user-select: none;
+}
+
+.clip:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+.clip:active {
+  cursor: grabbing;
+}
+
+.clip--selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  z-index: 20;
+}
+
+.clip--trimming {
+  cursor: ew-resize;
+}
+
+.clip__thumbnail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 32px;
+  overflow: hidden;
+  background-color: var(--color-bg-secondary);
+}
+
+.clip__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-tertiary);
+}
+
+.clip__placeholderIcon {
+  width: 32px;
+  height: 32px;
+}
+
+.clip__info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-2);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.clip__number {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip__duration {
+  flex-shrink: 0;
+  margin-left: var(--spacing-2);
+}
+
+/* Transition indicators */
+.clip__transitionIn,
+.clip__transitionOut {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+}
+
+.clip__transitionIn {
+  left: var(--spacing-2);
+}
+
+.clip__transitionOut {
+  right: var(--spacing-2);
+}
+
+/* Trim handles */
+.clip__trimHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background-color: var(--color-primary);
+  opacity: 0;
+  cursor: ew-resize;
+  transition: opacity var(--transition-fast);
+  z-index: 40;
+}
+
+.clip--selected .clip__trimHandle {
+  opacity: 0.7;
+}
+
+.clip__trimHandle:hover,
+.clip__trimHandle--active {
+  opacity: 1;
+  background-color: var(--color-primary-dark);
+}
+
+.clip__trimHandle--start {
+  left: 0;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.clip__trimHandle--end {
+  right: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* Delete button */
+.clip__deleteButton {
+  position: absolute;
+  top: var(--spacing-1);
+  right: var(--spacing-1);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-error);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: all var(--transition-fast);
+  z-index: 50;
+}
+
+.clip__deleteButton:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.clip__deleteButton:active {
+  transform: scale(0.95);
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 767px) {
+  /* Touch-friendly interactions */
+  .clipTrack__clip,
+  .timeRuler__marker,
+  .transitionPicker__option {
+    min-height: var(--touch-target-min);
+  }
+
+  /* Larger touch targets for interactive elements */
+  .clipTrack__deleteButton,
+  .clipTrack__trimHandle,
+  .transitionPicker__button {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    padding: var(--spacing-2);
+  }
+
+  /* Horizontal scroll for timeline */
+  .clipTrack,
+  .timeRuler {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Larger clip thumbnails for better visibility */
+  .clipTrack__thumbnail {
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  /* Better spacing */
+  .clipTrack {
+    gap: var(--spacing-2);
+  }
+
+  /* Larger fonts for readability */
+  .clipTrack__duration,
+  .timeRuler__time {
+    font-size: var(--font-size-sm);
+  }
+
+  /* Transition picker as bottom sheet on mobile */
+  .transitionPicker__dropdown {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 50vh;
+  }
+}

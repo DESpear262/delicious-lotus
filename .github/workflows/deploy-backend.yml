@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'fastapi/**'
+      - 'backend-api/**'
       - '.github/workflows/deploy-backend.yml'
 
   # Allow manual deployment trigger
@@ -26,7 +26,7 @@ env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
   ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-  ECS_TASK_FAMILY: ai-video-backend
+  ECS_TASK_FAMILY: backend-api
   PYTHON_VERSION: '3.13'
 
 jobs:
@@ -64,8 +64,8 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi
-          file: ./fastapi/Dockerfile
+          context: ./backend-api
+          file: ./backend-api/Dockerfile
           push: false
           load: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -106,37 +106,37 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest-cov black flake8 mypy
 
       - name: Run Black (code formatting check)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
-          black --check app/ tests/ || echo "Black formatting check completed with warnings"
+          black --check src/ tests/ || echo "Black formatting check completed with warnings"
 
       - name: Run Flake8 (linting)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
-          flake8 app/ tests/ --max-line-length=100 --extend-ignore=E203,W503 || echo "Flake8 linting completed with warnings"
+          flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503 || echo "Flake8 linting completed with warnings"
 
       - name: Run MyPy (type checking)
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
-          mypy app/ --ignore-missing-imports || echo "MyPy type checking completed with warnings"
+          mypy src/ --ignore-missing-imports || echo "MyPy type checking completed with warnings"
 
       - name: Run pytest with coverage
-        working-directory: ./fastapi
+        working-directory: ./backend-api
         run: |
-          pytest tests/ --cov=app --cov-report=xml --cov-report=term-missing --junitxml=test-results.xml -v
+          pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing --junitxml=test-results.xml -v
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: fastapi/coverage.xml
+          path: backend-api/coverage.xml
           retention-days: 30
 
       - name: Upload test results
@@ -144,7 +144,7 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: fastapi/test-results.xml
+          path: backend-api/test-results.xml
           retention-days: 30
 
   # Job 3: Push image to ECR (only if tests pass)

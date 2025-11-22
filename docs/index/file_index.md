@@ -87,8 +87,10 @@ This index tracks all files created during the AI Backend development process.
 ## Infrastructure Files
 
 ### Docker
-- `docker/docker-compose.yml` - Local development environment
-- `docker/postgres/init.sql` - Database initialization
+- `docker-compose.yml` - Root docker-compose configuration with all services (main backend, FFmpeg backend API, FFmpeg backend worker, postgres, redis)
+- `docker/postgres/init.sql` - Main database initialization (ai_video_pipeline)
+- `docker/postgres/init-ffmpeg-db.sh` - FFmpeg backend database initialization script (creates ffmpeg_backend database)
+- `docker/postgres/init-ffmpeg-db.sql` - Reference SQL file (actual creation done via shell script)
 - `docker/redis/redis.conf` - Redis configuration
 
 ### FastAPI Backend
@@ -102,6 +104,35 @@ This index tracks all files created during the AI Backend development process.
 - `frontend/vite.config.ts` - Vite build configuration
 - `frontend/tsconfig.json` - TypeScript configuration
 - `frontend/eslint.config.js` - ESLint configuration
+- `frontend/index.html` - HTML entry point with Google Fonts (Inter, Orbitron, JetBrains Mono)
+
+### Frontend Styling & Theme
+- `frontend/src/styles/globals.css` - Global CSS variables and cyberpunk theme tokens
+- `frontend/src/styles/components.css` - Base component styles with dark theme
+- `frontend/src/styles/animations.css` - Cyberpunk animations (neon glow, shimmer, scanlines)
+- `frontend/src/styles/responsive.css` - Responsive design breakpoints
+- `frontend/src/components/ui/Button.module.css` - Button component with neon styling
+- `frontend/src/components/ui/Card.module.css` - Card component with glassmorphism effects
+- `frontend/src/components/ui/Input.module.css` - Input component with dark theme
+- `frontend/src/components/ui/Textarea.module.css` - Textarea component with dark theme
+- `frontend/src/components/ui/ConfirmDialog.module.css` - ConfirmDialog styling with cyberpunk theme
+- `frontend/src/layouts/MainLayout.module.css` - Main layout with backdrop blur and neon borders
+
+### Frontend Form Validation
+- `frontend/src/utils/formValidation.ts` - Form validation rules (updated: removed 500-char minimum)
+- `frontend/src/components/GenerationForm/PromptInput.tsx` - Prompt input component (updated: removed character limit validation)
+
+### Frontend UI Components
+- `frontend/src/components/ui/ConfirmDialog.tsx` - Custom confirmation dialog component with customizable buttons
+- `frontend/src/components/ui/ConfirmDialog.module.css` - Styling for ConfirmDialog with cyberpunk theme
+- `frontend/src/components/ui/index.ts` - UI components export index
+
+### Frontend Hooks
+- `frontend/src/hooks/useFormPersistence.ts` - Form draft persistence hook with localStorage (updated: uses ConfirmDialog instead of window.confirm)
+- `frontend/src/hooks/useGenerationForm.ts` - Generation form state management hook (updated: exposes ConfirmDialog state)
+
+### Frontend Pages
+- `frontend/src/pages/AdCreativeForm.tsx` - Ad creative generation form page (updated: renders ConfirmDialog for draft restoration)
 
 ## Agent Coordination
 
@@ -112,9 +143,12 @@ This index tracks all files created during the AI Backend development process.
 - `commits/Orange/` - Orange agent commit records
 - `fastapi/commits/Orange/` - Backend-specific Orange commits
 - `commits/Blonde/` - Blonde agent commit records (PR #004)
+- `commits/Blue/` - Blue agent commit records (Frontend theme implementation, prompt validation fixes)
+- `commits/Silver/` - Silver agent commit records (Vite dev proxy for frontend API/WebSocket traffic)
 
 ## Root Files
 
 - `requirements.txt` - Consolidated Python dependencies from all modules
 - `LICENSE` - Project license
 - `README.md` - Project overview (pending)
+- `bughunt.md` - Transcribed notes from the front-end bughunt on 2025-11-15

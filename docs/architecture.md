@@ -571,8 +571,8 @@ erDiagram
 
 ```python
 # backend/app/main.py
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from backend-api import FastAPI
+from backend-api.staticfiles import StaticFiles
 
 app = FastAPI()
 

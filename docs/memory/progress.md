@@ -2,6 +2,8 @@
 
 **Purpose:** Track what's actually implemented and working, known bugs, and current status.
 
+**Last Updated:** 2025-11-17 by Silver (Docker integration: FFmpeg backend services)
+**Last Updated:** 2025-11-15 by Blue (Verbose Generation Progress & Logging)
 **Last Updated:** 2025-11-15 by Orange (Real Video Generation Working)
 **Last Updated:** 2025-11-14 by QC Agent (Block D QC Complete)
 **Last Updated:** 2025-11-14 by White
@@ -14,6 +16,8 @@
 - ✅ Local development environment (Docker Compose, PostgreSQL, Redis)
 - ✅ Production-ready database schema (9 tables, views, triggers, helpers)
 - ✅ Environment configuration templates (60+ variables for FastAPI, AI service configs)
+- ✅ **Unified Docker Compose setup** - Root docker-compose.yml includes main backend, FFmpeg backend API, and FFmpeg backend worker services. All services share postgres and redis instances with separate databases. FFmpeg backend runs on port 8001.
+- ✅ **Automatic database initialization** - `ffmpeg_backend` database automatically created on first postgres startup via `docker/postgres/init-ffmpeg-db.sh` script.
 
 ### Frontend
 - ✅ React 19 + Vite + TypeScript project initialized
@@ -24,6 +28,25 @@
 - ✅ Core UI components (Button, Input, Card, Spinner, Toast) - 17 files, 2,436 lines
 - ✅ Responsive framework (mobile, tablet, desktop breakpoints)
 - ✅ Animation system (fade, slide, spin)
+- ✅ **Cyberpunk theme fully implemented** - Dark backgrounds with neon accents, glassmorphism effects, scanline patterns, holographic animations
+- ✅ Typography updated with Inter, Orbitron, and JetBrains Mono fonts
+- ✅ Prompt validation updated - removed 500-character minimum, only 2000-character maximum enforced
+- ✅ **ConfirmDialog component** - Custom modal dialog replacing browser confirm with "Resume" and "Discard" buttons for better UX
+- ✅ **Replicate video generation centralized** - Extracted working logic from cli.py into reusable generate_video_clips function in ffmpeg-backend
+- ✅ **Parallelization support** - Added option to generate video clips concurrently (faster) or sequentially (more coherent). UI switch in ReviewStep with clear messaging about tradeoffs
+- ✅ **Switch UI component** - New toggle switch component with cyberpunk theme styling
+- ✅ **StorageService** - Environment-aware storage service supporting both S3 (production) and local filesystem (development). Handles file uploads, presigned URLs, and automatic backend switching
+- ✅ **GenerationStorageService** - PostgreSQL-based storage for generation metadata with connection pooling, CRUD operations, and pagination support
+- ✅ **S3 video storage** - Videos from Replicate are automatically uploaded to S3/local storage after generation, stored at `generations/{generation_id}/clips/{clip_id}.mp4`
+- ✅ **Database persistence** - Generation metadata stored in PostgreSQL with JSONB fields for flexible metadata storage
+- ✅ **GET /api/v1/generations endpoint** - List generations with pagination, status filtering, and proper error handling
+- ✅ **History page null safety** - Fixed TypeError by adding defensive checks for undefined/empty generations arrays
+- ✅ **Replicate webhook integration** - Async video generation using Replicate webhooks. Server returns immediately after starting generation, Replicate calls webhook when complete. Webhook handler downloads videos, uploads to S3, and updates database. No more polling overhead.
+- ✅ **Generation retrieval fallback** - `GET /api/v1/generations/{id}` now returns clip metadata even when the clip-assembly service is unavailable by reading webhook `video_results`, so the frontend receives completed clips without additional infrastructure.
+- ✅ **Webhook completion status propagation** - Webhook handler now marks generations as completed/failed, syncs the in-memory store, and emits WebSocket events so the frontend leaves the loading state when clips finish.
+- ✅ **Verbose generation progress page** - Enhanced GenerationProgress page with CLI-style step-by-step display showing: Step 1 (Analyzing Prompt), Step 2 (Decomposing Scenes), Step 3 (Building Micro-Prompts), Step 4 (Generating Videos), Step 5 (Video Composition), Step 6 (Final Rendering). Current step details and percentage progress displayed.
+- ✅ **Comprehensive backend logging** - Added verbose console logging throughout video generation pipeline matching CLI output format. Logs include [START], [STEP 1-4], [OK], [ERROR], [INFO] prefixes. Logging in FastAPI create_generation endpoint and ffmpeg-backend generate_video_clips function. All logs visible in backend terminal for debugging.
+- ✅ **Enhanced frontend console logging** - Improved browser console logging with formatted messages: [PROGRESS], [OK], [ERROR], [STATUS], [INFO]. Detailed progress updates, clip completion notifications, and error messages. All accessible from browser dev tools for debugging infinite loading issues.
 
 ### Backend/AI
 - ✅ Block 0 Complete: Full API skeleton with routing, error handling, validation, and contracts (PRs #001-#005)
@@ -38,6 +61,9 @@
 - ✅ Brand consistency engine with accessibility compliance and visual coherence
 - ✅ AI video generation orchestration with Wan-video/wan-2.2-t2v-fast integration
 - ✅ Natural language video editing with safety guardrails and conflict resolution
+- ✅ Frontend → backend brand payload aligned with `BrandConfig` (`brand.colors` now sent as `ColorPalette` object, avoiding 500 errors on `POST /api/v1/generations`)
+- ✅ Scene decomposition and micro-prompt builder updated to support both legacy flat color lists and the new `ColorPalette` object format (no more slice-related runtime errors during generation).
+- ✅ Local generation lifecycle from web UI works end-to-end in dev (prompt → analysis → scenes → micro-prompts → generation record + progress polling), with FastAPI always populating in-memory `_generation_store` so status retrieval works even if database/Redis/clip storage are misconfigured.
 
 ### FFmpeg/Video Processing
 - ❓ Status unknown
@@ -47,13 +73,18 @@
 ## Known Issues
 
 ### Critical
-- None yet
+- None currently (generation requests succeed and status polling works in dev).
+
+### Resolved
+- ✅ **Windows CRLF line endings in init script** (2025-11-17) - `docker/postgres/init-ffmpeg-db.sh` had Windows line endings (CRLF) causing "required file not found" error during postgres initialization. Fixed by converting to Unix line endings (LF) using `dos2unix`/`sed -i 's/\r$//'`.
+- ✅ **Prompt analysis timestamp failure** (2025-11-17) - Real ChatGPT responses return unix epoch integers for `created`, which triggered `'int' object has no attribute 'isoformat'` during preprocessing. `ai/core/openai_client.py` now normalizes ints/floats/datetimes into UTC ISO strings so non-simulated preprocessing succeeds.
+- ✅ **OpenAI preprocessing workflow audit complete** (2025-11-17) - Comprehensive audit of the full OpenAI preprocessing pipeline revealed and fixed multiple potential failure points. Added robust `normalize_analysis_data()` function that handles enum mapping, data type conversion, list/string normalization, numeric validation, and nested object sanitization. All edge cases now handled gracefully to prevent 500 errors from malformed ChatGPT responses.
 
 ### High Priority
-- None yet
+- FFmpeg backend is not yet wired into the FastAPI container image in dev; `generate_video_clips` import fails with `No module named 'app.api.v1'`, so real clip generation/storage must be exercised via the ffmpeg-backend service/CLI rather than the FastAPI container.
 
 ### Medium Priority
-- None yet
+- Local Postgres schema for `clips` (and related tables) may be out-of-date in some environments, causing non-fatal `column "generation_id" does not exist` errors when `ClipAssemblyService` attempts retrieval. Generation metadata is still available via in-memory store, but DB-backed clip retrieval and progress need migrations or schema reset.
 
 ### Low Priority
 - Minor: NotFoundError exception handling not working in test environment (1 failing test)
@@ -110,10 +141,10 @@
 - ✅ Block E PR 503: Consistency Enforcement Layer - Complete (White)
 - ✅ Block E PR 504: Integration & QC - Complete (QC Agent)
 
-### Frontend Track (1/16+ complete)
-### Frontend Track (2/16+ complete)
+### Frontend Track (3/16+ complete)
 - ✅ PR-F001: Project Initialization - Complete (commit 68eee3f)
 - ✅ PR-F002: Design System Foundation - Complete (commit dec2632)
+- ✅ Frontend Theme Implementation - Complete (Blue) - Cyberpunk styling, prompt validation fixes, bughunt notes transcription
 - 🎯 PR-F003: API Client Setup - Unblocked (2h)
 - 🎯 PR-F005: Routing/Layout - Unblocked (2h)
 - 🎯 PR-F016: User Documentation - Unblocked (2h)

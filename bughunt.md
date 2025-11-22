@@ -4,15 +4,14 @@ This document transcribes the handwritten notes from the front-end bughunt condu
 
 ## Raw Transcription
 
-- Check default generation time (forced by front-end, disregard).
-- Parallelize generations.
-- Replicate call webhook when done?
-- Save generations to S3 and call other modules to handle generations.
-- Arbitrary char limit needs to go away.
-- Sending requests fails with 404 (request to `/ai/v1/generations`).
-- Previous draft checker needs more helpful messages on buttons.
-- History button gives JS but not HTTP errors.
-- Logo uploads fail 404 at `api/v1/assets/upload`.
-- Front end looks like ass, make it pretty.
-- Check gun ads.
-
+~~- Replicate call webhook when done?~~
+~~- Sending requests fails with 404 (request to `/api/v1/generations`).~~
+~~- Logo uploads fail 404 at `api/v1/assets/upload`.~~
+~~- Parallelize generations.~~
+~~- Front end looks like ass, make it pretty.~~
+~~- Check gun ads.~~
+~~- Previous draft checker needs more helpful messages on buttons.~~
+~~- Arbitrary char limit needs to go away.~~
+~~- Check default generation time (forced by front-end, disregard).~~
+~~- Save generations to S3 and call other modules to handle generations.~~
+~~- History button gives JS but not HTTP errors.~~

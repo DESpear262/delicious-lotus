@@ -15,7 +15,7 @@ variable "environment" {
 variable "ecr_repository_name" {
   description = "Name of the ECR repository"
   type        = string
-  default     = "ai-video-backend"
+  default     = "backend-api"
 }
 
 # S3 Configuration
@@ -92,13 +92,13 @@ variable "ecs_cluster_name" {
 variable "ecs_service_name" {
   description = "ECS service name"
   type        = string
-  default     = "ai-video-backend-service"
+  default     = "backend-api-service"
 }
 
 variable "ecs_task_family" {
   description = "ECS task definition family"
   type        = string
-  default     = "ai-video-backend"
+  default     = "backend-api"
 }
 
 variable "container_image_tag" {
@@ -137,6 +137,13 @@ variable "replicate_api_token" {
   type        = string
   sensitive   = true
   default     = "" # Must be provided
+}
+
+variable "cloudfront_secret" {
+  description = "Secret header value to verify requests come from CloudFront"
+  type        = string
+  sensitive   = true
+  default     = "change-me-in-production"
 }
 
 # CloudWatch Monitoring Configuration

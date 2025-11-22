@@ -2,19 +2,21 @@
 
 **Purpose:** Tech stack details, setup procedures, and discovered constraints.
 
-**Last Updated:** 2025-11-14 by Orange
+**Last Updated:** 2025-11-17 by Silver
 
 ---
 
 ## Tech Stack Overview
 
 ### Frontend
-- **Framework:** React 18 with TypeScript
+- **Framework:** React 19 with TypeScript
 - **Build Tool:** Vite
 - **Routing:** React Router v6
 - **HTTP Client:** Axios
 - **WebSocket:** Socket.io client
 - **Styling:** CSS Modules + CSS Variables (NO Tailwind per project requirements)
+- **Typography:** Inter (body), Orbitron (headings), JetBrains Mono (monospace) via Google Fonts
+- **Theme:** Cyberpunk aesthetic with dark backgrounds, neon accents, glassmorphism effects
 - **Target Output:** Static files served by backend
 
 ### Backend (AI + FFmpeg combined)
@@ -39,9 +41,17 @@
 ### Local Setup (PR-D001)
 - Docker Compose for local development
 - PostgreSQL 16 container (port 5432)
+  - Main database: `ai_video_pipeline` (for main backend)
+  - FFmpeg database: `ffmpeg_backend` (auto-created via init script)
 - Redis 7 container (port 6379, using redis:7-alpine image)
+  - Shared by both main backend and FFmpeg backend
+- Services:
+  - `backend`: Main FastAPI backend (port 8000)
+  - `ffmpeg-backend-api`: FFmpeg backend API (port 8001)
+  - `ffmpeg-backend-worker`: RQ worker for background job processing
 - Environment variables via .env file
 - Hot reload for both frontend and backend
+- All services on `ai-video-network` for inter-service communication
 
 ---
 

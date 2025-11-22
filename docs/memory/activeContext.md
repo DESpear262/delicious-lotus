@@ -2,7 +2,7 @@
 
 **Purpose:** What's happening right now, recent changes, current focus areas.
 
-**Last Updated:** 2025-11-14 by White
+**Last Updated:** 2025-11-17 by Silver (Docker integration: FFmpeg backend services added to root docker-compose)
 
 ---
 
@@ -91,7 +91,7 @@
 - ✅ Work priority? → Parallel tracks
 
 ### Open
-- None currently
+- How aggressively should we rely on database/Redis vs in-memory fallbacks for local development when Postgres schema is out of sync?
 
 ---
 
@@ -129,3 +129,11 @@
 **2025-11-14 ~16:00** - PR-D005 and PR-F002 completed by Orange and White (parallel)
 **2025-11-14 ~16:30** - White claimed identity for planning session
 **2025-11-14 ~16:35** - Created consolidated task-list.md with all tracks
+**2025-11-15** - Blue: Transcribed bughunt notes, removed prompt character limit validation, implemented comprehensive cyberpunk theme facelift across entire frontend
+**2025-11-15** - Blue: Created ConfirmDialog component to replace browser confirm dialogs with styled modals using "Resume" and "Discard" button labels
+**2025-11-15** - Blue: Extracted Replicate video generation logic from cli.py into centralized generate_video_clips function in ffmpeg-backend/src/app/api/v1/replicate.py. Added parallelization support (concurrent vs sequential generation). Added UI switch in ReviewStep for parallelize_generations option. Updated both cli.py and FastAPI backend to use the centralized function.
+**2025-11-15** - Blue: Implemented S3 and database storage for generations. Created StorageService (S3/local filesystem), GenerationStorageService (PostgreSQL), updated generate_video_clips to upload videos to storage, added GET /api/v1/generations endpoint, fixed History page null safety, added thumbnail generation to TODO.md.
+**2025-11-15** - Blue: Implemented Replicate webhook-based async video generation. Created webhook endpoint POST /api/v1/webhooks/replicate, updated generate_video_clips to use webhooks instead of polling, added prediction_id mapping storage, webhook handler processes results and uploads to S3. Generation now returns immediately instead of blocking on Replicate completion.
+**2025-11-15** - Blue: Enhanced video generation progress page with verbose CLI-style step display. Updated GenerationProgress page to show detailed steps (Analyzing Prompt, Decomposing Scenes, Building Micro-Prompts, Generating Videos, Composition, Rendering). Added comprehensive console logging throughout backend (FastAPI and ffmpeg-backend) matching CLI output format. Enhanced frontend console logging with formatted progress messages. All logging accessible from browser dev tools and backend terminal for debugging infinite loading issues.
+**2025-11-17** - Silver: Debugged end-to-end generation via web app. Fixed frontend → backend API proxying, aligned brand payload with backend `BrandConfig` (nested `ColorPalette`), updated scene decomposition and micro-prompt builder to handle new brand color format, wired FastAPI Socket.io ASGI app and frontend Socket.io client (`/socket.io` + `generation_id` query), and ensured in-memory `_generation_store` is always populated so `GET /api/v1/generations/{id}` works even when Postgres/Redis or clip storage are misconfigured.
+**2025-11-17** - Silver: Integrated FFmpeg backend services into root docker-compose.yml. Added `ffmpeg-backend-api` (port 8001) and `ffmpeg-backend-worker` services that share the same postgres and redis instances as the main backend. Created automatic database initialization script (`docker/postgres/init-ffmpeg-db.sh`) to create `ffmpeg_backend` database on first startup. All changes isolated to root docker-compose.yml so ffmpeg-backend team can continue using their own docker-compose.yml independently.

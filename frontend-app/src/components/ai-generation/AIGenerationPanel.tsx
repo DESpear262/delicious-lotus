@@ -74,43 +74,20 @@ export default function AIGenerationPanel() {
             aspectRatio: params.aspectRatio,
           })
         } else {
-          // Video generation using T2V model
-          // Map aspect ratios to valid T2V sizes (wan-video/wan-2.5-t2v supported sizes)
-          // Valid sizes: "832*480", "480*832", "1280*720", "720*1280", "1920*1080", "1080*1920"
-          let size = '1280*720' // default 16:9 HD
-
-          switch (params.aspectRatio) {
-            case '16:9':
-              size = '1280*720'
-              break
-            case '9:16':
-              size = '720*1280'
-              break
-            case '1:1':
-              // 1:1 (square) not supported by T2V model, use 16:9 as fallback
-              console.warn('[AIGenerationPanel] 1:1 aspect ratio not supported for video, using 16:9')
-              size = '1280*720'
-              break
-            case '4:3':
-              // 4:3 not exactly supported, use closest 16:9
-              console.warn('[AIGenerationPanel] 4:3 aspect ratio not supported for video, using 16:9')
-              size = '1280*720'
-              break
-            default:
-              console.error('[AIGenerationPanel] Invalid aspect ratio:', params.aspectRatio)
-              size = '1280*720'
-          }
-
+          // Video generation using Advanced Pipeline (Multi-step AI)
+          // The backend handles prompt analysis, scene decomposition, and micro-prompting.
+          // We just pass the high-level intent (prompt + aspect ratio).
+          
           console.log('[AIGenerationPanel] Video generation params:', {
             prompt: params.prompt,
             aspectRatio: params.aspectRatio,
-            size
           })
 
           response = await generateVideo({
             prompt: params.prompt,
-            size,
-            duration: 5, // Default 5 seconds
+            aspectRatio: params.aspectRatio,
+            duration: 15, // Default minimum duration for advanced pipeline
+            quality: params.qualityTier === 'hq' ? 'high' : 'standard'
           })
         }
 

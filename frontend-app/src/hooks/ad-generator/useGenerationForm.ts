@@ -2,12 +2,13 @@
  * Generation Form State Management Hook
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AdCreativeFormData } from '@/types/ad-generator/form';
 import { createGeneration, generateVideoClipPrompts } from '@/services/ad-generator/services/generation';
 import { useFormValidation } from './useFormValidation';
-import { useFormPersistence } from './useFormPersistence';
+import { useProjectStore } from '@/contexts/StoreContext';
+import { createProjectStore } from '@/stores/projectStore';
 import type {
   CreateGenerationRequest,
   CreateGenerationResponse,
@@ -43,6 +44,14 @@ export function useGenerationForm() {
   const [promptError, setPromptError] = useState<string | null>(null);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
 
+  // Project Store Integration
+  const currentProjectId = useProjectStore((state) => state.currentProjectId);
+  const compositionConfig = useProjectStore((state) => state.compositionConfig);
+  const addProject = useProjectStore((state) => state.addProject);
+  const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
+  const updateCompositionConfig = useProjectStore((state) => state.updateCompositionConfig);
+  const saveProject = useProjectStore((state) => state.saveProject);
+
   const {
     errors,
     validateCurrentStep,
@@ -53,48 +62,73 @@ export function useGenerationForm() {
   } = useFormValidation();
 
   /**
-   * Handle form data restoration from localStorage
+   * Initialize or Load Project
    */
-  const handleRestore = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => {
-    setFormData(data);
-    setCurrentStep(step);
-  }, []);
+  useEffect(() => {
+    // If we have a current project with adWizard data, load it
+    if (currentProjectId && compositionConfig?.adWizard) {
+      const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+      if (savedData) setFormData(savedData);
+      if (savedStep) setCurrentStep(savedStep);
+      if (savedPrompts) setPromptResult(savedPrompts);
+    } else if (!currentProjectId) {
+      // No active project, create a new one for this session
+      // We use the static store method to avoid dependency cycles or unnecessary re-renders
+      // actually we can use the hook methods since we are inside a component
+      const projectId = addProject(
+        { name: `Ad Campaign ${new Date().toLocaleTimeString()}`, description: 'Auto-generated ad campaign' },
+        { aspectRatio: '16:9' } // Default
+      );
+      setCurrentProject(projectId);
+    }
+  }, [currentProjectId, compositionConfig, addProject, setCurrentProject]);
 
-  const {
-    clearStorage,
-    showRestoreDialog,
-    handleResume,
-    handleDiscard,
-  } = useFormPersistence(formData, currentStep, handleRestore);
+  /**
+   * Persist state to Project Store
+   */
+  const persistState = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4, prompts?: VideoPromptResponse | null) => {
+    if (!currentProjectId) return;
+
+    updateCompositionConfig({
+      adWizard: {
+        formData: data,
+        currentStep: step,
+        promptResult: prompts ?? promptResult // Keep existing prompts if not updated
+      }
+    });
+    // Trigger save (autosave will handle debouncing, but we ensure state is in store)
+  }, [currentProjectId, updateCompositionConfig, promptResult]);
 
   /**
    * Update a single field
    */
   const updateField = useCallback(
     (field: string | keyof AdCreativeFormData, value: any) => {
-      setFormData((prev) => {
-        // Handle nested fields (e.g., brandColors.primary)
-        if (field.includes('.')) {
-          const [parent, child] = field.split('.') as [keyof AdCreativeFormData, string];
-          return {
-            ...prev,
-            [parent]: {
-              ...(prev[parent] as any),
-              [child]: value,
-            },
-          };
-        }
-
-        return {
-          ...prev,
+      let newFormData = { ...formData };
+      
+      // Handle nested fields (e.g., brandColors.primary)
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.') as [keyof AdCreativeFormData, string];
+        newFormData = {
+          ...newFormData,
+          [parent]: {
+            ...(newFormData[parent] as any),
+            [child]: value,
+          },
+        };
+      } else {
+        newFormData = {
+          ...newFormData,
           [field]: value,
         };
-      });
+      }
 
+      setFormData(newFormData);
+      persistState(newFormData, currentStep);
       clearFieldError(field as string);
       setSubmitError(null);
     },
-    [clearFieldError]
+    [formData, currentStep, persistState, clearFieldError]
   );
 
   /**
@@ -102,11 +136,13 @@ export function useGenerationForm() {
    */
   const updateMultipleFields = useCallback(
     (updates: Partial<AdCreativeFormData>) => {
-      setFormData((prev) => ({ ...prev, ...updates }));
+      const newFormData = { ...formData, ...updates };
+      setFormData(newFormData);
+      persistState(newFormData, currentStep);
       clearErrors();
       setSubmitError(null);
     },
-    [clearErrors]
+    [formData, currentStep, persistState, clearErrors]
   );
 
   /**
@@ -136,32 +172,37 @@ export function useGenerationForm() {
     }
 
     if (currentStep < 4) {
-      setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3 | 4);
+      const next = (currentStep + 1) as 1 | 2 | 3 | 4;
+      setCurrentStep(next);
+      persistState(formData, next);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     return true;
-  }, [currentStep, formData, validateCurrentStep]);
+  }, [currentStep, formData, validateCurrentStep, persistState]);
 
   /**
    * Navigate to previous step
    */
   const previousStep = useCallback(() => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+      const prev = (currentStep - 1) as 1 | 2 | 3 | 4;
+      setCurrentStep(prev);
+      persistState(formData, prev);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       clearErrors();
     }
-  }, [currentStep, clearErrors]);
+  }, [currentStep, formData, persistState, clearErrors]);
 
   /**
    * Navigate to a specific step
    */
   const goToStep = useCallback((step: 1 | 2 | 3 | 4) => {
     setCurrentStep(step);
+    persistState(formData, step);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     clearErrors();
-  }, [clearErrors]);
+  }, [formData, persistState, clearErrors]);
 
   /**
    * Build API request from form data
@@ -217,9 +258,8 @@ export function useGenerationForm() {
       const request = buildRequest();
       const response = await createGeneration(request);
 
-      // Clear localStorage draft on success
-      clearStorage();
-
+      // Save analysis result to project state? Maybe later.
+      
       // Surface analysis output to the UI
       setAnalysisResult(response);
     } catch (error: any) {
@@ -246,7 +286,7 @@ export function useGenerationForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateCurrentStep, buildRequest, clearStorage]);
+  }, [formData, validateCurrentStep, buildRequest]);
 
   /**
    * Generate clip-level prompts via backend OpenAI helper
@@ -272,9 +312,14 @@ export function useGenerationForm() {
 
       const response = await generateVideoClipPrompts(request);
       setPromptResult(response);
-      // Persist for navigation and navigate to results page
+      
+      // Persist results to project
+      persistState(formData, currentStep, response);
+      
+      // Also save to sessionStorage for legacy support/backup
       sessionStorage.setItem('promptResult', JSON.stringify(response));
-      navigate('/ad-generator/prompt-results', { state: { promptResult: response } });
+      
+      navigate('/ad-generator/prompt-results');
     } catch (error: any) {
       console.error('Failed to generate clip prompts:', error);
       const message = error?.message || 'Failed to generate clip prompts. Please try again.';
@@ -282,7 +327,7 @@ export function useGenerationForm() {
     } finally {
       setIsGeneratingPrompts(false);
     }
-  }, [formData, navigate]);
+  }, [formData, currentStep, navigate, persistState]);
 
   /**
    * Reset form to initial state
@@ -292,8 +337,11 @@ export function useGenerationForm() {
     setCurrentStep(1);
     clearErrors();
     setSubmitError(null);
-    clearStorage();
-  }, [clearErrors, clearStorage]);
+    // Clear project config? Maybe just reset adWizard part
+    if (currentProjectId) {
+        updateCompositionConfig({ adWizard: undefined });
+    }
+  }, [clearErrors, currentProjectId, updateCompositionConfig]);
 
   return {
     // State
@@ -304,10 +352,10 @@ export function useGenerationForm() {
     promptResult,
     promptError,
     isGeneratingPrompts,
-    // Form persistence dialog
-    showRestoreDialog,
-    handleResume,
-    handleDiscard,
+    // Legacy dialog support (can be removed if no longer needed)
+    showRestoreDialog: false, 
+    handleResume: () => {},
+    handleDiscard: () => {},
     isSubmitting,
     submitError,
 

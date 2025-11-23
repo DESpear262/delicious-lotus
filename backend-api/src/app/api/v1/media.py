@@ -920,6 +920,7 @@ async def list_media_assets(
                 thumbnail_url=thumbnail_url,
                 tags=asset.tags,
                 created_at=asset.created_at,
+                metadata=asset.file_metadata,
             )
             asset_responses.append(asset_response)
 

@@ -166,6 +166,7 @@ export function PromptInput({
   isPending,
   defaultPrompt,
   defaultType,
+  defaultAspectRatio,
   autoPrompts,
 }: {
   onGenerate: (params: {
@@ -183,6 +184,7 @@ export function PromptInput({
   isPending: boolean
   defaultPrompt?: string
   defaultType?: GenerationType
+  defaultAspectRatio?: '16:9' | '9:16' | '1:1' | '4:3'
   autoPrompts?: Partial<Record<GenerationType, string>>
 }) {
   // Basic State
@@ -191,7 +193,7 @@ export function PromptInput({
   const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell')
 
   // Input State
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9')
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>(defaultAspectRatio || '16:9')
   const [duration, setDuration] = useState<number>(5)
   const [resolution, setResolution] = useState<string>('1080p')
   const [imageInput, setImageInput] = useState('')

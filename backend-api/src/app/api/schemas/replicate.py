@@ -1,5 +1,6 @@
 """Replicate API schemas for AI generation models."""
 
+from typing import Any
 from pydantic import BaseModel, Field, HttpUrl
 
 
@@ -563,7 +564,7 @@ class ReplicateWebhookPayload(BaseModel):
 
     id: str = Field(..., description="Prediction ID")
     status: str = Field(..., description="Status: succeeded, failed, canceled")
-    output: list[str] | str | None = Field(None, description="Output URL(s)")
+    output: Any | None = Field(None, description="Output URL(s) or object")
     error: str | None = Field(None, description="Error message if failed")
     logs: str | None = Field(None, description="Generation logs")
     metrics: dict | None = Field(None, description="Performance metrics")

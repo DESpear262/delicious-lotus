@@ -228,6 +228,9 @@ class CompositionResponse(BaseModel):
     updated_at: datetime = Field(..., description="When composition was last updated")
     output_url: str | None = Field(None, description="URL to final output (when completed)")
     error_message: str | None = Field(None, description="Error message if processing failed")
+    composition_config: dict[str, Any] = Field(
+        default_factory=dict, description="Composition configuration data (tracks, clips, wizard state)"
+    )
 
     class Config:
         """Pydantic configuration."""

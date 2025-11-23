@@ -201,6 +201,7 @@ export interface ProjectState {
   // Current project being edited
   metadata: ProjectMetadata
   settings: ProjectSettings
+  compositionConfig: Record<string, any> // Flexible configuration storage
   isDirty: boolean
   lastSaved?: Date
   autosaveInterval: number // milliseconds
@@ -223,6 +224,7 @@ export interface ProjectActions {
   // Metadata operations
   updateMetadata: (updates: Partial<ProjectMetadata>) => void
   updateSettings: (updates: Partial<ProjectSettings>) => void
+  updateCompositionConfig: (updates: Record<string, any>) => void
 
   // Dirty state
   setDirty: (isDirty: boolean) => void

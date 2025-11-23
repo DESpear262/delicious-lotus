@@ -15,6 +15,7 @@ const defaultMetadata: ProjectMetadata = {
   id: `project-${Date.now()}`,
   name: 'Untitled Project',
   description: '',
+  type: 'custom',
   createdAt: new Date(),
   updatedAt: new Date(),
   version: 1,
@@ -50,6 +51,45 @@ const initialState = {
 export const createProjectStore = () => {
   let autosaveTimer: NodeJS.Timeout | null = null
   let debouncedSave: ((...args: unknown[]) => void) | null = null
+
+  // Create the base storage instance once
+  const baseStorage = createIndexedDBStorage(STORE_NAMES.PROJECT)
+
+  // Custom storage wrapper to handle Map/Date serialization
+  const storageWrapper = {
+    getItem: async (name: string) => {
+       const str = await baseStorage.getItem(name);
+       if (!str) return null;
+       return {
+          state: JSON.parse(str, (key, value) => {
+             if (key === 'projects' && Array.isArray(value)) {
+                 return new Map(value.map((p: any) => [p.id, {
+                     ...p,
+                     createdAt: new Date(p.createdAt),
+                     updatedAt: new Date(p.updatedAt)
+                 }]));
+             }
+             if (key === 'createdAt' || key === 'updatedAt' || key === 'lastSaved') {
+                 return value ? new Date(value) : undefined;
+             }
+             if (key === 'exportJobStatus' && Array.isArray(value)) {
+                 return new Map(value);
+             }
+             return value;
+          }),
+       }
+    },
+    setItem: async (name: string, newValue: any) => {
+        const str = JSON.stringify(newValue.state, (key, value) => {
+           if (value instanceof Map) {
+               return Array.from(value.entries());
+           }
+           return value;
+        });
+        return baseStorage.setItem(name, str);
+    },
+    removeItem: baseStorage.removeItem
+  }
 
   const store = createStore<ProjectStore>()(
     devtools(
@@ -171,6 +211,7 @@ export const createProjectStore = () => {
                 id: string
                 name: string
                 description?: string
+                project_type: string
                 aspect_ratio: string
                 timebase_fps: number
                 created_at: string
@@ -186,6 +227,7 @@ export const createProjectStore = () => {
                 id: response.id,
                 name: response.name,
                 description: response.description || '',
+                type: response.project_type as any, // Cast to ProjectType
                 createdAt: new Date(response.created_at),
                 updatedAt: new Date(response.updated_at),
                 version: 1,
@@ -315,23 +357,99 @@ export const createProjectStore = () => {
             }),
 
           // Project collection operations
-          addProject: (metadata, settings) => {
-            const projectId = generateUUID()
-            const now = new Date()
+          fetchProjects: async (filters) => {
+            try {
+              set((state) => {
+                state.isLoading = true
+              })
 
-            const newProject: ProjectMetadata = {
-              ...metadata,
-              id: projectId,
-              createdAt: now,
-              updatedAt: now,
-              version: 1,
+              const params: Record<string, string> = {}
+              if (filters?.type) {
+                params.project_type = filters.type
+              }
+
+              const response = await api.get<{
+                items: Array<{
+                  id: string
+                  name: string
+                  description?: string
+                  project_type: string
+                  thumbnail_url?: string
+                  created_at: string
+                  updated_at: string
+                }>
+              }>('/projects/', { params })
+
+              set((state) => {
+                response.items.forEach((item) => {
+                  state.projects.set(item.id, {
+                    id: item.id,
+                    name: item.name,
+                    description: item.description,
+                    type: item.project_type as any,
+                    thumbnailUrl: item.thumbnail_url,
+                    createdAt: new Date(item.created_at),
+                    updatedAt: new Date(item.updated_at),
+                    version: 1,
+                  })
+                })
+                state.isLoading = false
+              })
+            } catch (error) {
+              set((state) => {
+                state.isLoading = false
+              })
+              console.error('Failed to fetch projects:', error)
+              // Don't throw here, just log, so UI can handle empty state gracefully
             }
+          },
 
-            set((state) => {
-              state.projects.set(projectId, newProject)
-            })
+          addProject: async (metadata, settings) => {
+            try {
+              set((state) => {
+                state.isLoading = true
+              })
 
-            return projectId
+              // Prepare request body
+              const requestBody = {
+                name: metadata.name,
+                description: metadata.description,
+                project_type: metadata.type,
+                // Use provided owner or fallback to test user (TODO: Integrate with AuthStore)
+                user_id: metadata.owner || '00000000-0000-0000-0000-000000000001',
+                aspect_ratio: settings?.aspectRatio || '16:9',
+                timebase_fps: settings?.fps || 30,
+              }
+
+              // Call backend API: POST /api/v1/projects/
+              const response = await api.post<{
+                id: string
+                created_at: string
+                updated_at: string
+              }>('/projects/', requestBody)
+
+              const newProject: ProjectMetadata = {
+                ...metadata,
+                id: response.id,
+                createdAt: new Date(response.created_at),
+                updatedAt: new Date(response.updated_at),
+                version: 1,
+              }
+
+              set((state) => {
+                state.projects.set(response.id, newProject)
+                state.isLoading = false
+              })
+
+              return response.id
+            } catch (error) {
+              set((state) => {
+                state.isLoading = false
+              })
+              console.error('Failed to create project:', error)
+              toast.error('Failed to create project')
+              throw error
+            }
           },
 
           removeProject: (projectId) =>
@@ -432,61 +550,20 @@ export const createProjectStore = () => {
         })),
         {
           name: 'project-store',
-          storage: createIndexedDBStorage(STORE_NAMES.PROJECT) as any,
-          // Serialize/deserialize dates properly
-          serialize: (state) => {
-            return JSON.stringify({
-              state: {
-                ...state.state,
-                metadata: {
-                  ...state.state.metadata,
-                  createdAt: state.state.metadata.createdAt.toISOString(),
-                  updatedAt: state.state.metadata.updatedAt.toISOString(),
-                },
-                compositionConfig: state.state.compositionConfig,
-                lastSaved: state.state.lastSaved?.toISOString(),
-                projects: Array.from(state.state.projects.entries()).map(([id, project]) => ({
-                  id,
-                  project: {
-                    ...project,
-                    createdAt: project.createdAt.toISOString(),
-                    updatedAt: project.updatedAt.toISOString(),
-                  },
-                })),
-              },
-              version: state.version,
-            })
-          },
-          deserialize: (str: string) => {
-            const parsed = JSON.parse(str)
-            const projectsArray = parsed.state.projects || []
-            const projectsMap = new Map(
-              projectsArray.map((entry: { id: string; project: ProjectMetadata & { createdAt: string; updatedAt: string } }) => [
-                entry.id,
-                {
-                  ...entry.project,
-                  createdAt: new Date(entry.project.createdAt),
-                  updatedAt: new Date(entry.project.updatedAt),
-                },
-              ])
-            )
-
-            return {
-              state: {
-                ...parsed.state,
-                metadata: {
-                  ...parsed.state.metadata,
-                  createdAt: new Date(parsed.state.metadata.createdAt),
-                  updatedAt: new Date(parsed.state.metadata.updatedAt),
-                },
-                compositionConfig: parsed.state.compositionConfig || {},
-                lastSaved: parsed.state.lastSaved ? new Date(parsed.state.lastSaved) : undefined,
-                projects: projectsMap,
-              },
-              version: parsed.version,
-            }
-          },
-        } as any
+          partialize: (state) => ({
+            metadata: state.metadata,
+            settings: state.settings,
+            compositionConfig: state.compositionConfig,
+            isDirty: state.isDirty,
+            lastSaved: state.lastSaved,
+            autosaveInterval: state.autosaveInterval,
+            isAutoSaveEnabled: state.isAutoSaveEnabled,
+            projects: state.projects,
+            currentProjectId: state.currentProjectId,
+            exportJobStatus: state.exportJobStatus,
+          }),
+          storage: storageWrapper as any,
+        }
       ),
       { name: 'ProjectStore' }
     )

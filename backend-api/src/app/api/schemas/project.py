@@ -22,6 +22,10 @@ class ProjectCreateRequest(BaseModel):
         default=30, ge=1, le=120, description="Timeline frames per second (1-120)"
     )
     user_id: UUID = Field(..., description="UUID of the user creating this project")
+    project_type: str = Field(
+        default="custom",
+        description="Type of project (ad-creative, music-video, educational-video, custom)",
+    )
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -69,6 +73,7 @@ class ProjectResponse(BaseModel):
     id: UUID = Field(..., description="Unique project identifier")
     name: str = Field(..., description="Project name")
     user_id: UUID = Field(..., description="Owner user ID")
+    project_type: str = Field(..., description="Type of project")
     thumbnail_url: str | None = Field(None, description="Project thumbnail URL")
     aspect_ratio: str = Field(..., description="Video aspect ratio")
     timebase_fps: int = Field(..., description="Timeline frames per second")
@@ -91,6 +96,7 @@ class ProjectListItemResponse(BaseModel):
     id: UUID = Field(..., description="Unique project identifier")
     name: str = Field(..., description="Project name")
     user_id: UUID = Field(..., description="Owner user ID")
+    project_type: str = Field(..., description="Type of project")
     thumbnail_url: str | None = Field(None, description="Project thumbnail URL")
     aspect_ratio: str = Field(..., description="Video aspect ratio")
     timebase_fps: int = Field(..., description="Timeline frames per second")

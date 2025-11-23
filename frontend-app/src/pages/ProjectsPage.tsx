@@ -83,13 +83,14 @@ export default function ProjectsPage() {
     setIsDialogOpen(true);
   }, []);
 
-  const handleProjectCreated = useCallback((data: ProjectFormData) => {
+  const handleProjectCreated = useCallback(async (data: ProjectFormData) => {
     try {
       // Create project in store
-      const projectId = addProject(
+      const projectId = await addProject(
         {
           name: data.name,
           description: data.description,
+          type: 'custom',
         },
         {
           fps: data.fps,

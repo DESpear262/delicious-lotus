@@ -3,12 +3,11 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AdCreativeFormData } from '@/types/ad-generator/form';
 import { createGeneration, generateVideoClipPrompts } from '@/services/ad-generator/services/generation';
 import { useFormValidation } from './useFormValidation';
 import { useProjectStore } from '@/contexts/StoreContext';
-import { createProjectStore } from '@/stores/projectStore';
 import type {
   CreateGenerationRequest,
   CreateGenerationResponse,
@@ -35,6 +34,9 @@ const INITIAL_STATE: AdCreativeFormData = {
 
 export function useGenerationForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectIdParam = searchParams.get('projectId');
+
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [formData, setFormData] = useState<AdCreativeFormData>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +50,7 @@ export function useGenerationForm() {
   const currentProjectId = useProjectStore((state) => state.currentProjectId);
   const compositionConfig = useProjectStore((state) => state.compositionConfig);
   const addProject = useProjectStore((state) => state.addProject);
+  const loadProject = useProjectStore((state) => state.loadProject);
   const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
   const updateCompositionConfig = useProjectStore((state) => state.updateCompositionConfig);
   const saveProject = useProjectStore((state) => state.saveProject);
@@ -65,23 +68,59 @@ export function useGenerationForm() {
    * Initialize or Load Project
    */
   useEffect(() => {
-    // If we have a current project with adWizard data, load it
-    if (currentProjectId && compositionConfig?.adWizard) {
-      const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
-      if (savedData) setFormData(savedData);
-      if (savedStep) setCurrentStep(savedStep);
-      if (savedPrompts) setPromptResult(savedPrompts);
-    } else if (!currentProjectId) {
-      // No active project, create a new one for this session
-      // We use the static store method to avoid dependency cycles or unnecessary re-renders
-      // actually we can use the hook methods since we are inside a component
-      const projectId = addProject(
-        { name: `Ad Campaign ${new Date().toLocaleTimeString()}`, description: 'Auto-generated ad campaign' },
-        { aspectRatio: '16:9' } // Default
-      );
-      setCurrentProject(projectId);
-    }
-  }, [currentProjectId, compositionConfig, addProject, setCurrentProject]);
+    const initProject = async () => {
+      if (projectIdParam) {
+        // Case 1: URL has projectId
+        if (currentProjectId !== projectIdParam) {
+           try {
+             await loadProject(projectIdParam);
+           } catch (err) {
+             console.error("Failed to load project from URL", err);
+             // Fallback: maybe redirect to home or show error?
+           }
+        }
+      } else if (!currentProjectId) {
+        // Case 2: No URL param and no current project in store
+        // Create a new temporary/persisted project
+        try {
+          const newId = await addProject(
+            { 
+               name: `Ad Campaign ${new Date().toLocaleTimeString()}`, 
+               description: 'Auto-generated ad campaign',
+               type: 'ad-creative'
+            },
+            { aspectRatio: '16:9' }
+          );
+          // Update URL to reflect new project
+          navigate(`?projectId=${newId}`, { replace: true });
+        } catch (err) {
+           console.error("Failed to auto-create project", err);
+        }
+      }
+    };
+
+    initProject();
+  }, [projectIdParam, currentProjectId, loadProject, addProject, navigate]);
+
+  /**
+   * Sync Store State to Form
+   */
+  useEffect(() => {
+      if (currentProjectId && compositionConfig?.adWizard) {
+        const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+        
+        // Only update if different to avoid loops (basic check)
+        if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
+             setFormData(savedData);
+        }
+        if (savedStep && savedStep !== currentStep) {
+            setCurrentStep(savedStep);
+        }
+        if (savedPrompts) {
+            setPromptResult(savedPrompts);
+        }
+      }
+  }, [currentProjectId, compositionConfig]); // Careful with dependencies here to avoid loops if we were updating store on every render
 
   /**
    * Persist state to Project Store
@@ -93,11 +132,13 @@ export function useGenerationForm() {
       adWizard: {
         formData: data,
         currentStep: step,
-        promptResult: prompts ?? promptResult // Keep existing prompts if not updated
+        promptResult: prompts ?? promptResult 
       }
     });
-    // Trigger save (autosave will handle debouncing, but we ensure state is in store)
-  }, [currentProjectId, updateCompositionConfig, promptResult]);
+    saveProject().catch(err => console.error("Auto-save failed", err));
+  }, [currentProjectId, updateCompositionConfig, promptResult, saveProject]);
+
+
 
   /**
    * Update a single field

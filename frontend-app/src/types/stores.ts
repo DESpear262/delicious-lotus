@@ -178,10 +178,13 @@ export type MediaStore = MediaState & MediaActions
 // Project Store Types
 // ============================================================================
 
+export type ProjectType = 'ad-creative' | 'music-video' | 'educational-video' | 'custom'
+
 export interface ProjectMetadata {
   id: string
   name: string
   description?: string
+  type: ProjectType
   thumbnailUrl?: string
   createdAt: Date
   updatedAt: Date
@@ -239,7 +242,8 @@ export interface ProjectActions {
   setAutosaveInterval: (interval: number) => void
 
   // Project collection operations
-  addProject: (metadata: Omit<ProjectMetadata, 'id' | 'createdAt' | 'updatedAt' | 'version'>, settings?: Partial<ProjectSettings>) => string
+  fetchProjects: (filters?: { type?: ProjectType }) => Promise<void>
+  addProject: (metadata: Omit<ProjectMetadata, 'id' | 'createdAt' | 'updatedAt' | 'version'>, settings?: Partial<ProjectSettings>) => Promise<string>
   removeProject: (projectId: string) => void
   updateProject: (projectId: string, updates: Partial<ProjectMetadata>) => void
   getProjects: () => ProjectMetadata[]

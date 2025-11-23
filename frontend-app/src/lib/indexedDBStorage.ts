@@ -25,14 +25,35 @@ let dbInstance: IDBDatabase | null = null
  * Initialize IndexedDB database
  */
 async function initDB(): Promise<IDBDatabase> {
-  if (dbInstance) return dbInstance
+  if (dbInstance) {
+    // Check if connection is closed or closing
+    // There isn't a direct 'state' property on IDBDatabase in standard TS lib, 
+    // but we can handle the error downstream or try to catch it here.
+    // Best practice is to handle onversionchange to close it.
+    return dbInstance
+  }
 
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
-    request.onerror = () => reject(request.error)
+    request.onerror = () => {
+      console.error('IndexedDB open error:', request.error)
+      reject(request.error)
+    }
+
     request.onsuccess = () => {
       dbInstance = request.result
+      
+      // Handle database version changes (e.g. open in another tab)
+      dbInstance.onversionchange = () => {
+        dbInstance?.close()
+        dbInstance = null
+      }
+      
+      dbInstance.onclose = () => {
+        dbInstance = null
+      }
+
       resolve(dbInstance)
     }
 
@@ -73,15 +94,33 @@ export function createIndexedDBStorage(storeName: string): StateStorage {
 
     setItem: async (key: string, value: string): Promise<void> => {
       try {
-        const db = await initDB()
-        return new Promise((resolve, reject) => {
-          const transaction = db.transaction(storeName, 'readwrite')
-          const store = transaction.objectStore(storeName)
-          const request = store.put(value, key)
-
-          request.onsuccess = () => resolve()
-          request.onerror = () => reject(request.error)
-        })
+        let db = await initDB()
+        
+        // Retry once if transaction fails due to closed connection
+        try {
+          return await new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, 'readwrite')
+            const store = transaction.objectStore(storeName)
+            const request = store.put(value, key)
+  
+            request.onsuccess = () => resolve()
+            request.onerror = () => reject(request.error)
+          })
+        } catch (error) {
+          if ((error as DOMException).name === 'InvalidStateError') {
+             dbInstance = null // Force reconnect
+             db = await initDB()
+             return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite')
+                const store = transaction.objectStore(storeName)
+                const request = store.put(value, key)
+      
+                request.onsuccess = () => resolve()
+                request.onerror = () => reject(request.error)
+              })
+          }
+          throw error;
+        }
       } catch (error) {
         console.error(`Error writing to IndexedDB (${storeName}):`, error)
       }

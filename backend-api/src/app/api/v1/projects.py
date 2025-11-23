@@ -54,7 +54,7 @@ async def create_project(
     logger.info(
         "Creating new project",
         extra={
-            "name": request.name,
+            "project_name": request.name,
             "user_id": str(request.user_id),
             "aspect_ratio": request.aspect_ratio,
             "timebase_fps": request.timebase_fps,
@@ -84,6 +84,7 @@ async def create_project(
                 id=uuid.uuid4(),
                 name=request.name,
                 user_id=request.user_id,
+                project_type=request.project_type,
                 aspect_ratio=request.aspect_ratio,
                 timebase_fps=request.timebase_fps,
                 composition_id=composition.id,
@@ -114,7 +115,7 @@ async def create_project(
             "Failed to create project",
             extra={
                 "error": str(e),
-                "name": request.name,
+                "project_name": request.name,
             },
         )
         raise HTTPException(
@@ -135,6 +136,7 @@ async def list_projects(
         description="Sort field",
     ),
     user_id: uuid.UUID | None = Query(None, description="Filter by user ID"),
+    project_type: str | None = Query(None, description="Filter by project type"),
 ) -> ProjectListResponse:
     """List projects with pagination and filtering.
 
@@ -161,6 +163,8 @@ async def list_projects(
             filters.append(Project.name.ilike(f"%{name}%"))
         if user_id:
             filters.append(Project.user_id == user_id)
+        if project_type:
+            filters.append(Project.project_type == project_type)
 
         # Build query for total count
         count_query = select(func.count()).select_from(Project).where(and_(*filters))
@@ -483,6 +487,7 @@ async def duplicate_project(
                 id=uuid.uuid4(),
                 name=new_name,
                 user_id=original_project.user_id,
+                project_type=original_project.project_type,
                 aspect_ratio=original_project.aspect_ratio,
                 timebase_fps=original_project.timebase_fps,
                 composition_id=new_composition.id,

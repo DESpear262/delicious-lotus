@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Image, Video, Music, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { Sparkles, Image, Video, Music, ChevronDown, ChevronUp, AlertCircle, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
@@ -17,7 +17,7 @@ interface PromptInputProps {
     model: string
     duration?: number
     resolution?: string
-    imageInput?: string
+    imageInput?: string | string[]
     advancedParams?: Record<string, any>
   }) => void
   isGenerating?: boolean
@@ -36,6 +36,7 @@ interface ModelConfig {
     duration?: boolean
     resolution?: boolean
     image?: boolean // Image input (URL)
+    multiImage?: boolean // Multiple image inputs (URLs)
     lyrics?: boolean // For music models
     audio?: boolean // Audio input (URL)
   }
@@ -64,7 +65,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     id: 'nano-banana',
     name: 'Nano Banana (Fast)',
     type: 'image',
-    inputs: { aspectRatio: true },
+    inputs: { aspectRatio: true, multiImage: true },
   },
   'flux-schnell': {
     id: 'flux-schnell',
@@ -175,7 +176,7 @@ export function PromptInput({
     model: string
     duration?: number
     resolution?: string
-    imageInput?: string
+    imageInput?: string | string[]
     audioInput?: string
     advancedParams?: Record<string, any>
   }) => void
@@ -194,6 +195,7 @@ export function PromptInput({
   const [duration, setDuration] = useState<number>(5)
   const [resolution, setResolution] = useState<string>('1080p')
   const [imageInput, setImageInput] = useState('')
+  const [multiImageInputs, setMultiImageInputs] = useState<string[]>([''])
   const [audioInput, setAudioInput] = useState('')
   const [lyrics, setLyrics] = useState('')
 
@@ -283,7 +285,9 @@ export function PromptInput({
       model: selectedModelId,
       duration: selectedModel.inputs.duration ? duration : undefined,
       resolution: selectedModel.inputs.resolution ? resolution : undefined,
-      imageInput: selectedModel.inputs.image ? imageInput : undefined,
+      imageInput: selectedModel.inputs.multiImage
+        ? multiImageInputs.filter(url => url.trim() !== '')
+        : selectedModel.inputs.image ? imageInput : undefined,
       advancedParams
     })
   }
@@ -376,6 +380,50 @@ export function PromptInput({
             placeholder="https://example.com/image.jpg"
             className={`bg-zinc-900 ${errors.image ? 'border-red-500' : 'border-zinc-800'}`}
           />
+        </div>
+      )}
+
+      {/* Multi-Image Input (URLs) */}
+      {selectedModel.inputs.multiImage && (
+        <div className="space-y-2">
+          <Label>Image URLs (Optional)</Label>
+          {multiImageInputs.map((url, index) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={url}
+                onChange={(e) => {
+                  const newInputs = [...multiImageInputs]
+                  newInputs[index] = e.target.value
+                  setMultiImageInputs(newInputs)
+                }}
+                placeholder="https://example.com/image.jpg"
+                className="bg-zinc-900 border-zinc-800"
+              />
+              {multiImageInputs.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const newInputs = multiImageInputs.filter((_, i) => i !== index)
+                    setMultiImageInputs(newInputs)
+                  }}
+                  className="text-zinc-400 hover:text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setMultiImageInputs([...multiImageInputs, ''])}
+            className="w-full mt-2 border-dashed border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add Another Image
+          </Button>
         </div>
       )}
 

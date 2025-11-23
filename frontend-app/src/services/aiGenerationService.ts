@@ -14,7 +14,7 @@ export interface GenerateImageRequest {
   aspectRatio: string
   model?: string
   // Advanced params
-  image_input?: string
+  image_input?: string | string[]
   output_format?: string
   output_quality?: number
   seed?: number
@@ -69,11 +69,18 @@ export interface GenerationResponse {
  */
 export async function generateImage(request: GenerateImageRequest): Promise<GenerationResponse> {
   let endpoint = '/api/v1/replicate/nano-banana'
+
+  // Handle image_input: ensure it's an array if provided, or undefined
+  let imageInput: string[] | undefined
+  if (request.image_input) {
+    imageInput = Array.isArray(request.image_input) ? request.image_input : [request.image_input]
+  }
+
   let body: Record<string, any> = {
     prompt: request.prompt,
     quality_tier: request.qualityTier,
     aspect_ratio: request.aspectRatio,
-    image_input: request.image_input ? [request.image_input] : undefined,
+    image_input: imageInput,
   }
 
   if (request.model === 'flux-schnell') {

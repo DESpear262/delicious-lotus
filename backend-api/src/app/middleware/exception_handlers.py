@@ -31,6 +31,7 @@ from app.exceptions import (
     UnauthorizedError,
     UnsupportedFormatError,
 )
+from fastapi_app.core.errors import APIError
 
 logger = logging.getLogger(__name__)
 
@@ -478,6 +479,112 @@ async def generic_exception_handler(
         JSONResponse: Standardized error response
     """
     request_id = get_request_id(request)
+
+    # Handle APIError from fastapi_app module (e.g. NotFoundError)
+    if isinstance(exc, APIError):
+        status_code = exc.status_code
+        message = exc.message
+        
+        # Log based on status code
+        if status_code >= 500:
+            logger.error(
+                f"Application error (APIError): {status_code}",
+                extra={
+                    "request_id": request_id,
+                    "status_code": status_code,
+                    "message": message,
+                    "code": exc.code,
+                    "path": request.url.path,
+                }
+            )
+        else:
+            logger.warning(
+                f"Application error (APIError): {status_code}",
+                extra={
+                    "request_id": request_id,
+                    "status_code": status_code,
+                    "message": message,
+                    "code": exc.code,
+                    "path": request.url.path,
+                }
+            )
+            
+        # Map status code to ErrorCode enum
+        error_code = ErrorCode.INTERNAL_ERROR
+        if status_code == 404:
+            error_code = ErrorCode.NOT_FOUND
+        elif status_code == 400:
+            error_code = ErrorCode.VALIDATION_ERROR
+        elif status_code == 401:
+            error_code = ErrorCode.UNAUTHORIZED
+        elif status_code == 403:
+            error_code = ErrorCode.FORBIDDEN
+        elif status_code == 429:
+            error_code = ErrorCode.RATE_LIMIT_EXCEEDED
+            
+        error_response = ErrorResponse(
+            error_code=error_code,
+            message=message,
+            request_id=request_id,
+            timestamp=datetime.utcnow(),
+            # Pass details if they exist and aren't empty
+            details=[ErrorDetail(message=str(v), field=k) for k, v in exc.details.items()] if exc.details else None
+        )
+        
+        return JSONResponse(
+            status_code=status_code,
+            content=error_response.model_dump(mode="json"),
+        )
+
+    # Check if exception has a status_code (fallback for other custom exceptions)
+    if hasattr(exc, "status_code"):
+        status_code = exc.status_code
+        message = getattr(exc, "detail", str(exc))
+        
+        # Log as warning for 4xx, error for 5xx
+        if status_code >= 500:
+            logger.error(
+                f"Application error: {status_code}",
+                extra={
+                    "request_id": request_id,
+                    "status_code": status_code,
+                    "message": message,
+                    "path": request.url.path,
+                }
+            )
+        else:
+            logger.warning(
+                f"Application error: {status_code}",
+                extra={
+                    "request_id": request_id,
+                    "status_code": status_code,
+                    "message": message,
+                    "path": request.url.path,
+                }
+            )
+            
+        # Map status code to ErrorCode enum if possible
+        error_code = ErrorCode.INTERNAL_ERROR
+        if status_code == 404:
+            error_code = ErrorCode.NOT_FOUND
+        elif status_code == 400:
+            error_code = ErrorCode.VALIDATION_ERROR
+        elif status_code == 401:
+            error_code = ErrorCode.UNAUTHORIZED
+        elif status_code == 403:
+            error_code = ErrorCode.FORBIDDEN
+            
+        error_response = ErrorResponse(
+            error_code=error_code,
+            message=message,
+            request_id=request_id,
+            timestamp=datetime.utcnow(),
+        )
+        
+        return JSONResponse(
+            status_code=status_code,
+            content=error_response.model_dump(mode="json"),
+        )
 
     # Generate error fingerprint for grouping
     fingerprint = generate_error_fingerprint(exc, request.url.path)

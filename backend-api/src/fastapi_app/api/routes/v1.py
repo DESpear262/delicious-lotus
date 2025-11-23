@@ -3,15 +3,15 @@ API v1 routes
 Block 0: API Skeleton & Core Infrastructure
 """
 
-import json
 import logging
 import os
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Query, UploadFile, File, Form
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi_app.core.logging import get_request_logger
+from pydantic import BaseModel, Field, HttpUrl
 from fastapi_app.core.config import settings
 from fastapi_app.models.schemas import (
     GenerationRequest,
@@ -1106,38 +1106,71 @@ async def classify_edit_intent(
         raise HTTPException(status_code=500, detail=f"Failed to classify edit request: {str(e)}")
 
 
-@api_v1_router.post("/media/create-video-from-images", response_model=CreateVideoFromImagesResponse, status_code=201)
+@api_v1_router.post("/media/create-video-from-images", response_class=FileResponse)
 async def create_video_from_images(
     request: CreateVideoFromImagesRequest,
     req: Request
-) -> CreateVideoFromImagesResponse:
+) -> FileResponse:
     """
     Create a video from a sequence of images with Ken Burns effects.
 
-    This endpoint accepts a list of image URLs and a duration, and starts a background job
-    to generate a video with panning and zooming effects.
+    This endpoint accepts a list of image URLs and a duration, generates a video
+    with panning and zooming effects synchronously, and returns the video file.
     """
     logger = get_request_logger(req)
     logger.info(f"Received request to create video from {len(request.image_urls)} images for user {request.user_id}")
 
+    # Create a temporary directory for this request
+    # We manage it manually so we can pass cleanup to background task
+    job_id = str(uuid.uuid4())
+    from workers.temp_file_manager import TempFileManager
+    from workers.ken_burns_worker import generate_ken_burns_video
+    import shutil
+    
+    # Initialize temp manager but don't use context manager yet as we need file to persist for response
+    temp_mgr = TempFileManager(job_id=job_id)
+    
     try:
-        job_id = enqueue_ken_burns_video_generation(
+        logger.info(f"Generating Ken Burns video in {temp_mgr.temp_dir}")
+        
+        # Run the generation synchronously (blocking the thread, but that's what was requested)
+        # In a real async app we might want to run this in a threadpool, but for now direct call is fine
+        # if it's not too heavy, or we can use run_in_executor if needed.
+        # Given it calls subprocesses, it's mostly I/O bound on the python side waiting for ffmpeg.
+        
+        output_path = generate_ken_burns_video(
             image_urls=request.image_urls,
             duration=request.duration,
-            user_id=request.user_id,
+            temp_dir=temp_mgr.temp_dir,
             width=request.width,
             height=request.height
         )
         
-        logger.info(f"Enqueued Ken Burns video generation job: {job_id}")
+        logger.info(f"Video generated at {output_path}")
         
-        return CreateVideoFromImagesResponse(
-            job_id=job_id,
-            status="queued"
+        # Define background cleanup task
+        def cleanup_temp_files():
+            try:
+                logger.info(f"Cleaning up temp files for job {job_id}")
+                temp_mgr.cleanup(force=True)
+            except Exception as e:
+                logger.error(f"Failed to cleanup temp files for job {job_id}: {e}")
+
+        return FileResponse(
+            path=output_path,
+            media_type="video/mp4",
+            filename="ken_burns_video.mp4",
+            background=cleanup_temp_files
         )
+
     except Exception as e:
-        logger.error(f"Failed to enqueue Ken Burns video generation job: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to start video generation: {str(e)}")
+        logger.error(f"Failed to generate video: {str(e)}")
+        # Try to cleanup if we failed
+        try:
+            temp_mgr.cleanup(force=True)
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
 
 
 @api_v1_router.get("/media/jobs/{job_id}", response_model=JobStatusResponse)

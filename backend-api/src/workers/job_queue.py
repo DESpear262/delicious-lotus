@@ -1,6 +1,7 @@
 """Job queue management using Redis Queue (RQ) for background tasks."""
 
 import logging
+import uuid
 
 from rq import Queue
 from workers.redis_pool import get_redis_connection
@@ -123,6 +124,59 @@ def enqueue_image_import(
             "job_id": job.id,
             "asset_id": asset_id,
             "url": url,
+        },
+    )
+
+    return job.id
+
+
+def enqueue_ken_burns_video_generation(
+    image_urls: list[str],
+    duration: float,
+    user_id: str,
+    width: int | None = None,
+    height: int | None = None,
+) -> str:
+    """Enqueue a Ken Burns video generation job.
+
+    Args:
+        image_urls: List of image URLs
+        duration: Total duration of the video
+        user_id: User ID
+        width: Optional target video width
+        height: Optional target video height
+
+    Returns:
+        str: Job ID for tracking
+    """
+    from workers.ken_burns_worker import create_video_from_images_job
+
+    queue = get_queue(MEDIA_IMPORT_QUEUE) # Reuse media import queue or use default
+    
+    tracking_id = str(uuid.uuid4())
+
+    job = queue.enqueue(
+        create_video_from_images_job,
+        image_urls=image_urls,
+        duration=duration,
+        user_id=user_id,
+        tracking_id=tracking_id, # Pass tracking_id to the worker function
+        job_id=tracking_id, # Use our generated ID as the logical RQ job ID
+        width=width,
+        height=height,
+        job_timeout=VIDEO_IMPORT_TIMEOUT,
+        result_ttl=86400,
+    )
+
+    logger.info(
+        f"Enqueued Ken Burns job: {job.id}",
+        extra={
+            "job_id": job.id,
+            "tracking_id": tracking_id,
+            "user_id": user_id,
+            "image_count": len(image_urls),
+            "width": width,
+            "height": height,
         },
     )
 

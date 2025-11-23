@@ -137,7 +137,7 @@ def import_video_from_url_job(
         s3_url = s3_manager.upload_file(
             local_path=temp_video_path,
             s3_key=s3_key,
-            extra_args={"ContentType": "video/mp4"},
+            extra_args={"ContentType": "video/mp4", "ContentDisposition": "inline"},
         )
 
         logger.info(f"Video uploaded to S3: {s3_key}")

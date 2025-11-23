@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGenerationForm } from '@/hooks/ad-generator/useGenerationForm';
 import { isStepComplete } from '@/utils/ad-generator/formValidation';
 import {
@@ -13,6 +14,7 @@ import { ConfirmDialog } from '@/components/ad-generator/ui/ConfirmDialog';
 import { Sparkles } from 'lucide-react';
 
 export const AdCreativeForm: React.FC = () => {
+  const navigate = useNavigate();
   const {
     currentStep,
     formData,
@@ -45,12 +47,16 @@ export const AdCreativeForm: React.FC = () => {
   };
 
   // Calculate completed steps
+  // Calculate completed steps
   const completedSteps: number[] = [];
-  for (let step = 1; step <= 3; step++) {
-    if (isStepComplete(step, formData)) {
-      completedSteps.push(step);
-    }
-  }
+  // Step 1: Prompt
+  if (isStepComplete(1, formData)) completedSteps.push(1);
+  // Step 2: Video Params (was 3)
+  if (isStepComplete(3, formData)) completedSteps.push(2);
+  // Step 3: Review (was 4)
+  if (isStepComplete(4, formData)) completedSteps.push(3);
+  // Step 4: Results
+  if (promptResult) completedSteps.push(4);
 
   // Render current step content
   const renderStepContent = () => {
@@ -65,25 +71,7 @@ export const AdCreativeForm: React.FC = () => {
           />
         );
 
-      case 2:
-        return (
-          <BrandSettings
-            brandName={formData.brandName}
-            brandLogo={formData.brandLogo}
-            primaryColor={formData.brandColors.primary}
-            secondaryColor={formData.brandColors.secondary}
-            includeCta={formData.includeCta}
-            ctaText={formData.ctaText}
-            errors={errors}
-            onBrandNameChange={(value) => updateField('brandName', value)}
-            onBrandLogoChange={(logo) => updateField('brandLogo', logo)}
-            onPrimaryColorChange={(color) => updateField('brandColors.primary', color)}
-            onSecondaryColorChange={(color) => updateField('brandColors.secondary', color)}
-            onIncludeCtaChange={(include) => updateField('includeCta', include)}
-            onCtaTextChange={(text) => updateField('ctaText', text)}
-            onFieldBlur={handleFieldBlur}
-          />
-        );
+      // Case 2 (Brand) is skipped/hidden
 
       case 3:
         return (
@@ -108,6 +96,7 @@ export const AdCreativeForm: React.FC = () => {
             isSubmitting={isSubmitting}
             submitError={submitError}
             onParallelizeChange={(checked) => updateField('parallelizeGenerations', checked)}
+            promptResult={promptResult} // Pass promptResult to show "View Results" button if needed inside component
           />
         );
 
@@ -136,9 +125,34 @@ export const AdCreativeForm: React.FC = () => {
         {/* Stepper */}
         <div className="mb-8">
           <StepIndicator
-            currentStep={currentStep}
+            currentStep={promptResult ? 4 : (currentStep === 1 ? 1 : currentStep === 3 ? 2 : 3)}
             completedSteps={completedSteps}
-            onStepClick={(step) => goToStep(step as 1 | 2 | 3 | 4)}
+            steps={[
+              { id: 1, title: 'Prompt', description: 'Describe your video' },
+              { id: 2, title: 'Video Settings', description: 'Duration & Style' },
+              { id: 3, title: 'Review', description: 'Final Check' },
+              { id: 4, title: 'Results', description: 'View Prompts' }
+            ]}
+            onStepClick={(step) => {
+              // Map visual step back to internal step
+              const internalStep = step === 1 ? 1 : step === 2 ? 3 : 4;
+
+              // Handle Results step click
+              if (step === 4) {
+                if (promptResult) {
+                  navigate('/ad-generator/prompt-results');
+                }
+                return;
+              }
+
+              // Allow navigation if step is completed OR if we have results (flow done)
+              const isFlowComplete = !!promptResult;
+              const targetIsCompleted = completedSteps.includes(step); // visual step check
+
+              if (isFlowComplete || targetIsCompleted || internalStep < currentStep) {
+                goToStep(internalStep as 1 | 3 | 4);
+              }
+            }}
           />
         </div>
 
@@ -152,6 +166,7 @@ export const AdCreativeForm: React.FC = () => {
           canGoNext={true}
           onGeneratePrompts={generatePrompts}
           isGeneratingPrompts={isGeneratingPrompts}
+          generateButtonLabel={promptResult ? "View Results" : "Generate Prompts"}
         >
           {renderStepContent()}
         </FormContainer>

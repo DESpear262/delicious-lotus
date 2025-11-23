@@ -12,6 +12,7 @@ interface FormContainerProps {
   canGoNext?: boolean;
   onGeneratePrompts?: () => void;
   isGeneratingPrompts?: boolean;
+  generateButtonLabel?: string;
 }
 
 export const FormContainer: React.FC<FormContainerProps> = ({
@@ -24,6 +25,7 @@ export const FormContainer: React.FC<FormContainerProps> = ({
   canGoNext = true,
   onGeneratePrompts,
   isGeneratingPrompts = false,
+  generateButtonLabel = "Generate Prompts",
 }) => {
   const isFirstStep = currentStep === 1;
   const isLastStep = currentStep === 4;
@@ -54,7 +56,7 @@ export const FormContainer: React.FC<FormContainerProps> = ({
         {isLastStep ? (
           <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-3 sm:gap-2 justify-end">
             <Button
-              variant="outline"
+              variant="default"
               onClick={onGeneratePrompts}
               disabled={isGeneratingPrompts}
               className="w-full sm:w-auto gap-2"
@@ -67,28 +69,12 @@ export const FormContainer: React.FC<FormContainerProps> = ({
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Generate Prompts
+                  {generateButtonLabel}
                 </>
               )}
             </Button>
 
-            <Button
-              onClick={onSubmit}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Run Analysis
-                </>
-              )}
-            </Button>
+
           </div>
         ) : (
           <Button

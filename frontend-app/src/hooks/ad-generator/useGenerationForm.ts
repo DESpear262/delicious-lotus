@@ -72,29 +72,29 @@ export function useGenerationForm() {
       if (projectIdParam) {
         // Case 1: URL has projectId
         if (currentProjectId !== projectIdParam) {
-           try {
-             await loadProject(projectIdParam);
-           } catch (err) {
-             console.error("Failed to load project from URL", err);
-             // Fallback: maybe redirect to home or show error?
-           }
+          try {
+            await loadProject(projectIdParam);
+          } catch (err) {
+            console.error("Failed to load project from URL", err);
+            // Fallback: maybe redirect to home or show error?
+          }
         }
       } else if (!currentProjectId) {
         // Case 2: No URL param and no current project in store
         // Create a new temporary/persisted project
         try {
           const newId = await addProject(
-            { 
-               name: `Ad Campaign ${new Date().toLocaleTimeString()}`, 
-               description: 'Auto-generated ad campaign',
-               type: 'ad-creative'
+            {
+              name: `Ad Campaign ${new Date().toLocaleTimeString()}`,
+              description: 'Auto-generated ad campaign',
+              type: 'ad-creative'
             },
             { aspectRatio: '16:9' }
           );
           // Update URL to reflect new project
           navigate(`?projectId=${newId}`, { replace: true });
         } catch (err) {
-           console.error("Failed to auto-create project", err);
+          console.error("Failed to auto-create project", err);
         }
       }
     };
@@ -106,20 +106,20 @@ export function useGenerationForm() {
    * Sync Store State to Form
    */
   useEffect(() => {
-      if (currentProjectId && compositionConfig?.adWizard) {
-        const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
-        
-        // Only update if different to avoid loops (basic check)
-        if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
-             setFormData(savedData);
-        }
-        if (savedStep && savedStep !== currentStep) {
-            setCurrentStep(savedStep);
-        }
-        if (savedPrompts) {
-            setPromptResult(savedPrompts);
-        }
+    if (currentProjectId && compositionConfig?.adWizard) {
+      const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+
+      // Only update if different to avoid loops (basic check)
+      if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
+        setFormData(savedData);
       }
+      if (savedStep && savedStep !== currentStep) {
+        setCurrentStep(savedStep);
+      }
+      if (savedPrompts) {
+        setPromptResult(savedPrompts);
+      }
+    }
   }, [currentProjectId, compositionConfig]); // Careful with dependencies here to avoid loops if we were updating store on every render
 
   /**
@@ -132,7 +132,7 @@ export function useGenerationForm() {
       adWizard: {
         formData: data,
         currentStep: step,
-        promptResult: prompts ?? promptResult 
+        promptResult: prompts ?? promptResult
       }
     });
     saveProject().catch(err => console.error("Auto-save failed", err));
@@ -146,7 +146,7 @@ export function useGenerationForm() {
   const updateField = useCallback(
     (field: string | keyof AdCreativeFormData, value: any) => {
       let newFormData = { ...formData };
-      
+
       // Handle nested fields (e.g., brandColors.primary)
       if (field.includes('.')) {
         const [parent, child] = field.split('.') as [keyof AdCreativeFormData, string];
@@ -213,7 +213,10 @@ export function useGenerationForm() {
     }
 
     if (currentStep < 4) {
-      const next = (currentStep + 1) as 1 | 2 | 3 | 4;
+      // Skip Step 2 (Brand) for now
+      let next = (currentStep + 1) as 1 | 2 | 3 | 4;
+      if (next === 2) next = 3;
+
       setCurrentStep(next);
       persistState(formData, next);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -227,7 +230,10 @@ export function useGenerationForm() {
    */
   const previousStep = useCallback(() => {
     if (currentStep > 1) {
-      const prev = (currentStep - 1) as 1 | 2 | 3 | 4;
+      // Skip Step 2 (Brand) for now
+      let prev = (currentStep - 1) as 1 | 2 | 3 | 4;
+      if (prev === 2) prev = 1;
+
       setCurrentStep(prev);
       persistState(formData, prev);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -300,7 +306,7 @@ export function useGenerationForm() {
       const response = await createGeneration(request);
 
       // Save analysis result to project state? Maybe later.
-      
+
       // Surface analysis output to the UI
       setAnalysisResult(response);
     } catch (error: any) {
@@ -333,6 +339,12 @@ export function useGenerationForm() {
    * Generate clip-level prompts via backend OpenAI helper
    */
   const generatePrompts = useCallback(async () => {
+    // If we already have results, just navigate
+    if (promptResult) {
+      navigate('/ad-generator/prompt-results');
+      return;
+    }
+
     setPromptError(null);
     setPromptResult(null);
     setIsGeneratingPrompts(true);
@@ -353,13 +365,13 @@ export function useGenerationForm() {
 
       const response = await generateVideoClipPrompts(request);
       setPromptResult(response);
-      
+
       // Persist results to project
       persistState(formData, currentStep, response);
-      
+
       // Also save to sessionStorage for legacy support/backup
       sessionStorage.setItem('promptResult', JSON.stringify(response));
-      
+
       navigate('/ad-generator/prompt-results');
     } catch (error: any) {
       console.error('Failed to generate clip prompts:', error);
@@ -380,7 +392,7 @@ export function useGenerationForm() {
     setSubmitError(null);
     // Clear project config? Maybe just reset adWizard part
     if (currentProjectId) {
-        updateCompositionConfig({ adWizard: undefined });
+      updateCompositionConfig({ adWizard: undefined });
     }
   }, [clearErrors, currentProjectId, updateCompositionConfig]);
 
@@ -394,9 +406,9 @@ export function useGenerationForm() {
     promptError,
     isGeneratingPrompts,
     // Legacy dialog support (can be removed if no longer needed)
-    showRestoreDialog: false, 
-    handleResume: () => {},
-    handleDiscard: () => {},
+    showRestoreDialog: false,
+    handleResume: () => { },
+    handleDiscard: () => { },
     isSubmitting,
     submitError,
 

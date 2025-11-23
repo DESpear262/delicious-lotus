@@ -6,9 +6,10 @@ interface StepIndicatorProps {
   currentStep: number;
   completedSteps: number[];
   onStepClick: (step: number) => void;
+  steps?: { id: number; title: string; description: string }[];
 }
 
-const STEPS = [
+const DEFAULT_STEPS = [
   { id: 1, title: 'Prompt', description: 'Describe your video' },
   { id: 2, title: 'Brand', description: 'Logo & Colors' },
   { id: 3, title: 'Settings', description: 'Duration & Style' },
@@ -19,16 +20,22 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
   currentStep,
   completedSteps,
   onStepClick,
+  steps = DEFAULT_STEPS,
 }) => {
+  // Map string steps to object format if needed, or use provided steps
+  const normalizedSteps = typeof steps[0] === 'string'
+    ? (steps as unknown as string[]).map((s, i) => ({ id: i + 1, title: s, description: '' }))
+    : steps as { id: number; title: string; description: string }[];
+
   return (
     <nav aria-label="Progress" className="w-full">
       {/* Desktop: Horizontal stepper */}
       <ol className="hidden md:flex items-center justify-between">
-        {STEPS.map((step, index) => {
+        {normalizedSteps.map((step, index) => {
           const isCompleted = completedSteps.includes(step.id);
           const isActive = currentStep === step.id;
           const isClickable = isCompleted || isActive;
-          const isLast = index === STEPS.length - 1;
+          const isLast = index === normalizedSteps.length - 1;
 
           return (
             <li key={step.id} className={cn('flex items-center', !isLast && 'flex-1')}>
@@ -93,11 +100,11 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
 
       {/* Mobile: Vertical stepper */}
       <ol className="flex md:hidden flex-col gap-4">
-        {STEPS.map((step, index) => {
+        {normalizedSteps.map((step, index) => {
           const isCompleted = completedSteps.includes(step.id);
           const isActive = currentStep === step.id;
           const isClickable = isCompleted || isActive;
-          const isLast = index === STEPS.length - 1;
+          const isLast = index === normalizedSteps.length - 1;
 
           return (
             <li key={step.id} className="flex gap-4">

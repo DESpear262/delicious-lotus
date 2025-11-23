@@ -735,14 +735,41 @@ export function PromptResults() {
                       // Default to 5s per image if total duration isn't clear, or spread total duration?
                       // User requirement says "duration should match the duration that was selected during the ad-generator pipeline"
                       const duration = formData?.duration || 30;
+                      
+                      // Determine resolution from aspect ratio
+                      const aspectRatio = formData?.aspectRatio || '16:9';
+                      let width = 1920;
+                      let height = 1080;
+                      
+                      switch (aspectRatio) {
+                          case '16:9':
+                              width = 1920;
+                              height = 1080;
+                              break;
+                          case '9:16':
+                              width = 1080;
+                              height = 1920;
+                              break;
+                          case '1:1':
+                              width = 1080;
+                              height = 1080;
+                              break;
+                          case '4:3':
+                              width = 1440;
+                              height = 1080;
+                              break;
+                          default:
+                              width = 1920;
+                              height = 1080;
+                      }
 
                       // Call Create Video from Images endpoint
                       const response = await axios.post('/api/v1/media/create-video-from-images', {
                           image_urls: imageUrls,
                           duration: duration,
                           user_id: 'current_user', // TODO: Get real user ID
-                          width: 1920,
-                          height: 1080
+                          width,
+                          height
                       }, {
                           responseType: 'blob'
                       });

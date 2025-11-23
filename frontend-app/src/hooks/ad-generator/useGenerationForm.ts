@@ -25,8 +25,8 @@ const INITIAL_STATE: AdCreativeFormData = {
   },
   includeCta: false,
   ctaText: '',
-  duration: 30,
-  aspectRatio: '16:9',
+  duration: 0,
+  aspectRatio: '',
   style: 'professional',
   musicStyle: 'corporate',
   parallelizeGenerations: false,
@@ -102,25 +102,56 @@ export function useGenerationForm() {
     initProject();
   }, [projectIdParam, currentProjectId, loadProject, addProject, navigate]);
 
+  // Track the last project ID we loaded data for to prevent stale data sync
+  const lastLoadedProjectId = useState<{ current: string | null }>({ current: null })[0];
+
   /**
    * Sync Store State to Form
    */
   useEffect(() => {
-    if (currentProjectId && compositionConfig?.adWizard) {
-      const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+    // Prevent syncing if store hasn't loaded the requested project yet
+    if (projectIdParam && currentProjectId !== projectIdParam) {
+      return;
+    }
 
-      // Only update if different to avoid loops (basic check)
-      if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
-        setFormData(savedData);
-      }
-      if (savedStep && savedStep !== currentStep) {
-        setCurrentStep(savedStep);
-      }
-      if (savedPrompts) {
-        setPromptResult(savedPrompts);
+    // Only sync if we have a current project and it's either a new switch or we have data
+    if (currentProjectId) {
+      // Check if we are switching projects or loading for the first time
+      const isProjectSwitch = lastLoadedProjectId.current !== currentProjectId;
+      
+      if (isProjectSwitch) {
+        lastLoadedProjectId.current = currentProjectId;
+        
+        if (compositionConfig?.adWizard) {
+          // Load saved data
+          const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+          
+          setFormData(savedData || INITIAL_STATE);
+          setCurrentStep(savedStep || 1);
+          setPromptResult(savedPrompts || null);
+        } else {
+          // New/Empty project -> Reset form to defaults
+          setFormData(INITIAL_STATE);
+          setCurrentStep(1);
+          setPromptResult(null);
+        }
+      } else if (compositionConfig?.adWizard) {
+        // Same project, check for external updates (e.g. from other tabs or components)
+        // We use strict equality checks to avoid loops since we are also writing to this store
+        const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+
+        if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
+          setFormData(savedData);
+        }
+        if (savedStep && savedStep !== currentStep) {
+          setCurrentStep(savedStep);
+        }
+        if (savedPrompts !== undefined) {
+           setPromptResult(savedPrompts);
+        }
       }
     }
-  }, [currentProjectId, compositionConfig]); // Careful with dependencies here to avoid loops if we were updating store on every render
+  }, [currentProjectId, compositionConfig, projectIdParam]); // Removed formData/currentStep from deps to avoid loops?
 
   /**
    * Persist state to Project Store
@@ -258,8 +289,8 @@ export function useGenerationForm() {
     return {
       prompt: formData.prompt,
       parameters: {
-        duration_seconds: formData.duration,
-        aspect_ratio: formData.aspectRatio,
+        duration_seconds: formData.duration as 15 | 30 | 45 | 60,
+        aspect_ratio: formData.aspectRatio as '16:9' | '9:16' | '1:1',
         style: formData.style,
         brand: formData.brandName
           ? {

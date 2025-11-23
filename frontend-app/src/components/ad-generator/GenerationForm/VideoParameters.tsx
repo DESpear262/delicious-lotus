@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils';
 import type { VideoStyle, MusicStyle } from '@/types/ad-generator/form';
 
 interface VideoParametersProps {
-  duration: 15 | 30 | 45 | 60;
-  aspectRatio: '16:9' | '9:16' | '1:1';
+  duration: 0 | 15 | 30 | 45 | 60;
+  aspectRatio: '' | '16:9' | '9:16' | '1:1';
   style: VideoStyle;
   musicStyle: MusicStyle;
   errors: Record<string, string>;
@@ -37,18 +37,12 @@ const ASPECT_RATIO_OPTIONS = [
   { value: '1:1', label: '1:1 Square', description: 'Instagram, Facebook', icon: '■' },
 ];
 
-
-
 export const VideoParameters: React.FC<VideoParametersProps> = ({
   duration,
   aspectRatio,
-  style,
-  musicStyle,
   errors,
   onDurationChange,
   onAspectRatioChange,
-  onStyleChange,
-  onMusicStyleChange,
 }) => {
 
   return (
@@ -150,7 +144,6 @@ export const VideoParameters: React.FC<VideoParametersProps> = ({
           )}
         </CardContent>
       </Card>
-
     </div>
   );
 };

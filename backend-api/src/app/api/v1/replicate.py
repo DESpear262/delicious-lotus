@@ -75,6 +75,72 @@ def extract_result_from_output(output: object | None) -> tuple[str | None, objec
     return None, None
 
 
+
+def sanitize_filename(prompt: str, job_id: str, extension: str) -> str:
+    """Generate a sanitized filename from prompt and job ID.
+
+    Args:
+        prompt: User prompt
+        job_id: Replicate job ID
+        extension: File extension (e.g., '.mp4', '.png')
+
+    Returns:
+        Sanitized filename string
+    """
+    # Truncate prompt to ~60 chars to keep filenames manageable
+    truncated_prompt = prompt[:60].strip()
+    
+    # Replace spaces with underscores and remove non-alphanumeric chars (except underscores/hyphens)
+    sanitized_prompt = "".join(c if c.isalnum() or c in "-_" else "_" for c in truncated_prompt)
+    
+    # Collapse multiple underscores
+    while "__" in sanitized_prompt:
+        sanitized_prompt = sanitized_prompt.replace("__", "_")
+    
+    # Remove leading/trailing underscores
+    sanitized_prompt = sanitized_prompt.strip("_")
+    
+    # Fallback if prompt becomes empty after sanitization
+    if not sanitized_prompt:
+        sanitized_prompt = "generated_media"
+
+    return f"{sanitized_prompt}_{job_id[:8]}{extension}"
+
+
+def determine_generation_tags(model: str, generation_type: str, job_data: dict) -> list[str]:
+    """Determine tags based on model and input types.
+
+    Args:
+        model: Model name
+        generation_type: 'image' or 'video'
+        job_data: Job metadata dictionary
+
+    Returns:
+        List of tags
+    """
+    tags = ["ai-generated"]
+    
+    # Add model name as tag (clean up if needed)
+    if model:
+        tags.append(f"model:{model}")
+
+    # Determine specific generation type
+    has_image_input = job_data.get("has_image_input") or job_data.get("has_image") or job_data.get("has_start_image") or job_data.get("has_first_frame_image")
+    
+    if generation_type == "image":
+        if has_image_input:
+            tags.append("image-to-image")
+        else:
+            tags.append("text-to-image")
+    elif generation_type == "video":
+        if has_image_input:
+            tags.append("image-to-video")
+        else:
+            tags.append("text-to-video")
+            
+    return tags
+
+
 def store_job_metadata(
     job_id: str,
     job_type: str,
@@ -276,7 +342,8 @@ async def generate_nano_banana(request_body: NanoBananaRequest) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="google/nano-banana",
-                generation_type="image"
+                generation_type="image",
+                has_image_input=request_body.image_input is not None
             )
 
             # Publish initial job status
@@ -428,7 +495,8 @@ async def generate_flux_schnell(request_body: FluxSchnellRequest) -> JSONRespons
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="black-forest-labs/flux-schnell",
-                generation_type="image"
+                generation_type="image",
+                has_image_input=False
             )
 
             # Publish initial status
@@ -560,7 +628,9 @@ async def generate_wan_video_i2v(request_body: WanVideoI2VRequest) -> JSONRespon
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="wan-video/wan-2.5-i2v",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=True,
+                has_audio_input=request_body.audio is not None
             )
 
             # Publish initial status
@@ -706,7 +776,8 @@ async def generate_wan_video_t2v(request_body: WanVideoT2VRequest) -> JSONRespon
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="wan-video/wan-2.5-t2v",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=False
             )
 
             # Publish initial status
@@ -864,7 +935,8 @@ async def generate_seedance_1_pro_fast(request_body: Seedance1ProFastRequest) ->
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="bytedance/seedance-1-pro-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.image is not None
             )
 
             # Publish initial status
@@ -1028,7 +1100,9 @@ async def generate_veo_31_fast(request_body: Veo31FastRequest) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="google/veo-3.1-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.image is not None,
+                has_last_frame=request_body.last_frame is not None
             )
 
             # Publish initial status
@@ -1177,7 +1251,8 @@ async def generate_hailuo_23_fast(request_body: Hailuo23FastRequest) -> JSONResp
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="minimax/hailuo-2.3-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=True # Always requires first frame
             )
 
             # Publish initial status
@@ -1329,7 +1404,8 @@ async def generate_kling_v25_turbo_pro(request_body: KlingV25TurboProRequest) ->
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="kwaivgi/kling-v2.5-turbo-pro",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.start_image is not None
             )
 
             # Publish initial status
@@ -1635,7 +1711,10 @@ async def generate_music_01(request_body: Music01Request) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.lyrics or "music generation",
                 model="minimax/music-01",
-                generation_type="audio"
+                generation_type="audio",
+                has_lyrics=bool(request_body.lyrics),
+                has_voice_file=request_body.voice_file is not None,
+                has_song_file=request_body.song_file is not None
             )
 
             publish_job_update(job_id, "starting")
@@ -1935,7 +2014,7 @@ async def get_ai_job_status(
                     from workers.job_queue import enqueue_video_import
                     import uuid
 
-                    # Get metadata from job data or use defaults
+                            # Get metadata from job data or use defaults
                     generation_type = job_data.get("generation_type", "video") if job_data else "video"
                     prompt = job_data.get("prompt", "") if job_data else ""
                     model = job_data.get("model", "unknown") if job_data else "unknown"
@@ -1944,7 +2023,13 @@ async def get_ai_job_status(
                     if generation_type == "video":
                         asset_id = str(uuid.uuid4())
                         user_id = "00000000-0000-0000-0000-000000000001"  # TODO: Get from job metadata
-                        filename = f"AI_Video_{job_id[:8]}.mp4"
+                        
+                        # Generate sanitized filename
+                        file_ext = ".mp4"
+                        filename = sanitize_filename(prompt, job_id, file_ext)
+                        
+                        # Determine tags
+                        tags = determine_generation_tags(model, generation_type, job_data or {})
 
                         # Enqueue import job
                         import_job = enqueue_video_import(
@@ -1957,6 +2042,7 @@ async def get_ai_job_status(
                                 "prompt": prompt,
                                 "model": model,
                                 "replicate_job_id": job_id,
+                                "tags": tags,
                             }
                         )
 
@@ -2158,10 +2244,13 @@ async def replicate_webhook(request: Request) -> JSONResponse:
                             # Determine file extension and media type
                             if generation_type == "video":
                                 file_ext = ".mp4"
-                                filename = f"AI_Video_{payload.id[:8]}{file_ext}"
                             else:
                                 file_ext = ".png"
-                                filename = f"AI_Image_{payload.id[:8]}{file_ext}"
+                                
+                            filename = sanitize_filename(prompt, payload.id, file_ext)
+                            
+                            # Determine tags
+                            tags = determine_generation_tags(model, generation_type, job_data)
 
                             # Build metadata
                             metadata = {
@@ -2169,6 +2258,7 @@ async def replicate_webhook(request: Request) -> JSONResponse:
                                 "prompt": prompt,
                                 "model": model,
                                 "replicate_job_id": payload.id,
+                                "tags": tags,
                             }
 
                             # Enqueue appropriate import job

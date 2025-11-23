@@ -12,6 +12,9 @@ interface ProjectCardProps {
 
 const ProjectCard = memo(({ project, onOpen, onDelete }: ProjectCardProps) => {
   const formatDate = (date: Date) => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return 'Unknown date';
+    }
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',

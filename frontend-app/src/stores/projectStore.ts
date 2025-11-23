@@ -63,10 +63,10 @@ export const createProjectStore = () => {
        return {
           state: JSON.parse(str, (key, value) => {
              if (key === 'projects' && Array.isArray(value)) {
-                 return new Map(value.map((p: any) => [p.id, {
-                     ...p,
-                     createdAt: new Date(p.createdAt),
-                     updatedAt: new Date(p.updatedAt)
+                 return new Map(value.map(([id, project]: [string, any]) => [id, {
+                     ...project,
+                     createdAt: new Date(project.createdAt),
+                     updatedAt: new Date(project.updatedAt)
                  }]));
              }
              if (key === 'createdAt' || key === 'updatedAt' || key === 'lastSaved') {

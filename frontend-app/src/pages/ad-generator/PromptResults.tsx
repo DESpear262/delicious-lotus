@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,19 +9,20 @@ import { generateImage, generateVideo, generateAudio } from '@/services/aiGenera
 import { PromptInput, MODEL_CONFIGS, MODELS_BY_TYPE } from '@/components/ai-generation/PromptInput';
 import { Input } from '@/components/ui/input';
 import { Search, Filter } from 'lucide-react';
-import { SimpleTimeline } from '@/components/ad-generator/SimpleTimeline';
+import { SimpleTimeline, type TimelineItem } from '@/components/ad-generator/SimpleTimeline';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAIGenerationStore, useMediaStore, useProjectStore, useUiStore } from '@/contexts/StoreContext';
+import { useAIGenerationStore, useMediaStore, useProjectStore, useUiStore, TimelineStoreContext } from '@/contexts/StoreContext';
 import axios from 'axios';
 import { MediaGenerationSkeleton } from '@/components/media/MediaGenerationSkeleton';
 import { MediaAssetCard } from '@/components/media/MediaAssetCard';
 import { MediaPreviewModal } from '@/components/media/MediaPreviewModal';
-import type { GenerationType, QualityTier, MediaAsset } from '@/types/stores';
+import type { GenerationType, QualityTier, MediaAsset, Clip } from '@/types/stores';
+import { generateUUID } from '@/utils/uuid';
 
 interface LocationState {
   promptResult?: VideoPromptResponse;
@@ -38,6 +39,9 @@ export function PromptResults() {
   const updateCompositionConfig = useProjectStore((s) => s.updateCompositionConfig);
   const saveProject = useProjectStore((s) => s.saveProject);
   const lastAssetRefreshRef = useRef<number>(0);
+  
+  // Access Timeline Store directly for advanced editor handoff
+  const timelineStore = useContext(TimelineStoreContext);
 
   // Get stored prompt result from project config or fallback to local/session state
   const storedPromptResult = compositionConfig?.adWizard?.promptResult;
@@ -51,12 +55,43 @@ export function PromptResults() {
   const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell');
 
   // Timeline State
-  const [timelineClips, setTimelineClips] = useState<MediaAsset[]>([]);
+  const [timelineClips, setTimelineClips] = useState<TimelineItem[]>(() => {
+      // Initialize from persisted config
+      const saved = compositionConfig?.adWizard?.timelineClips;
+      if (Array.isArray(saved)) {
+          return saved;
+      }
+      return [];
+  });
+  
   const [isExporting, setIsExporting] = useState(false);
 
   // Filter State
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
   const [filterText, setFilterText] = useState<string>('');
+  
+  // Persist timeline changes to project store
+  useEffect(() => {
+      // Only update if changed to avoid loops, although object ref check might trigger.
+      // We rely on zustand/immer to handle diffs or just overwrite.
+      // We only want to update if the content is actually different than what's in store.
+      // But checking deep equality is expensive.
+      // Given this runs on setTimelineClips which is user interaction, it's fine.
+      
+      if (compositionConfig?.adWizard?.timelineClips === timelineClips) return;
+      
+      updateCompositionConfig({
+          adWizard: {
+              ...compositionConfig?.adWizard,
+              timelineClips
+          }
+      });
+      
+      // Note: We don't auto-save to backend on every drag for performance, 
+      // allowing the global autosave timer to pick it up (ProjectStore has debounced autosave).
+      // However, explicit save is safer if user navigates away immediately.
+      // projectStore handles debounce.
+  }, [timelineClips, updateCompositionConfig, compositionConfig?.adWizard]);
 
   // Update selected model when tab changes
   useEffect(() => {
@@ -620,16 +655,24 @@ export function PromptResults() {
           <div className="h-full flex flex-col">
             <SimpleTimeline
               clips={timelineClips}
-              onDrop={(asset) => setTimelineClips(prev => [...prev, asset])}
-              onRemove={(index) => setTimelineClips(prev => prev.filter((_, i) => i !== index))}
+              onDrop={(asset) => {
+                  // Add new item to timeline
+                  const newItem: TimelineItem = {
+                      id: generateUUID(),
+                      asset
+                  };
+                  setTimelineClips(prev => [...prev, newItem]);
+              }}
+              onReorder={setTimelineClips}
+              onRemove={(id) => setTimelineClips(prev => prev.filter(c => c.id !== id))}
               onExport={async () => {
                 if (timelineClips.length === 0) return;
 
                 setIsExporting(true);
                 try {
                   const videoUrls = timelineClips
-                    .filter(c => c.type === 'video')
-                    .map(c => c.url);
+                    .filter(c => c.asset.type === 'video')
+                    .map(c => c.asset.url);
 
                   if (videoUrls.length === 0) {
                     addToast({
@@ -676,8 +719,62 @@ export function PromptResults() {
               }}
               isExporting={isExporting}
               onAdvancedEdit={() => {
-                // Navigate to editor with current project
-                const projectId = compositionConfig?.id || 'new'; // Fallback if no ID
+                // Get project ID
+                const projectId = compositionConfig?.id || 'new'; // Fallback
+                
+                // Prepare Advanced Editor State
+                if (timelineStore && timelineClips.length > 0) {
+                    const store = timelineStore.getState();
+                    store.reset();
+                    
+                    // Create default track
+                    store.addTrack({
+                        type: 'video',
+                        name: 'Main Track',
+                        height: 80,
+                        locked: false,
+                        hidden: false,
+                        muted: false,
+                        order: 0
+                    });
+                    
+                    // We assume the added track is the first/only one
+                    // Since we just reset, tracks is empty before add.
+                    // Wait, addTrack is async? No, Zustand actions are sync.
+                    // But reading back state immediately might rely on closure.
+                    // Let's check state again.
+                    const freshState = timelineStore.getState();
+                    const trackId = freshState.tracks[0]?.id;
+                    
+                    if (trackId) {
+                        const fps = freshState.fps || 30;
+                        let currentFrame = 0;
+                        
+                        timelineClips.forEach(item => {
+                            const durationInSeconds = item.asset.duration || 5; // Default 5s
+                            const durationFrames = Math.floor(durationInSeconds * fps);
+                            
+                            const newClip: Clip = {
+                                id: `clip-${item.id}`, // Use stable ID from timeline item
+                                trackId: trackId,
+                                assetId: item.asset.id,
+                                startTime: currentFrame,
+                                duration: durationFrames,
+                                inPoint: 0,
+                                outPoint: durationFrames,
+                                layer: 0,
+                                opacity: 1,
+                                scale: { x: 1, y: 1 },
+                                position: { x: 0, y: 0 },
+                                rotation: 0
+                            };
+                            
+                            store.addClip(newClip);
+                            currentFrame += durationFrames;
+                        });
+                    }
+                }
+                
                 navigate(`/projects/${projectId}/editor`);
               }}
             />

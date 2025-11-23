@@ -6,12 +6,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ArrowLeft, Sparkles, ChevronRight, Download, Trash2, ExternalLink } from 'lucide-react';
 import type { VideoPromptResponse } from '@/services/ad-generator/types';
 import { generateImage, generateVideo, generateAudio } from '@/services/aiGenerationService';
-import { PromptInput } from '@/components/ai-generation/PromptInput';
+import { PromptInput, MODEL_CONFIGS, MODELS_BY_TYPE } from '@/components/ai-generation/PromptInput';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAIGenerationStore, useMediaStore, useProjectStore } from '@/contexts/StoreContext';
 import { MediaGenerationSkeleton } from '@/components/media/MediaGenerationSkeleton';
 import { MediaAssetCard } from '@/components/media/MediaAssetCard';
@@ -27,7 +28,7 @@ export function PromptResults() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as LocationState | undefined;
-  
+
   // Project Store
   const compositionConfig = useProjectStore((s) => s.compositionConfig);
   const updateCompositionConfig = useProjectStore((s) => s.updateCompositionConfig);
@@ -39,10 +40,21 @@ export function PromptResults() {
   const [promptResult, setPromptResult] = useState<VideoPromptResponse | null>(
     state?.promptResult || storedPromptResult || null
   );
-  
+
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
-  
+  const [activeTab, setActiveTab] = useState<'image' | 'video'>('image');
+  const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell');
+
+  // Update selected model when tab changes
+  useEffect(() => {
+    if (activeTab === 'image') {
+      setSelectedModelId('flux-schnell');
+    } else {
+      setSelectedModelId('wan-video-t2v');
+    }
+  }, [activeTab]);
+
   // Get generated assets list from project config
   // We use a Set for efficient lookup, but persist as array
   const generatedGenIds = useMemo(() => {
@@ -58,7 +70,7 @@ export function PromptResults() {
   const moveToCompleting = useAIGenerationStore((s) => s.moveToCompleting);
   const clearCompletingGeneration = useAIGenerationStore((s) => s.clearCompletingGeneration);
   const addToHistory = useAIGenerationStore((s) => s.addToHistory);
-  
+
   const assets = useMediaStore((s) => s.assets);
   const loadAssets = useMediaStore((s) => s.loadAssets);
   const deleteAsset = useMediaStore((s) => s.deleteAsset);
@@ -81,11 +93,11 @@ export function PromptResults() {
   }, [promptResult]);
 
   const clips = useMemo(() => promptResult?.content || [], [promptResult]);
-  
+
   // Get aspect ratio from project config or state or default
-  const defaultAspectRatio = 
-    state?.aspectRatio || 
-    compositionConfig?.adWizard?.formData?.aspectRatio || 
+  const defaultAspectRatio =
+    state?.aspectRatio ||
+    compositionConfig?.adWizard?.formData?.aspectRatio ||
     '16:9';
 
   // Handle Generation Logic
@@ -102,6 +114,7 @@ export function PromptResults() {
         imageInput?: string | string[]
         audioInput?: string
         advancedParams?: Record<string, any>
+        skipStoreUpdate?: boolean
       },
       index: number
     ) => {
@@ -121,12 +134,14 @@ export function PromptResults() {
         });
 
         // Save generation ID to project config for persistence
-        const currentGenerated = compositionConfig?.generated_assets || [];
-        updateCompositionConfig({
+        if (!params.skipStoreUpdate) {
+          const currentGenerated = compositionConfig?.generated_assets || [];
+          updateCompositionConfig({
             generated_assets: [...currentGenerated, generationId]
-        });
-        // Trigger save (autosave will pick it up)
-        saveProject().catch(err => console.error("Failed to auto-save project:", err));
+          });
+          // Trigger save (autosave will pick it up)
+          saveProject().catch(err => console.error("Failed to auto-save project:", err));
+        }
 
         // Update status to generating
         updateGenerationStatus(generationId, 'generating');
@@ -143,17 +158,17 @@ export function PromptResults() {
             ...params.advancedParams,
           });
         } else if (params.type === 'video') {
-           // Video generation params mapping (similar to AIGenerationPanel)
-           let size = '1280*720';
-           let resolution = params.resolution || '1080p';
+          // Video generation params mapping (similar to AIGenerationPanel)
+          let size = '1280*720';
+          let resolution = params.resolution || '1080p';
 
-           switch (params.aspectRatio) {
-            case '16:9': size = '1280*720'; if(!params.resolution) resolution='1080p'; break;
-            case '9:16': size = '720*1280'; if(!params.resolution) resolution='1080p'; break;
-            case '1:1': size = '1280*720'; if(!params.resolution) resolution='1080p'; break; // Fallback
-            case '4:3': size = '1280*720'; if(!params.resolution) resolution='1080p'; break; // Fallback
+          switch (params.aspectRatio) {
+            case '16:9': size = '1280*720'; if (!params.resolution) resolution = '1080p'; break;
+            case '9:16': size = '720*1280'; if (!params.resolution) resolution = '1080p'; break;
+            case '1:1': size = '1280*720'; if (!params.resolution) resolution = '1080p'; break; // Fallback
+            case '4:3': size = '1280*720'; if (!params.resolution) resolution = '1080p'; break; // Fallback
             default: size = '1280*720';
-           }
+          }
 
           response = await generateVideo({
             prompt: params.prompt,
@@ -179,17 +194,15 @@ export function PromptResults() {
           updateGenerationStatus(generationId, 'generating', { jobId: response.job_id });
         }
 
+        return generationId;
       } catch (error: any) {
         console.error('Generation failed:', error);
-        // Store handles failure updates if needed, but we can also explicitly fail it here if we had the ID
-        // Since we queueGeneration first, we rely on the UI/Store to handle state.
-        // But if API call fails immediately, we should probably mark it failed in store.
-        // We don't have the ID easily accessible in catch block unless we wrap it differently.
-        // For now, rely on store timeout or manual error handling if needed.
+        return undefined;
       }
     },
     [queueGeneration, updateGenerationStatus, compositionConfig, updateCompositionConfig, saveProject]
   );
+
 
   // Check for completed generations to refresh assets
   useEffect(() => {
@@ -259,16 +272,16 @@ export function PromptResults() {
 
   const completingSessionGens = useMemo(() => {
     return Array.from(completingGenerationsMap.values())
-       .filter(g => generatedGenIds.has(g.id));
+      .filter(g => generatedGenIds.has(g.id));
   }, [completingGenerationsMap, generatedGenIds]);
 
   const completedSessionHistory = useMemo(() => {
     const filtered = generationHistory.filter(g => generatedGenIds.has(g.request.id));
     console.log('[PromptResults] History Debug:', {
-        totalHistory: generationHistory.length,
-        sessionIds: Array.from(generatedGenIds),
-        filteredCount: filtered.length,
-        firstMatch: filtered[0]
+      totalHistory: generationHistory.length,
+      sessionIds: Array.from(generatedGenIds),
+      filteredCount: filtered.length,
+      firstMatch: filtered[0]
     });
     return filtered;
   }, [generationHistory, generatedGenIds]);
@@ -276,13 +289,13 @@ export function PromptResults() {
   // Map history items to assets
   const generatedAssets = useMemo(() => {
     const mapped = completedSessionHistory.map(h => {
-       if (h.assetId) {
-         const asset = assets.get(h.assetId);
-         if (!asset) console.warn(`[PromptResults] Asset ${h.assetId} in history but not in store`);
-         return asset;
-       }
-       console.warn(`[PromptResults] History item ${h.id} has no assetId`);
-       return undefined;
+      if (h.assetId) {
+        const asset = assets.get(h.assetId);
+        if (!asset) console.warn(`[PromptResults] Asset ${h.assetId} in history but not in store`);
+        return asset;
+      }
+      console.warn(`[PromptResults] History item ${h.id} has no assetId`);
+      return undefined;
     }).filter(Boolean) as MediaAsset[];
 
     // Deduplicate assets by ID to prevent duplicates in UI
@@ -301,17 +314,17 @@ export function PromptResults() {
   if (!promptResult) {
     return (
       <div className="min-h-screen bg-background pb-12">
-         {/* Empty state ... same as before */}
-         <div className="mx-auto max-w-4xl px-4 py-10">
-           <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-6">
-              <ArrowLeft className="h-4 w-4" /> Back
-            </Button>
-            <Card>
-              <CardContent className="py-10 text-center text-muted-foreground">
-                No prompt results found.
-              </CardContent>
-            </Card>
-         </div>
+        {/* Empty state ... same as before */}
+        <div className="mx-auto max-w-4xl px-4 py-10">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-6">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground">
+              No prompt results found.
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -321,135 +334,207 @@ export function PromptResults() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background z-10">
         <div className="flex items-center gap-4">
-           <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Generated Clip Prompts
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                 {clips.length} clips • {defaultAspectRatio}
-              </p>
-            </div>
+          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Generated Clip Prompts
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {clips.length} clips • {defaultAspectRatio}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
-           {/* Actions like "Go to Media Library" could go here */}
-           <Button variant="outline" size="sm" onClick={() => navigate('/media')}>
-             Media Library
-           </Button>
+
+        <div className="flex gap-2 items-center">
+          <Select value={selectedModelId} onValueChange={setSelectedModelId}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue placeholder="Select Model" />
+            </SelectTrigger>
+            <SelectContent>
+              {MODELS_BY_TYPE[activeTab].map((modelId) => (
+                <SelectItem key={modelId} value={modelId}>
+                  {MODEL_CONFIGS[modelId].name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={async () => {
+              // Generate all clips for current tab
+              const newGenerationIds: string[] = [];
+
+              for (let i = 0; i < clips.length; i++) {
+                const clip = clips[i];
+                const prompt = activeTab === 'image' ? clip.image_prompt : clip.video_prompt;
+                if (!prompt) continue;
+
+                const genId = await handleGenerate({
+                  prompt,
+                  type: activeTab,
+                  qualityTier: 'draft',
+                  aspectRatio: defaultAspectRatio,
+                  model: selectedModelId,
+                  duration: activeTab === 'video' ? 5 : undefined,
+                  resolution: '1080p',
+                  skipStoreUpdate: true
+                }, i);
+
+                if (genId) newGenerationIds.push(genId);
+              }
+
+              if (newGenerationIds.length > 0) {
+                const currentGenerated = compositionConfig?.generated_assets || [];
+                updateCompositionConfig({
+                  generated_assets: [...currentGenerated, ...newGenerationIds]
+                });
+                saveProject().catch(err => console.error("Failed to save project:", err));
+              }
+            }}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generate All {activeTab === 'image' ? 'Images' : 'Videos'}
+          </Button>
+          {/* Actions like "Go to Media Library" could go here */}
+          <Button variant="outline" size="sm" onClick={() => navigate('/media')}>
+            Media Library
+          </Button>
         </div>
-      </header>
+      </header >
 
       <ResizablePanelGroup direction="horizontal" className="flex-1 h-full">
         {/* Left Panel: Prompts */}
         <ResizablePanel defaultSize={50} minSize={30} className="bg-background">
-           <div className="h-full overflow-y-auto p-6 space-y-4">
-              {clips.map((clip, index) => (
-                <Collapsible
-                  key={index}
-                  open={expanded[index] || false}
-                  onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [index]: open }))}
-                >
-                  <CollapsibleTrigger asChild>
-                    <Card className="w-full border-border text-left cursor-pointer hover:border-primary/50 transition-colors">
-                      <CardHeader className="flex flex-row items-center justify-between gap-3 py-4">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base text-foreground">Clip {index + 1}</CardTitle>
-                          <div className="flex gap-2 text-xs text-muted-foreground">
-                             <span>{clip.length}s</span>
-                             <span className="bg-primary/10 text-primary px-1.5 rounded">
-                               {defaultAspectRatio}
-                             </span>
-                          </div>
+          <div className="flex items-center gap-1 p-2 border-b border-border">
+            <Button
+              variant={activeTab === 'image' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('image')}
+              className="flex-1"
+            >
+              Images
+            </Button>
+            <Button
+              variant={activeTab === 'video' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('video')}
+              className="flex-1"
+            >
+              Videos
+            </Button>
+          </div>
+          <div className="h-full overflow-y-auto p-6 space-y-4 pb-20">
+            {clips.map((clip, index) => (
+              <Collapsible
+                key={index}
+                open={expanded[index] || false}
+                onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [index]: open }))}
+              >
+                <CollapsibleTrigger asChild>
+                  <Card className="w-full border-border text-left cursor-pointer hover:border-primary/50 transition-colors">
+                    <CardHeader className="flex flex-row items-center justify-between gap-3 py-4">
+                      <div className="space-y-1 overflow-hidden">
+                        <CardTitle className="text-base text-foreground truncate pr-4">
+                          {activeTab === 'image' ? 'Image' : 'Clip'} {index + 1}: <span className="font-normal text-muted-foreground">{activeTab === 'image' ? clip.image_prompt : clip.video_prompt}</span>
+                        </CardTitle>
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span>{clip.length}s</span>
+                          <span className="bg-primary/10 text-primary px-1.5 rounded">
+                            {defaultAspectRatio}
+                          </span>
                         </div>
-                        <ChevronRight
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            expanded[index] ? 'rotate-90' : ''
+                      </div>
+                      <ChevronRight
+                        className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${expanded[index] ? 'rotate-90' : ''
                           }`}
-                        />
-                      </CardHeader>
-                    </Card>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2">
-                    <Card className="border-border bg-muted/20">
-                      <CardContent className="pt-4">
-                        <PromptInput
-                          defaultType="image"
-                          defaultPrompt={clip.image_prompt}
-                          defaultAspectRatio={defaultAspectRatio}
-                          autoPrompts={{ image: clip.image_prompt, video: clip.video_prompt }}
-                          isPending={false} // Pending state is handled by store/toast usually, but we could link it to activeGenerations
-                          onGenerate={(params) => handleGenerate(params, index)}
-                        />
-                      </CardContent>
-                    </Card>
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
-
-              {/* Raw Response Debug (optional/collapsed) */}
-              <Collapsible>
-                 <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-muted-foreground text-xs w-full justify-start">
-                       Show Raw Prompt Data
-                    </Button>
-                 </CollapsibleTrigger>
-                 <CollapsibleContent>
-                    <pre className="mt-2 rounded-lg bg-muted/60 p-4 text-[10px] text-foreground overflow-x-auto border border-border">
-                      {JSON.stringify(promptResult, null, 2)}
-                    </pre>
-                 </CollapsibleContent>
+                      />
+                    </CardHeader>
+                  </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <Card className="border-border bg-muted/20">
+                    <CardContent className="pt-4">
+                      <PromptInput
+                        defaultType={activeTab}
+                        allowedTypes={['image', 'video']}
+                        selectedModelId={selectedModelId}
+                        defaultPrompt={activeTab === 'image' ? clip.image_prompt : clip.video_prompt}
+                        defaultAspectRatio={defaultAspectRatio}
+                        autoPrompts={{ image: clip.image_prompt, video: clip.video_prompt }}
+                        isPending={false} // Pending state is handled by store/toast usually, but we could link it to activeGenerations
+                        onGenerate={(params) => handleGenerate(params, index)}
+                      />
+                    </CardContent>
+                  </Card>
+                </CollapsibleContent>
               </Collapsible>
-           </div>
+            ))}
+
+            {/* Raw Response Debug (optional/collapsed) */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-muted-foreground text-xs w-full justify-start">
+                  Show Raw Prompt Data
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <pre className="mt-2 rounded-lg bg-muted/60 p-4 text-[10px] text-foreground overflow-x-auto border border-border">
+                  {JSON.stringify(promptResult, null, 2)}
+                </pre>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
         {/* Right Panel: Generated Results */}
         <ResizablePanel defaultSize={50} minSize={30} className="bg-muted/10">
-           <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-border bg-background/50 backdrop-blur">
-                 <h2 className="font-semibold text-foreground">Session Results</h2>
-                 <p className="text-xs text-muted-foreground">
-                   Media generated in this session
-                 </p>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-6">
-                 {visibleGenerations.length === 0 && generatedAssets.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-                       <Sparkles className="h-12 w-12 mb-4 opacity-20" />
-                       <p>No content generated yet.</p>
-                       <p className="text-sm">Select a clip on the left and click Generate.</p>
-                    </div>
-                 ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                       {/* Active/Completing Skeletons */}
-                       {visibleGenerations.map(gen => (
-                          <MediaGenerationSkeleton key={gen.id} />
-                       ))}
-                       
-                       {/* Completed Assets */}
-                       {generatedAssets.map((asset) => {
-                          if (!asset) return null;
-                          return (
-                            <MediaAssetCard
-                              key={asset.id}
-                              asset={asset}
-                              isSelected={selectedAssetIds.includes(asset.id)}
-                              onClick={() => selectAsset(asset.id, false)} // Basic selection
-                              onDelete={() => deleteAsset(asset.id)}
-                              onPreview={() => setPreviewAsset(asset)}
-                            />
-                          );
-                       })}
-                    </div>
-                 )}
-              </div>
-           </div>
+          <div className="h-full flex flex-col">
+            <div className="p-4 border-b border-border bg-background/50 backdrop-blur">
+              <h2 className="font-semibold text-foreground">Session Results</h2>
+              <p className="text-xs text-muted-foreground">
+                Media generated in this session
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {visibleGenerations.length === 0 && generatedAssets.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
+                  <Sparkles className="h-12 w-12 mb-4 opacity-20" />
+                  <p>No content generated yet.</p>
+                  <p className="text-sm">Select a clip on the left and click Generate.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Active/Completing Skeletons */}
+                  {visibleGenerations.map(gen => (
+                    <MediaGenerationSkeleton key={gen.id} />
+                  ))}
+
+                  {/* Completed Assets */}
+                  {generatedAssets.map((asset) => {
+                    if (!asset) return null;
+                    return (
+                      <MediaAssetCard
+                        key={asset.id}
+                        asset={asset}
+                        isSelected={selectedAssetIds.includes(asset.id)}
+                        onClick={() => selectAsset(asset.id, false)} // Basic selection
+                        onDelete={() => deleteAsset(asset.id)}
+                        onPreview={() => setPreviewAsset(asset)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
 
@@ -463,7 +548,7 @@ export function PromptResults() {
           setPreviewAsset(updatedAsset);
         }}
       />
-    </div>
+    </div >
   );
 }
 

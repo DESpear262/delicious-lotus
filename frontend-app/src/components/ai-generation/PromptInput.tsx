@@ -59,7 +59,7 @@ interface ModelConfig {
   }
 }
 
-const MODEL_CONFIGS: Record<string, ModelConfig> = {
+export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Image Models
   'nano-banana': {
     id: 'nano-banana',
@@ -155,7 +155,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
 }
 
-const MODELS_BY_TYPE = {
+export const MODELS_BY_TYPE = {
   image: ['nano-banana', 'flux-schnell'],
   video: ['wan-video-t2v', 'wan-video-i2v', 'veo-3.1', 'kling-v2.5', 'hailuo-2.3', 'seedance'],
   audio: ['stable-audio', 'music-01', 'lyria-2'],
@@ -168,6 +168,8 @@ export function PromptInput({
   defaultType,
   defaultAspectRatio,
   autoPrompts,
+  allowedTypes,
+  selectedModelId: propsSelectedModelId,
 }: {
   onGenerate: (params: {
     prompt: string
@@ -186,11 +188,19 @@ export function PromptInput({
   defaultType?: GenerationType
   defaultAspectRatio?: '16:9' | '9:16' | '1:1' | '4:3'
   autoPrompts?: Partial<Record<GenerationType, string>>
+  allowedTypes?: GenerationType[]
+  selectedModelId?: string
 }) {
   // Basic State
   const [prompt, setPrompt] = useState(defaultPrompt || '')
   const [generationType, setGenerationType] = useState<GenerationType>(defaultType || 'image')
-  const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell')
+  const [internalSelectedModelId, setInternalSelectedModelId] = useState<string>('flux-schnell')
+
+  // Use prop if provided, otherwise internal state
+  const selectedModelId = propsSelectedModelId || internalSelectedModelId;
+  const setSelectedModelId = (id: string) => {
+    setInternalSelectedModelId(id);
+  };
 
   // Input State
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>(defaultAspectRatio || '16:9')
@@ -221,7 +231,10 @@ export function PromptInput({
   // Reset state when type changes
   useEffect(() => {
     const defaultModel = MODELS_BY_TYPE[generationType][0]
-    setSelectedModelId(defaultModel)
+    // Only update internal state if no prop is provided or if we want to reset defaults
+    if (!propsSelectedModelId) {
+      setSelectedModelId(defaultModel)
+    }
     setErrors({})
     // Auto-fill prompt based on generation type if provided
     if (autoPrompts && autoPrompts[generationType]) {
@@ -303,22 +316,24 @@ export function PromptInput({
       <div className="space-y-2">
         <Label>Generation Type</Label>
         <div className="flex gap-2">
-          {(['image', 'video', 'audio'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setGenerationType(type)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${generationType === type
-                ? 'bg-blue-500 border-blue-500 text-white'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                }`}
-            >
-              {type === 'image' && <Image className="w-5 h-5" />}
-              {type === 'video' && <Video className="w-5 h-5" />}
-              {type === 'audio' && <Music className="w-5 h-5" />}
-              <span className="capitalize">{type}</span>
-            </button>
-          ))}
+          {(['image', 'video', 'audio'] as const)
+            .filter(type => !allowedTypes || allowedTypes.includes(type))
+            .map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setGenerationType(type)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border transition-colors ${generationType === type
+                  ? 'bg-blue-500 border-blue-500 text-white'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                  }`}
+              >
+                {type === 'image' && <Image className="w-5 h-5" />}
+                {type === 'video' && <Video className="w-5 h-5" />}
+                {type === 'audio' && <Music className="w-5 h-5" />}
+                <span className="capitalize">{type}</span>
+              </button>
+            ))}
         </div>
       </div>
 

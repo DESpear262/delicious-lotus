@@ -7,13 +7,17 @@ import { ArrowLeft, Sparkles, ChevronRight, Download, Trash2, ExternalLink } fro
 import type { VideoPromptResponse } from '@/services/ad-generator/types';
 import { generateImage, generateVideo, generateAudio } from '@/services/aiGenerationService';
 import { PromptInput, MODEL_CONFIGS, MODELS_BY_TYPE } from '@/components/ai-generation/PromptInput';
+import { Input } from '@/components/ui/input';
+import { Search, Filter } from 'lucide-react';
+import { SimpleTimeline } from '@/components/ad-generator/SimpleTimeline';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAIGenerationStore, useMediaStore, useProjectStore } from '@/contexts/StoreContext';
+import { useAIGenerationStore, useMediaStore, useProjectStore, useUiStore } from '@/contexts/StoreContext';
+import axios from 'axios';
 import { MediaGenerationSkeleton } from '@/components/media/MediaGenerationSkeleton';
 import { MediaAssetCard } from '@/components/media/MediaAssetCard';
 import { MediaPreviewModal } from '@/components/media/MediaPreviewModal';
@@ -46,6 +50,14 @@ export function PromptResults() {
   const [activeTab, setActiveTab] = useState<'image' | 'video'>('image');
   const [selectedModelId, setSelectedModelId] = useState<string>('flux-schnell');
 
+  // Timeline State
+  const [timelineClips, setTimelineClips] = useState<MediaAsset[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Filter State
+  const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
+  const [filterText, setFilterText] = useState<string>('');
+
   // Update selected model when tab changes
   useEffect(() => {
     if (activeTab === 'image') {
@@ -77,6 +89,8 @@ export function PromptResults() {
   const updateAsset = useMediaStore((s) => s.updateAsset);
   const selectedAssetIds = useMediaStore((s) => s.selectedAssetIds);
   const selectAsset = useMediaStore((s) => s.selectAsset);
+
+  const addToast = useUiStore((s) => s.addToast);
 
   // Restore prompt result from session storage if needed (legacy fallback)
   useEffect(() => {
@@ -310,6 +324,24 @@ export function PromptResults() {
   // We show generatedAssets as Cards
   const visibleGenerations = [...activeSessionGens, ...completingSessionGens];
 
+  // Filter Logic for Results
+  const filteredAssets = useMemo(() => {
+    return generatedAssets.filter(asset => {
+      // Type Filter
+      if (filterType !== 'all' && asset.type !== filterType) return false;
+
+      // Text Filter
+      if (filterText) {
+        const searchLower = filterText.toLowerCase();
+        const prompt = (asset.metadata?.prompt as string)?.toLowerCase() || '';
+        const id = asset.id.toLowerCase();
+        return prompt.includes(searchLower) || id.includes(searchLower);
+      }
+
+      return true;
+    });
+  }, [generatedAssets, filterType, filterText]);
+
 
   if (!promptResult) {
     return (
@@ -407,133 +439,248 @@ export function PromptResults() {
         </div>
       </header >
 
-      <ResizablePanelGroup direction="horizontal" className="flex-1 h-full">
-        {/* Left Panel: Prompts */}
-        <ResizablePanel defaultSize={50} minSize={30} className="bg-background">
-          <div className="flex items-center gap-1 p-2 border-b border-border">
-            <Button
-              variant={activeTab === 'image' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveTab('image')}
-              className="flex-1"
-            >
-              Images
-            </Button>
-            <Button
-              variant={activeTab === 'video' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveTab('video')}
-              className="flex-1"
-            >
-              Videos
-            </Button>
-          </div>
-          <div className="h-full overflow-y-auto p-6 space-y-4 pb-20">
-            {clips.map((clip, index) => (
-              <Collapsible
-                key={index}
-                open={expanded[index] || false}
-                onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [index]: open }))}
-              >
-                <CollapsibleTrigger asChild>
-                  <Card className="w-full border-border text-left cursor-pointer hover:border-primary/50 transition-colors">
-                    <CardHeader className="flex flex-row items-center justify-between gap-3 py-4">
-                      <div className="space-y-1 overflow-hidden">
-                        <CardTitle className="text-base text-foreground truncate pr-4">
-                          {activeTab === 'image' ? 'Image' : 'Clip'} {index + 1}: <span className="font-normal text-muted-foreground">{activeTab === 'image' ? clip.image_prompt : clip.video_prompt}</span>
-                        </CardTitle>
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          <span>{clip.length}s</span>
-                          <span className="bg-primary/10 text-primary px-1.5 rounded">
-                            {defaultAspectRatio}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight
-                        className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${expanded[index] ? 'rotate-90' : ''
-                          }`}
-                      />
-                    </CardHeader>
-                  </Card>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  <Card className="border-border bg-muted/20">
-                    <CardContent className="pt-4">
-                      <PromptInput
-                        defaultType={activeTab}
-                        allowedTypes={['image', 'video']}
-                        selectedModelId={selectedModelId}
-                        defaultPrompt={activeTab === 'image' ? clip.image_prompt : clip.video_prompt}
-                        defaultAspectRatio={defaultAspectRatio}
-                        autoPrompts={{ image: clip.image_prompt, video: clip.video_prompt }}
-                        isPending={false} // Pending state is handled by store/toast usually, but we could link it to activeGenerations
-                        onGenerate={(params) => handleGenerate(params, index)}
-                      />
-                    </CardContent>
-                  </Card>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+      <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
+        {/* Top Section (2/3 height) */}
+        <ResizablePanel defaultSize={65} minSize={30}>
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            {/* Left Panel: Prompts (1/3 width) */}
+            <ResizablePanel defaultSize={30} minSize={20} className="bg-background">
+              <div className="h-full flex flex-col">
+                <div className="flex items-center gap-1 p-2 border-b border-border">
+                  <Button
+                    variant={activeTab === 'image' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('image')}
+                    className="flex-1"
+                  >
+                    Images
+                  </Button>
+                  <Button
+                    variant={activeTab === 'video' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('video')}
+                    className="flex-1"
+                  >
+                    Videos
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {clips.map((clip, index) => (
+                    <Collapsible
+                      key={index}
+                      open={expanded[index] || false}
+                      onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [index]: open }))}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Card className="w-full border-border text-left cursor-pointer hover:border-primary/50 transition-colors">
+                          <CardHeader className="flex flex-row items-center justify-between gap-3 py-4">
+                            <div className="space-y-1 overflow-hidden">
+                              <CardTitle className="text-base text-foreground truncate pr-4">
+                                {activeTab === 'image' ? 'Image' : 'Clip'} {index + 1}: <span className="font-normal text-muted-foreground">{activeTab === 'image' ? clip.image_prompt : clip.video_prompt}</span>
+                              </CardTitle>
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <span>{clip.length}s</span>
+                                <span className="bg-primary/10 text-primary px-1.5 rounded">
+                                  {defaultAspectRatio}
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronRight
+                              className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${expanded[index] ? 'rotate-90' : ''
+                                }`}
+                            />
+                          </CardHeader>
+                        </Card>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2">
+                        <Card className="border-border bg-muted/20">
+                          <CardContent className="pt-4">
+                            <PromptInput
+                              defaultType={activeTab}
+                              allowedTypes={['image', 'video']}
+                              selectedModelId={selectedModelId}
+                              defaultPrompt={activeTab === 'image' ? clip.image_prompt : clip.video_prompt}
+                              defaultAspectRatio={defaultAspectRatio}
+                              autoPrompts={{ image: clip.image_prompt, video: clip.video_prompt }}
+                              isPending={false}
+                              onGenerate={(params) => handleGenerate(params, index)}
+                            />
+                          </CardContent>
+                        </Card>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ))}
 
-            {/* Raw Response Debug (optional/collapsed) */}
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground text-xs w-full justify-start">
-                  Show Raw Prompt Data
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <pre className="mt-2 rounded-lg bg-muted/60 p-4 text-[10px] text-foreground overflow-x-auto border border-border">
-                  {JSON.stringify(promptResult, null, 2)}
-                </pre>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
+                  {/* Raw Response Debug (optional/collapsed) */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-muted-foreground text-xs w-full justify-start">
+                        Show Raw Prompt Data
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <pre className="mt-2 rounded-lg bg-muted/60 p-4 text-[10px] text-foreground overflow-x-auto border border-border">
+                        {JSON.stringify(promptResult, null, 2)}
+                      </pre>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            {/* Right Panel: Generated Results (2/3 width) */}
+            <ResizablePanel defaultSize={70} minSize={30} className="bg-muted/10">
+              <div className="h-full flex flex-col">
+                <div className="p-4 border-b border-border bg-background/50 backdrop-blur flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="font-semibold text-foreground">Session Results</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Media generated in this session
+                    </p>
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-[200px]">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search prompts..."
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                        className="h-8 pl-8"
+                      />
+                    </div>
+                    <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+                      <SelectTrigger className="w-[130px] h-8">
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-3.5 w-3.5" />
+                          <SelectValue />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="image">Images</SelectItem>
+                        <SelectItem value="video">Videos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6">
+                  {visibleGenerations.length === 0 && filteredAssets.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
+                      <Sparkles className="h-12 w-12 mb-4 opacity-20" />
+                      <p>No content generated yet.</p>
+                      <p className="text-sm">Select a clip on the left and click Generate.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Active/Completing Skeletons */}
+                      {visibleGenerations.map(gen => (
+                        <MediaGenerationSkeleton key={gen.id} />
+                      ))}
+
+                      {/* Completed Assets */}
+                      {filteredAssets.map((asset) => {
+                        if (!asset) return null;
+                        return (
+                          <div
+                            key={asset.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('application/json', JSON.stringify(asset));
+                              e.dataTransfer.effectAllowed = 'copy';
+                            }}
+                            className="cursor-grab active:cursor-grabbing"
+                          >
+                            <MediaAssetCard
+                              asset={asset}
+                              isSelected={selectedAssetIds.includes(asset.id)}
+                              onClick={() => selectAsset(asset.id, false)}
+                              onDelete={() => deleteAsset(asset.id)}
+                              onPreview={() => setPreviewAsset(asset)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
-        {/* Right Panel: Generated Results */}
-        <ResizablePanel defaultSize={50} minSize={30} className="bg-muted/10">
+        {/* Bottom Section: Timeline (1/3 height) */}
+        <ResizablePanel defaultSize={35} minSize={15}>
           <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-border bg-background/50 backdrop-blur">
-              <h2 className="font-semibold text-foreground">Session Results</h2>
-              <p className="text-xs text-muted-foreground">
-                Media generated in this session
-              </p>
-            </div>
+            <SimpleTimeline
+              clips={timelineClips}
+              onDrop={(asset) => setTimelineClips(prev => [...prev, asset])}
+              onRemove={(index) => setTimelineClips(prev => prev.filter((_, i) => i !== index))}
+              onExport={async () => {
+                if (timelineClips.length === 0) return;
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {visibleGenerations.length === 0 && generatedAssets.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-                  <Sparkles className="h-12 w-12 mb-4 opacity-20" />
-                  <p>No content generated yet.</p>
-                  <p className="text-sm">Select a clip on the left and click Generate.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Active/Completing Skeletons */}
-                  {visibleGenerations.map(gen => (
-                    <MediaGenerationSkeleton key={gen.id} />
-                  ))}
+                setIsExporting(true);
+                try {
+                  const videoUrls = timelineClips
+                    .filter(c => c.type === 'video')
+                    .map(c => c.url);
 
-                  {/* Completed Assets */}
-                  {generatedAssets.map((asset) => {
-                    if (!asset) return null;
-                    return (
-                      <MediaAssetCard
-                        key={asset.id}
-                        asset={asset}
-                        isSelected={selectedAssetIds.includes(asset.id)}
-                        onClick={() => selectAsset(asset.id, false)} // Basic selection
-                        onDelete={() => deleteAsset(asset.id)}
-                        onPreview={() => setPreviewAsset(asset)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                  if (videoUrls.length === 0) {
+                    addToast({
+                      message: 'No videos to export',
+                      type: 'warning',
+                      duration: 3000
+                    });
+                    setIsExporting(false);
+                    return;
+                  }
+
+                  const response = await axios.post('/api/v1/test/concat', {
+                    video_urls: videoUrls
+                  }, {
+                    responseType: 'blob'
+                  });
+
+                  // Create download link
+                  const url = window.URL.createObjectURL(new Blob([response.data]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'concatenated_video.mp4');
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+
+                  addToast({
+                    message: 'Export successful',
+                    type: 'success',
+                    duration: 3000
+                  });
+                } catch (error) {
+                  console.error('Export failed:', error);
+                  addToast({
+                    message: 'Export failed',
+                    description: 'Please try again later',
+                    type: 'error',
+                    duration: 5000
+                  });
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              isExporting={isExporting}
+              onAdvancedEdit={() => {
+                // Navigate to editor with current project
+                const projectId = compositionConfig?.id || 'new'; // Fallback if no ID
+                navigate(`/projects/${projectId}/editor`);
+              }}
+            />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

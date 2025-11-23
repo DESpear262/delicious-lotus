@@ -97,6 +97,11 @@ export const MediaAssetCard = memo(
       [asset.url]
     );
 
+    const hasDimensions = asset.width && asset.height && asset.width > 0 && asset.height > 0;
+    const aspectRatio = hasDimensions
+      ? `${asset.width}/${asset.height}`
+      : '1/1';
+
     return (
       <Card
         className={`
@@ -113,11 +118,14 @@ export const MediaAssetCard = memo(
         aria-pressed={isSelected}
       >
         {/* Thumbnail */}
-        <div className="aspect-square bg-zinc-950 flex items-center justify-center relative overflow-hidden">
+        <div
+          className="bg-zinc-950 flex items-center justify-center relative overflow-hidden"
+          style={{ aspectRatio, width: '100%' }}
+        >
           {/* For images, use main URL if thumbnail not available. For videos, only show thumbnail. */}
           {asset.thumbnailUrl || (asset.type === 'image' && asset.url) ? (
             <img
-              src={(asset.thumbnailUrl || asset.url).split('?')[0]}
+              src={asset.thumbnailUrl || asset.url}
               alt={asset.name}
               className="w-full h-full object-cover"
               loading="lazy"
@@ -207,7 +215,9 @@ export const MediaAssetCard = memo(
       prevProps.asset.id === nextProps.asset.id &&
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.asset.name === nextProps.asset.name &&
-      prevProps.asset.thumbnailUrl === nextProps.asset.thumbnailUrl
+      prevProps.asset.thumbnailUrl === nextProps.asset.thumbnailUrl &&
+      prevProps.asset.width === nextProps.asset.width &&
+      prevProps.asset.height === nextProps.asset.height
     );
   }
 );

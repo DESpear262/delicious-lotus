@@ -369,9 +369,6 @@ export function useGenerationForm() {
       // Persist results to project
       persistState(formData, currentStep, response);
 
-      // Also save to sessionStorage for legacy support/backup
-      sessionStorage.setItem('promptResult', JSON.stringify(response));
-
       navigate('/ad-generator/prompt-results');
     } catch (error: any) {
       console.error('Failed to generate clip prompts:', error);

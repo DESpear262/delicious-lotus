@@ -45,9 +45,11 @@ export function PromptResults() {
 
   // Get stored prompt result from project config or fallback to local/session state
   const storedPromptResult = compositionConfig?.adWizard?.promptResult;
-  const [promptResult, setPromptResult] = useState<VideoPromptResponse | null>(
-    state?.promptResult || storedPromptResult || null
-  );
+  const storedTimelineClips = compositionConfig?.adWizard?.timelineClips;
+  
+  const promptResult = useMemo(() => {
+    return state?.promptResult || storedPromptResult || null;
+  }, [state?.promptResult, storedPromptResult]);
 
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
@@ -57,9 +59,8 @@ export function PromptResults() {
   // Timeline State
   const [timelineClips, setTimelineClips] = useState<TimelineItem[]>(() => {
       // Initialize from persisted config
-      const saved = compositionConfig?.adWizard?.timelineClips;
-      if (Array.isArray(saved)) {
-          return saved;
+      if (Array.isArray(storedTimelineClips)) {
+          return storedTimelineClips;
       }
       return [];
   });
@@ -70,28 +71,38 @@ export function PromptResults() {
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
   const [filterText, setFilterText] = useState<string>('');
   
-  // Persist timeline changes to project store
-  useEffect(() => {
-      // Only update if changed to avoid loops, although object ref check might trigger.
-      // We rely on zustand/immer to handle diffs or just overwrite.
-      // We only want to update if the content is actually different than what's in store.
-      // But checking deep equality is expensive.
-      // Given this runs on setTimelineClips which is user interaction, it's fine.
-      
-      if (compositionConfig?.adWizard?.timelineClips === timelineClips) return;
-      
-      updateCompositionConfig({
-          adWizard: {
-              ...compositionConfig?.adWizard,
-              timelineClips
-          }
+  // Helper to update timeline both locally and in store
+  const updateTimeline = useCallback((newClips: TimelineItem[] | ((prev: TimelineItem[]) => TimelineItem[])) => {
+      setTimelineClips(prev => {
+          const updated = typeof newClips === 'function' ? newClips(prev) : newClips;
+          
+          // Update store
+          updateCompositionConfig({
+              adWizard: {
+                  ...compositionConfig?.adWizard,
+                  timelineClips: updated
+              }
+          });
+          
+          return updated;
       });
-      
-      // Note: We don't auto-save to backend on every drag for performance, 
-      // allowing the global autosave timer to pick it up (ProjectStore has debounced autosave).
-      // However, explicit save is safer if user navigates away immediately.
-      // projectStore handles debounce.
-  }, [timelineClips, updateCompositionConfig, compositionConfig?.adWizard]);
+  }, [updateCompositionConfig, compositionConfig?.adWizard]);
+
+  // Sync FROM store on hydration/load
+  useEffect(() => {
+      if (storedTimelineClips && Array.isArray(storedTimelineClips) && storedTimelineClips.length > 0) {
+          // Only update if we have stored clips and local is empty or different
+          // For simplicity and to catch hydration, we just verify if length matches or first ID matches
+          // Real diffing is expensive, but hydration usually happens once from 0 -> N items.
+          setTimelineClips(prev => {
+              if (prev.length === 0) return storedTimelineClips;
+              // If both have items, trust store as source of truth if they differ significantly?
+              // Or trust local?
+              // In single user mode, trust store if local is "initial default".
+              return storedTimelineClips;
+          });
+      }
+  }, [storedTimelineClips]);
 
   // Update selected model when tab changes
   useEffect(() => {
@@ -126,20 +137,6 @@ export function PromptResults() {
   const selectAsset = useMediaStore((s) => s.selectAsset);
 
   const addToast = useUiStore((s) => s.addToast);
-
-  // Restore prompt result from session storage if needed (legacy fallback)
-  useEffect(() => {
-    if (!promptResult) {
-      const stored = sessionStorage.getItem('promptResult');
-      if (stored) {
-        try {
-          setPromptResult(JSON.parse(stored));
-        } catch (error) {
-          console.warn('Failed to parse stored prompt result', error);
-        }
-      }
-    }
-  }, [promptResult]);
 
   const clips = useMemo(() => promptResult?.content || [], [promptResult]);
 
@@ -661,50 +658,111 @@ export function PromptResults() {
                       id: generateUUID(),
                       asset
                   };
-                  setTimelineClips(prev => [...prev, newItem]);
+                  updateTimeline(prev => [...prev, newItem]);
               }}
-              onReorder={setTimelineClips}
-              onRemove={(id) => setTimelineClips(prev => prev.filter(c => c.id !== id))}
+              onReorder={updateTimeline}
+              onRemove={(id) => updateTimeline(prev => prev.filter(c => c.id !== id))}
               onExport={async () => {
                 if (timelineClips.length === 0) return;
 
                 setIsExporting(true);
                 try {
-                  const videoUrls = timelineClips
-                    .filter(c => c.asset.type === 'video')
-                    .map(c => c.asset.url);
+                  const allVideo = timelineClips.length > 0 && timelineClips.every(item => item.asset.type === 'video');
 
-                  if (videoUrls.length === 0) {
-                    addToast({
-                      message: 'No videos to export',
-                      type: 'warning',
-                      duration: 3000
-                    });
-                    setIsExporting(false);
-                    return;
+                  if (allVideo) {
+                      // Video-only timeline: Use Concatenation endpoint
+                      const videoUrls = timelineClips
+                        .map(c => c.asset.url);
+
+                      if (videoUrls.length === 0) {
+                        addToast({
+                          message: 'No videos to export',
+                          type: 'warning',
+                          duration: 3000
+                        });
+                        setIsExporting(false);
+                        return;
+                      }
+
+                      const response = await axios.post('/api/v1/test/concat', {
+                        video_urls: videoUrls
+                      }, {
+                        responseType: 'blob'
+                      });
+
+                      // Create download link
+                      const url = window.URL.createObjectURL(new Blob([response.data]));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', 'concatenated_video.mp4');
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                      window.URL.revokeObjectURL(url);
+
+                      addToast({
+                        message: 'Export successful',
+                        type: 'success',
+                        duration: 3000
+                      });
+                  } else {
+                      // Images or Mixed: Create video from images
+                      const isMixed = timelineClips.some(item => item.asset.type === 'video');
+                      if (isMixed) {
+                          addToast({
+                              message: 'Mixed media export is partial',
+                              description: 'Only images will be included in this export.',
+                              type: 'warning',
+                              duration: 4000
+                          });
+                      }
+
+                      const imageUrls = timelineClips
+                          .filter(item => item.asset.type === 'image')
+                          .map(item => item.asset.url);
+
+                      if (imageUrls.length === 0) {
+                          addToast({
+                              message: 'No images to export',
+                              type: 'warning',
+                              duration: 3000
+                          });
+                          setIsExporting(false);
+                          return;
+                      }
+
+                      const formData = compositionConfig?.adWizard?.formData;
+                      // Default to 5s per image if total duration isn't clear, or spread total duration?
+                      // User requirement says "duration should match the duration that was selected during the ad-generator pipeline"
+                      const duration = formData?.duration || 30;
+
+                      // Call Create Video from Images endpoint
+                      const response = await axios.post('/api/v1/media/create-video-from-images', {
+                          image_urls: imageUrls,
+                          duration: duration,
+                          user_id: 'current_user', // TODO: Get real user ID
+                          width: 1920,
+                          height: 1080
+                      }, {
+                          responseType: 'blob'
+                      });
+
+                      // Create download link
+                      const url = window.URL.createObjectURL(new Blob([response.data]));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', 'generated_video.mp4');
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                      window.URL.revokeObjectURL(url);
+
+                      addToast({
+                          message: 'Video created successfully',
+                          type: 'success',
+                          duration: 3000
+                      });
                   }
-
-                  const response = await axios.post('/api/v1/test/concat', {
-                    video_urls: videoUrls
-                  }, {
-                    responseType: 'blob'
-                  });
-
-                  // Create download link
-                  const url = window.URL.createObjectURL(new Blob([response.data]));
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.setAttribute('download', 'concatenated_video.mp4');
-                  document.body.appendChild(link);
-                  link.click();
-                  link.remove();
-                  window.URL.revokeObjectURL(url);
-
-                  addToast({
-                    message: 'Export successful',
-                    type: 'success',
-                    duration: 3000
-                  });
                 } catch (error) {
                   console.error('Export failed:', error);
                   addToast({

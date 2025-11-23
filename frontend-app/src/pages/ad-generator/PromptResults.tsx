@@ -60,7 +60,7 @@ export function PromptResults() {
       model: string
       duration?: number
       resolution?: string
-      imageInput?: string
+      imageInput?: string | string[]
       audioInput?: string
       advancedParams?: Record<string, any>
     },
@@ -76,6 +76,7 @@ export function PromptResults() {
           qualityTier: params.qualityTier,
           aspectRatio: params.aspectRatio,
           model: params.model,
+          image_input: params.imageInput,
           ...params.advancedParams,
         });
       } else if (params.type === 'video') {
@@ -85,7 +86,7 @@ export function PromptResults() {
           duration: params.duration,
           model: params.model,
           resolution: params.resolution,
-          image: params.imageInput,
+          image: Array.isArray(params.imageInput) ? params.imageInput[0] : params.imageInput,
           ...params.advancedParams,
         });
       } else if (params.type === 'audio') {
@@ -170,9 +171,8 @@ export function PromptResults() {
                         <p className="text-xs text-muted-foreground">Length: {clip.length}s</p>
                       </div>
                       <ChevronRight
-                        className={`h-4 w-4 text-muted-foreground transition-transform ${
-                          expanded[index] ? 'rotate-90' : ''
-                        }`}
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${expanded[index] ? 'rotate-90' : ''
+                          }`}
                       />
                     </CardHeader>
                   </Card>

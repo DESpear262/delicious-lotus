@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import requests
 from fastapi import APIRouter, HTTPException
@@ -20,6 +21,7 @@ class ConcatRequest(BaseModel):
     """Request model for video concatenation."""
 
     video_urls: list[HttpUrl]
+    audio_url: Optional[HttpUrl] = None
 
 
 @router.post("/concat")
@@ -27,7 +29,7 @@ async def concat_videos(request: ConcatRequest) -> FileResponse:
     """Concatenate videos from URLs into a single MP4 file.
 
     Args:
-        request: List of video URLs to concatenate
+        request: List of video URLs to concatenate and optional audio URL
 
     Returns:
         FileResponse: Downloadable MP4 file
@@ -70,6 +72,25 @@ async def concat_videos(request: ConcatRequest) -> FileResponse:
                     status_code=400, detail=f"Failed to download video {i + 1}: {e!s}"
                 )
 
+        # Download audio if provided
+        audio_path = None
+        if request.audio_url:
+            audio_path = temp_dir / "audio_track.mp3" # Extension might vary but ffmpeg detects
+            logger.info(f"Downloading audio: {request.audio_url}")
+            try:
+                response = requests.get(str(request.audio_url), stream=True, timeout=30)
+                response.raise_for_status()
+                with open(audio_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                logger.info(f"Downloaded audio: {audio_path}")
+            except Exception as e:
+                logger.error(f"Failed to download audio {request.audio_url}: {e}")
+                raise HTTPException(
+                    status_code=400, detail=f"Failed to download audio: {e!s}"
+                )
+
         # Create concat file list for FFmpeg
         concat_list = temp_dir / "concat_list.txt"
         with open(concat_list, "w") as f:
@@ -80,20 +101,39 @@ async def concat_videos(request: ConcatRequest) -> FileResponse:
         output_file = temp_dir / "output.mp4"
 
         # Build FFmpeg command for concatenation
-        # Using concat demuxer for fast concatenation without re-encoding
         cmd = [
             "ffmpeg",
             "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(concat_list),
-            "-c",
-            "copy",  # Copy streams without re-encoding (fast)
-            str(output_file),
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(concat_list)
         ]
+
+        if audio_path:
+            # If audio is provided:
+            # -i audio_path: Input audio
+            # -map 0:v: Map video from concat list
+            # -map 1:a: Map audio from audio file
+            # -c:v copy: Copy video stream
+            # -c:a aac: Re-encode audio (safer) or copy if compatible
+            # -shortest: Finish when the shortest input ends (if video is shorter than audio, cut audio. If audio shorter, cut video? No, we want video length to dictate. -shortest works if video is main)
+            # Actually, to enforce video length, we can use -fflags +shortest on the input or complex filter. 
+            # But simple -shortest usually cuts to shortest stream.
+            cmd.extend([
+                "-i", str(audio_path),
+                "-map", "0:v",
+                "-map", "1:a",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-shortest" 
+            ])
+        else:
+            # Original behavior
+            cmd.extend([
+                "-c", "copy"
+            ])
+
+        cmd.append(str(output_file))
 
         logger.info(f"Running FFmpeg concat: {' '.join(cmd)}")
 

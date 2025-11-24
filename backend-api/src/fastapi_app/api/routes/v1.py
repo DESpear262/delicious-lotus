@@ -1143,7 +1143,8 @@ async def create_video_from_images(
             duration=request.duration,
             temp_dir=temp_mgr.temp_dir,
             width=request.width,
-            height=request.height
+            height=request.height,
+            audio_url=request.audio_url
         )
         
         logger.info(f"Video generated at {output_path}")

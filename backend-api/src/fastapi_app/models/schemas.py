@@ -187,6 +187,7 @@ class CreateVideoFromImagesRequest(BaseModel):
     user_id: str = Field(..., description="User ID for asset ownership")
     width: Optional[int] = Field(None, ge=100, le=3840, description="Target video width (optional, defaults to first image width)")
     height: Optional[int] = Field(None, ge=100, le=2160, description="Target video height (optional, defaults to first image height)")
+    audio_url: Optional[str] = Field(None, description="Optional audio track URL to add to the video")
 
 
 class CreateVideoFromImagesResponse(BaseModel):

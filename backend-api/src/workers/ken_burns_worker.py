@@ -12,6 +12,8 @@ from workers.s3_manager import s3_manager
 from workers.temp_file_manager import TempFileManager
 from workers.video_processor import extract_video_metadata, generate_thumbnail
 
+import requests
+
 logger = logging.getLogger(__name__)
 
 def generate_ken_burns_video(
@@ -20,6 +22,7 @@ def generate_ken_burns_video(
     temp_dir: Path,
     width: Optional[int] = None,
     height: Optional[int] = None,
+    audio_url: Optional[str] = None,
 ) -> Path:
     """
     Generate a video from images with Ken Burns effect.
@@ -30,6 +33,7 @@ def generate_ken_burns_video(
         temp_dir: Temporary directory to store intermediate files.
         width: Optional target video width.
         height: Optional target video height.
+        audio_url: Optional audio URL to add to the video.
 
     Returns:
         Path: Path to the generated video file.
@@ -39,6 +43,23 @@ def generate_ken_burns_video(
     # 1. Download images
     assets_to_download = [{"url": url, "id": f"img_{i}"} for i, url in enumerate(image_urls)]
     downloaded_images = s3_manager.download_assets(assets_to_download, temp_dir)
+    
+    # Download audio if provided
+    audio_path = None
+    if audio_url:
+        try:
+            audio_path = temp_dir / "audio_track.mp3"
+            logger.info(f"Downloading audio: {audio_url}")
+            response = requests.get(audio_url, stream=True, timeout=30)
+            response.raise_for_status()
+            with open(audio_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            logger.info(f"Downloaded audio: {audio_path}")
+        except Exception as e:
+            logger.warning(f"Failed to download audio, proceeding without it: {e}")
+            audio_path = None
     
     # Sort images by index to maintain order
     sorted_image_paths = []
@@ -179,12 +200,26 @@ def generate_ken_burns_video(
         "ffmpeg", "-y",
         "-f", "concat",
         "-safe", "0",
-        "-i", str(concat_list_path),
-        "-c", "copy",
-        str(output_video_path)
+        "-i", str(concat_list_path)
     ]
+
+    if audio_path:
+        concat_cmd.extend([
+            "-i", str(audio_path),
+            "-map", "0:v",
+            "-map", "1:a",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest"
+        ])
+    else:
+        concat_cmd.extend([
+            "-c", "copy"
+        ])
+
+    concat_cmd.append(str(output_video_path))
     
-    logger.info(f"Concatenating segments")
+    logger.info(f"Concatenating segments (audio={bool(audio_path)})")
     subprocess.run(concat_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, cwd=str(temp_dir))
 
     return output_video_path

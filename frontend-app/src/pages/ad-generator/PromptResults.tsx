@@ -10,6 +10,7 @@ import { PromptInput, MODEL_CONFIGS, MODELS_BY_TYPE } from '@/components/ai-gene
 import { Input } from '@/components/ui/input';
 import { Search, Filter } from 'lucide-react';
 import { SimpleTimeline, type TimelineItem } from '@/components/ad-generator/SimpleTimeline';
+import { QuickExportModal } from '@/components/ad-generator/QuickExportModal';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -66,6 +67,7 @@ export function PromptResults() {
   });
   
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Filter State
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
@@ -374,6 +376,154 @@ export function PromptResults() {
     });
   }, [generatedAssets, filterType, filterText]);
 
+  const handleConfirmExport = async (audioUrl?: string) => {
+    if (timelineClips.length === 0) return;
+
+    setIsExporting(true);
+    try {
+      const allVideo = timelineClips.length > 0 && timelineClips.every(item => item.asset.type === 'video');
+
+      if (allVideo) {
+          // Video-only timeline: Use Concatenation endpoint
+          const videoUrls = timelineClips
+            .map(c => c.asset.url);
+
+          if (videoUrls.length === 0) {
+            addToast({
+              message: 'No videos to export',
+              type: 'warning',
+              duration: 3000
+            });
+            setIsExporting(false);
+            setShowExportModal(false);
+            return;
+          }
+
+          const response = await axios.post('/api/v1/test/concat', {
+            video_urls: videoUrls,
+            audio_url: audioUrl
+          }, {
+            responseType: 'blob'
+          });
+
+          // Create download link
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', 'concatenated_video.mp4');
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+
+          addToast({
+            message: 'Export successful',
+            type: 'success',
+            duration: 3000
+          });
+      } else {
+          // Images or Mixed: Create video from images
+          const isMixed = timelineClips.some(item => item.asset.type === 'video');
+          if (isMixed) {
+              addToast({
+                  message: 'Mixed media export is partial',
+                  description: 'Only images will be included in this export.',
+                  type: 'warning',
+                  duration: 4000
+              });
+          }
+
+          const imageUrls = timelineClips
+              .filter(item => item.asset.type === 'image')
+              .map(item => item.asset.url);
+
+          if (imageUrls.length === 0) {
+              addToast({
+                  message: 'No images to export',
+                  type: 'warning',
+                  duration: 3000
+              });
+              setIsExporting(false);
+              setShowExportModal(false);
+              return;
+          }
+
+          const formData = compositionConfig?.adWizard?.formData;
+          // Default to 5s per image if total duration isn't clear, or spread total duration?
+          // User requirement says "duration should match the duration that was selected during the ad-generator pipeline"
+          const duration = formData?.duration || 30;
+          
+          // Determine resolution from aspect ratio
+          const aspectRatio = formData?.aspectRatio || '16:9';
+          let width = 1920;
+          let height = 1080;
+          
+          switch (aspectRatio) {
+              case '16:9':
+                  width = 1920;
+                  height = 1080;
+                  break;
+              case '9:16':
+                  width = 1080;
+                  height = 1920;
+                  break;
+              case '1:1':
+                  width = 1080;
+                  height = 1080;
+                  break;
+              case '4:3':
+                  width = 1440;
+                  height = 1080;
+                  break;
+              default:
+                  width = 1920;
+                  height = 1080;
+          }
+
+          // Call Create Video from Images endpoint
+          const response = await axios.post('/api/v1/media/create-video-from-images', {
+              image_urls: imageUrls,
+              duration: duration,
+              user_id: 'current_user', // TODO: Get real user ID
+              width,
+              height,
+              audio_url: audioUrl
+          }, {
+              responseType: 'blob'
+          });
+
+          // Create download link
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', 'generated_video.mp4');
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+
+          addToast({
+              message: 'Video created successfully',
+              type: 'success',
+              duration: 3000
+          });
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      addToast({
+        message: 'Export failed',
+        description: 'Please try again later',
+        type: 'error',
+        duration: 5000
+      });
+    } finally {
+      setIsExporting(false);
+      setShowExportModal(false);
+    }
+  };
+
+
+
 
   if (!promptResult) {
     return (
@@ -662,146 +812,7 @@ export function PromptResults() {
               }}
               onReorder={updateTimeline}
               onRemove={(id) => updateTimeline(prev => prev.filter(c => c.id !== id))}
-              onExport={async () => {
-                if (timelineClips.length === 0) return;
-
-                setIsExporting(true);
-                try {
-                  const allVideo = timelineClips.length > 0 && timelineClips.every(item => item.asset.type === 'video');
-
-                  if (allVideo) {
-                      // Video-only timeline: Use Concatenation endpoint
-                      const videoUrls = timelineClips
-                        .map(c => c.asset.url);
-
-                      if (videoUrls.length === 0) {
-                        addToast({
-                          message: 'No videos to export',
-                          type: 'warning',
-                          duration: 3000
-                        });
-                        setIsExporting(false);
-                        return;
-                      }
-
-                      const response = await axios.post('/api/v1/test/concat', {
-                        video_urls: videoUrls
-                      }, {
-                        responseType: 'blob'
-                      });
-
-                      // Create download link
-                      const url = window.URL.createObjectURL(new Blob([response.data]));
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.setAttribute('download', 'concatenated_video.mp4');
-                      document.body.appendChild(link);
-                      link.click();
-                      link.remove();
-                      window.URL.revokeObjectURL(url);
-
-                      addToast({
-                        message: 'Export successful',
-                        type: 'success',
-                        duration: 3000
-                      });
-                  } else {
-                      // Images or Mixed: Create video from images
-                      const isMixed = timelineClips.some(item => item.asset.type === 'video');
-                      if (isMixed) {
-                          addToast({
-                              message: 'Mixed media export is partial',
-                              description: 'Only images will be included in this export.',
-                              type: 'warning',
-                              duration: 4000
-                          });
-                      }
-
-                      const imageUrls = timelineClips
-                          .filter(item => item.asset.type === 'image')
-                          .map(item => item.asset.url);
-
-                      if (imageUrls.length === 0) {
-                          addToast({
-                              message: 'No images to export',
-                              type: 'warning',
-                              duration: 3000
-                          });
-                          setIsExporting(false);
-                          return;
-                      }
-
-                      const formData = compositionConfig?.adWizard?.formData;
-                      // Default to 5s per image if total duration isn't clear, or spread total duration?
-                      // User requirement says "duration should match the duration that was selected during the ad-generator pipeline"
-                      const duration = formData?.duration || 30;
-                      
-                      // Determine resolution from aspect ratio
-                      const aspectRatio = formData?.aspectRatio || '16:9';
-                      let width = 1920;
-                      let height = 1080;
-                      
-                      switch (aspectRatio) {
-                          case '16:9':
-                              width = 1920;
-                              height = 1080;
-                              break;
-                          case '9:16':
-                              width = 1080;
-                              height = 1920;
-                              break;
-                          case '1:1':
-                              width = 1080;
-                              height = 1080;
-                              break;
-                          case '4:3':
-                              width = 1440;
-                              height = 1080;
-                              break;
-                          default:
-                              width = 1920;
-                              height = 1080;
-                      }
-
-                      // Call Create Video from Images endpoint
-                      const response = await axios.post('/api/v1/media/create-video-from-images', {
-                          image_urls: imageUrls,
-                          duration: duration,
-                          user_id: 'current_user', // TODO: Get real user ID
-                          width,
-                          height
-                      }, {
-                          responseType: 'blob'
-                      });
-
-                      // Create download link
-                      const url = window.URL.createObjectURL(new Blob([response.data]));
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.setAttribute('download', 'generated_video.mp4');
-                      document.body.appendChild(link);
-                      link.click();
-                      link.remove();
-                      window.URL.revokeObjectURL(url);
-
-                      addToast({
-                          message: 'Video created successfully',
-                          type: 'success',
-                          duration: 3000
-                      });
-                  }
-                } catch (error) {
-                  console.error('Export failed:', error);
-                  addToast({
-                    message: 'Export failed',
-                    description: 'Please try again later',
-                    type: 'error',
-                    duration: 5000
-                  });
-                } finally {
-                  setIsExporting(false);
-                }
-              }}
+              onExport={() => setShowExportModal(true)}
               isExporting={isExporting}
               onAdvancedEdit={() => {
                 // Get project ID
@@ -876,6 +887,14 @@ export function PromptResults() {
           updateAsset(updatedAsset.id, updatedAsset);
           setPreviewAsset(updatedAsset);
         }}
+      />
+
+      {/* Quick Export Modal */}
+      <QuickExportModal
+        open={showExportModal}
+        onOpenChange={setShowExportModal}
+        onConfirm={handleConfirmExport}
+        isExporting={isExporting}
       />
     </div >
   );

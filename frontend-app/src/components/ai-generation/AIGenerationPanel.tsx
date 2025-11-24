@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import PromptInput from './PromptInput'
+import { PromptInput } from './PromptInput'
 import GenerationQueue from './GenerationQueue'
 import GenerationHistory from './GenerationHistory'
 import { useAIGenerationStore, useMediaStore, useWebSocketStore } from '../../contexts/StoreContext'
-import { generateImage, generateVideo, cancelGeneration as cancelGenerationAPI } from '../../services/aiGenerationService'
+import { generateImage, generateVideo, generateAudio, cancelGeneration as cancelGenerationAPI } from '../../services/aiGenerationService'
 import type { GenerationType, QualityTier } from '../../types/stores'
 
 export default function AIGenerationPanel() {
@@ -52,6 +52,12 @@ export default function AIGenerationPanel() {
       type: GenerationType
       qualityTier: QualityTier
       aspectRatio: '16:9' | '9:16' | '1:1' | '4:3'
+      model: string
+      duration?: number
+      resolution?: string
+      imageInput?: string
+      audioInput?: string
+      advancedParams?: Record<string, any>
     }) => {
       // Disable button while API call is in progress
       setIsPending(true)
@@ -63,6 +69,10 @@ export default function AIGenerationPanel() {
           prompt: params.prompt,
           qualityTier: params.qualityTier,
           aspectRatio: params.aspectRatio,
+          metadata: {
+            model: params.model,
+            duration: params.duration
+          }
         })
 
         // Call the appropriate API based on type
@@ -72,6 +82,9 @@ export default function AIGenerationPanel() {
             prompt: params.prompt,
             qualityTier: params.qualityTier,
             aspectRatio: params.aspectRatio,
+            model: params.model,
+            image_input: params.imageInput,
+            ...params.advancedParams,
           })
         } else {
           // Video generation using Advanced Pipeline (Multi-step AI)
@@ -143,12 +156,19 @@ export default function AIGenerationPanel() {
 
   // Handle rerunning a generation from history
   const handleRerun = useCallback(
-    (prompt: string, type: 'image' | 'video', aspectRatio: string, qualityTier?: string) => {
+    (prompt: string, type: 'image' | 'video' | 'audio', aspectRatio: string, qualityTier?: string) => {
+      // Default models for rerun if not stored in history (legacy support)
+      let model = 'nano-banana'
+      if (type === 'video') model = 'wan-video-t2v'
+      if (type === 'audio') model = 'stable-audio'
+
       handleGenerate({
         prompt,
         type,
         qualityTier: (qualityTier as QualityTier) || 'draft',
         aspectRatio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:3',
+        model, // Use default model for reruns for now
+        duration: type === 'audio' ? 45 : 5
       })
     },
     [handleGenerate]
@@ -384,7 +404,10 @@ export default function AIGenerationPanel() {
                 </p>
               </div>
             )}
-            <PromptInput onGenerate={handleGenerate} isGenerating={isPending || !canGenerate} />
+            <PromptInput
+              onGenerate={handleGenerate}
+              isPending={isPending}
+            />
           </TabsContent>
 
           <TabsContent value="queue" className="p-4 m-0">

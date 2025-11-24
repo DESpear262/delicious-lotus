@@ -632,6 +632,7 @@ class CompositionJobHandler:
                 ),
                 extra_args={
                     "ContentType": f"video/{params.output_format}",
+                    "ContentDisposition": "inline",
                     "Metadata": {
                         "composition_id": str(params.composition_id),
                         "job_id": self.job_id,

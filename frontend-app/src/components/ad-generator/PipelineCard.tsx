@@ -6,6 +6,7 @@ import type { Pipeline } from '../../types/ad-generator/pipeline';
 
 export interface PipelineCardProps {
   pipeline: Pipeline;
+  onClick?: (pipeline: Pipeline) => void;
 }
 
 /**
@@ -14,22 +15,24 @@ export interface PipelineCardProps {
  * Displays a clickable card for a video generation pipeline.
  * Shows pipeline details, features, and availability status.
  */
-export const PipelineCard: React.FC<PipelineCardProps> = ({ pipeline }) => {
+export const PipelineCard: React.FC<PipelineCardProps> = ({ pipeline, onClick }) => {
   const navigate = useNavigate();
   const isAvailable = pipeline.status === 'available';
   const isComingSoon = pipeline.status === 'coming-soon';
 
   const handleCardClick = () => {
-    if (isAvailable && pipeline.route) {
+    if (!isAvailable) return;
+    
+    if (onClick) {
+      onClick(pipeline);
+    } else if (pipeline.route) {
       navigate(pipeline.route);
     }
   };
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isAvailable && pipeline.route) {
-      navigate(pipeline.route);
-    }
+    handleCardClick();
   };
 
   const formatDuration = (seconds: number): string => {

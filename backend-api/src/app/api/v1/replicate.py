@@ -13,6 +13,7 @@ from workers.redis_pool import get_redis_connection
 
 from ..schemas.replicate import (
     AsyncJobResponse,
+    FluxSchnellRequest,
     Hailuo23FastRequest,
     KlingV25TurboProRequest,
     Lyria2Request,
@@ -74,6 +75,72 @@ def extract_result_from_output(output: object | None) -> tuple[str | None, objec
         return None, output
 
     return None, None
+
+
+
+def sanitize_filename(prompt: str, job_id: str, extension: str) -> str:
+    """Generate a sanitized filename from prompt and job ID.
+
+    Args:
+        prompt: User prompt
+        job_id: Replicate job ID
+        extension: File extension (e.g., '.mp4', '.png')
+
+    Returns:
+        Sanitized filename string
+    """
+    # Truncate prompt to ~60 chars to keep filenames manageable
+    truncated_prompt = prompt[:60].strip()
+    
+    # Replace spaces with underscores and remove non-alphanumeric chars (except underscores/hyphens)
+    sanitized_prompt = "".join(c if c.isalnum() or c in "-_" else "_" for c in truncated_prompt)
+    
+    # Collapse multiple underscores
+    while "__" in sanitized_prompt:
+        sanitized_prompt = sanitized_prompt.replace("__", "_")
+    
+    # Remove leading/trailing underscores
+    sanitized_prompt = sanitized_prompt.strip("_")
+    
+    # Fallback if prompt becomes empty after sanitization
+    if not sanitized_prompt:
+        sanitized_prompt = "generated_media"
+
+    return f"{sanitized_prompt}_{job_id[:8]}{extension}"
+
+
+def determine_generation_tags(model: str, generation_type: str, job_data: dict) -> list[str]:
+    """Determine tags based on model and input types.
+
+    Args:
+        model: Model name
+        generation_type: 'image' or 'video'
+        job_data: Job metadata dictionary
+
+    Returns:
+        List of tags
+    """
+    tags = ["ai-generated"]
+    
+    # Add model name as tag (clean up if needed)
+    if model:
+        tags.append(f"model:{model}")
+
+    # Determine specific generation type
+    has_image_input = job_data.get("has_image_input") or job_data.get("has_image") or job_data.get("has_start_image") or job_data.get("has_first_frame_image")
+    
+    if generation_type == "image":
+        if has_image_input:
+            tags.append("image-to-image")
+        else:
+            tags.append("text-to-image")
+    elif generation_type == "video":
+        if has_image_input:
+            tags.append("image-to-video")
+        else:
+            tags.append("text-to-video")
+            
+    return tags
 
 
 def store_job_metadata(
@@ -277,7 +344,8 @@ async def generate_nano_banana(request_body: NanoBananaRequest) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="google/nano-banana",
-                generation_type="image"
+                generation_type="image",
+                has_image_input=request_body.image_input is not None
             )
 
             # Publish initial job status
@@ -322,6 +390,149 @@ async def generate_nano_banana(request_body: NanoBananaRequest) -> JSONResponse:
             "Unexpected error in Nano-Banana endpoint",
             extra={"error": str(e)},
         )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": f"Unexpected error: {str(e)}",
+                "status": "error",
+            },
+        )
+
+
+
+@router.post(
+    "/flux-schnell",
+    response_model=AsyncJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Generate image with Flux Schnell model (Async)",
+    description="Start async image generation using Black Forest Labs Flux Schnell model via Replicate",
+)
+async def generate_flux_schnell(request_body: FluxSchnellRequest) -> JSONResponse:
+    """Generate image using Flux Schnell model (async).
+
+    Creates an async prediction job and returns immediately with a job ID.
+
+    Args:
+        request_body: Request containing prompt and generation parameters
+
+    Returns:
+        AsyncJobResponse: Response with job ID for tracking
+    """
+    try:
+        # Check if Replicate API key is configured
+        replicate_api_key = os.getenv("REPLICATE_API_TOKEN")
+        if not replicate_api_key:
+            logger.error("REPLICATE_API_TOKEN environment variable not set")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error": "Replicate API key not configured.",
+                    "status": "error",
+                },
+            )
+
+        try:
+            import replicate
+        except ImportError as e:
+            logger.error(f"Failed to import Replicate package: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "Replicate package not installed.",
+                    "status": "error",
+                },
+            )
+
+        logger.info(
+            "Processing Flux Schnell async request",
+            extra={
+                "prompt": request_body.prompt,
+                "aspect_ratio": request_body.aspect_ratio,
+            },
+        )
+
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+
+        # Prepare input for Flux Schnell
+        model_input = {
+            "prompt": request_body.prompt,
+            "aspect_ratio": request_body.aspect_ratio,
+            "output_format": request_body.output_format,
+            "output_quality": request_body.output_quality,
+            "disable_safety_checker": request_body.disable_safety_checker,
+            "go_fast": True,
+            "megapixels": "1",
+            "num_outputs": 1,
+        }
+
+        if request_body.seed is not None:
+            model_input["seed"] = request_body.seed
+
+        # Create async prediction
+        try:
+            webhook_url = REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None
+
+            logger.info(
+                "Creating Replicate prediction",
+                extra={
+                    "model": "black-forest-labs/flux-schnell",
+                    "webhook_url": webhook_url,
+                    "webhook_configured": bool(webhook_url),
+                },
+            )
+
+            # Using Flux Schnell model
+            prediction = replicate.predictions.create(
+                model="black-forest-labs/flux-schnell",
+                input=model_input,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"]
+            )
+
+            job_id = prediction.id
+
+            # Store job metadata
+            store_job_metadata(
+                job_id=job_id,
+                job_type="ai_generation",
+                prompt=request_body.prompt,
+                model="black-forest-labs/flux-schnell",
+                generation_type="image",
+                has_image_input=False
+            )
+
+            # Publish initial status
+            publish_job_update(job_id, "starting")
+
+            logger.info(
+                "Flux Schnell async job created",
+                extra={
+                    "job_id": job_id,
+                    "prompt": request_body.prompt,
+                },
+            )
+
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "job_id": job_id,
+                    "status": prediction.status,
+                    "message": "Image generation started"
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Replicate API call failed", extra={"error": str(e)})
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": f"Failed to start image generation: {str(e)}",
+                    "status": "error",
+                },
+            )
+
+    except Exception as e:
+        logger.exception("Unexpected error in Flux Schnell endpoint", extra={"error": str(e)})
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -378,40 +589,34 @@ async def generate_wan_video_i2v(request_body: WanVideoI2VRequest) -> JSONRespon
             "Processing Wan Video async request",
             extra={
                 "prompt": request_body.prompt,
-                "has_image": request_body.image is not None,
-                "has_last_image": request_body.last_image is not None,
+                "has_image": True,
+                "has_audio": request_body.audio is not None,
                 "resolution": request_body.resolution,
+                "duration": request_body.duration,
             },
         )
 
         os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
 
-        # Prepare input with defaults for Wan Video 2.2 I2V Fast
+        # Prepare input for Wan Video 2.5 I2V
         model_input = {
             "prompt": request_body.prompt,
-            "num_frames": 81,  # Best results with 81 frames
+            "image": str(request_body.image),
             "resolution": request_body.resolution,
-            "frames_per_second": 16,
-            "interpolate_output": False,
-            "go_fast": True,
-            "sample_shift": 12,
-            "disable_safety_checker": False,
-            "lora_scale_transformer": 1,
-            "lora_scale_transformer_2": 1,
+            "duration": request_body.duration,
+            "negative_prompt": request_body.negative_prompt,
+            "enable_prompt_expansion": request_body.enable_prompt_expansion,
         }
 
-        # Add optional image inputs if provided
-        if request_body.image:
-            model_input["image"] = str(request_body.image)
-
-        if request_body.last_image:
-            model_input["last_image"] = str(request_body.last_image)
+        # Add optional audio input
+        if request_body.audio:
+            model_input["audio"] = str(request_body.audio)
 
         # Create async prediction
         try:
-            # Using Wan Video 2.2 I2V Fast model
+            # Using Wan Video 2.5 I2V model
             prediction = replicate.predictions.create(
-                model="wan-video/wan-2.2-i2v-fast",
+                model="wan-video/wan-2.5-i2v",
                 input=model_input,
                 webhook=REPLICATE_WEBHOOK_URL if REPLICATE_WEBHOOK_URL else None,
                 webhook_events_filter=["completed"]
@@ -424,8 +629,10 @@ async def generate_wan_video_i2v(request_body: WanVideoI2VRequest) -> JSONRespon
                 job_id=job_id,
                 job_type="ai_generation",
                 prompt=request_body.prompt,
-                model="wan-video/wan-2.2-i2v-fast",
-                generation_type="video"
+                model="wan-video/wan-2.5-i2v",
+                generation_type="video",
+                has_image_input=True,
+                has_audio_input=request_body.audio is not None
             )
 
             # Publish initial status
@@ -571,7 +778,8 @@ async def generate_wan_video_t2v(request_body: WanVideoT2VRequest) -> JSONRespon
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="wan-video/wan-2.5-t2v",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=False
             )
 
             # Publish initial status
@@ -729,7 +937,8 @@ async def generate_seedance_1_pro_fast(request_body: Seedance1ProFastRequest) ->
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="bytedance/seedance-1-pro-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.image is not None
             )
 
             # Publish initial status
@@ -893,7 +1102,9 @@ async def generate_veo_31_fast(request_body: Veo31FastRequest) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="google/veo-3.1-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.image is not None,
+                has_last_frame=request_body.last_frame is not None
             )
 
             # Publish initial status
@@ -1042,7 +1253,8 @@ async def generate_hailuo_23_fast(request_body: Hailuo23FastRequest) -> JSONResp
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="minimax/hailuo-2.3-fast",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=True # Always requires first frame
             )
 
             # Publish initial status
@@ -1194,7 +1406,8 @@ async def generate_kling_v25_turbo_pro(request_body: KlingV25TurboProRequest) ->
                 job_type="ai_generation",
                 prompt=request_body.prompt,
                 model="kwaivgi/kling-v2.5-turbo-pro",
-                generation_type="video"
+                generation_type="video",
+                has_image_input=request_body.start_image is not None
             )
 
             # Publish initial status
@@ -1500,7 +1713,10 @@ async def generate_music_01(request_body: Music01Request) -> JSONResponse:
                 job_type="ai_generation",
                 prompt=request_body.lyrics or "music generation",
                 model="minimax/music-01",
-                generation_type="audio"
+                generation_type="audio",
+                has_lyrics=bool(request_body.lyrics),
+                has_voice_file=request_body.voice_file is not None,
+                has_song_file=request_body.song_file is not None
             )
 
             publish_job_update(job_id, "starting")
@@ -1800,7 +2016,7 @@ async def get_ai_job_status(
                     from workers.job_queue import enqueue_video_import
                     import uuid
 
-                    # Get metadata from job data or use defaults
+                            # Get metadata from job data or use defaults
                     generation_type = job_data.get("generation_type", "video") if job_data else "video"
                     prompt = job_data.get("prompt", "") if job_data else ""
                     model = job_data.get("model", "unknown") if job_data else "unknown"
@@ -1809,7 +2025,13 @@ async def get_ai_job_status(
                     if generation_type == "video":
                         asset_id = str(uuid.uuid4())
                         user_id = "00000000-0000-0000-0000-000000000001"  # TODO: Get from job metadata
-                        filename = f"AI_Video_{job_id[:8]}.mp4"
+                        
+                        # Generate sanitized filename
+                        file_ext = ".mp4"
+                        filename = sanitize_filename(prompt, job_id, file_ext)
+                        
+                        # Determine tags
+                        tags = determine_generation_tags(model, generation_type, job_data or {})
 
                         # Enqueue import job
                         import_job = enqueue_video_import(
@@ -1822,6 +2044,7 @@ async def get_ai_job_status(
                                 "prompt": prompt,
                                 "model": model,
                                 "replicate_job_id": job_id,
+                                "tags": tags,
                             }
                         )
 
@@ -2160,10 +2383,13 @@ async def replicate_webhook(request: Request) -> JSONResponse:
                             # Determine file extension and media type
                             if generation_type == "video":
                                 file_ext = ".mp4"
-                                filename = f"AI_Video_{payload.id[:8]}{file_ext}"
                             else:
                                 file_ext = ".png"
-                                filename = f"AI_Image_{payload.id[:8]}{file_ext}"
+                                
+                            filename = sanitize_filename(prompt, payload.id, file_ext)
+                            
+                            # Determine tags
+                            tags = determine_generation_tags(model, generation_type, job_data)
 
                             # Build metadata
                             metadata = {
@@ -2171,6 +2397,7 @@ async def replicate_webhook(request: Request) -> JSONResponse:
                                 "prompt": prompt,
                                 "model": model,
                                 "replicate_job_id": payload.id,
+                                "tags": tags,
                             }
 
                             # Enqueue appropriate import job

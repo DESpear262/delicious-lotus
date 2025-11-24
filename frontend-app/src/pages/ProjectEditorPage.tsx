@@ -2,6 +2,7 @@ import { useParams } from 'react-router';
 import { useEffect, useCallback, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+import { PanelResizeHandle, Panel, PanelGroup } from 'react-resizable-panels';
 import { Timeline } from '../components/timeline';
 import { MediaLibraryWidget } from '../components/media/MediaLibraryWidget';
 import { ClipsListPanel } from '../components/timeline/ClipsListPanel';
@@ -348,104 +349,119 @@ export default function ProjectEditorPage() {
   }, [removeJob]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-zinc-950">
-      {/* Main Editor Area - Top Section */}
-      <div className="flex-1 w-full flex overflow-hidden">
-        {/* Media Library Widget - Left Side */}
-        <div className="w-80 flex-shrink-0">
-          <MediaLibraryWidget />
-        </div>
-
-        {/* Preview Area and Properties - Right Side */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Preview Area */}
-          <div className="flex-1 flex flex-col bg-zinc-950 p-6">
-            {/* Video Preview Canvas */}
-            <div className="flex-1 flex items-center justify-center rounded-lg border border-zinc-800 overflow-hidden">
-              <PreviewCanvas />
-            </div>
-
-            {/* Playback Controls */}
-            <div className="mt-4 flex items-center justify-center gap-4">
-              <button
-                onClick={handleSkipBack}
-                className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-                title="Skip back 1 second"
-              >
-                <SkipBack className="w-5 h-5 text-zinc-300" />
-              </button>
-              <button
-                onClick={handleTogglePlayback}
-                className="p-4 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
-                title={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? (
-                  <Pause className="w-6 h-6 text-white" />
-                ) : (
-                  <Play className="w-6 h-6 text-white" />
-                )}
-              </button>
-              <button
-                onClick={handleSkipForward}
-                className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-                title="Skip forward 1 second"
-              >
-                <SkipForward className="w-5 h-5 text-zinc-300" />
-              </button>
-            </div>
-          </div>
-
-          {/* Right Panel - Media Details & Properties */}
-          <div className="w-80 bg-zinc-900 border-l border-zinc-800 overflow-hidden flex flex-col">
-            {/* Media Details Panel - Shows all clips with expandable details */}
-            <div className="flex-1 overflow-hidden">
-              <ClipsListPanel
-                clips={clips}
-                fps={fps}
-                selectedClipIds={selectedClipIds}
-                onClipSelect={timelineStore.selectClip}
-              />
-            </div>
-
-            {/* Clip Properties Panel - Shows editable properties for selected clip */}
-            {selectedClip && (
-              <div className="border-t border-zinc-800 overflow-hidden">
-                <ClipPropertiesPanel
-                  clip={selectedClip}
-                  fps={fps}
-                  onUpdate={timelineStore.updateClip}
-                />
+    <div className="h-screen w-full bg-zinc-950 overflow-hidden">
+      <PanelGroup direction="vertical">
+        {/* Top Section: Media Library | Preview | Details */}
+        <Panel defaultSize={67} minSize={40}>
+          <PanelGroup direction="horizontal" className="h-full">
+            {/* Media Library - Left Side */}
+            <Panel defaultSize={20} minSize={15} maxSize={35}>
+              <div className="h-full w-full">
+                <MediaLibraryWidget />
               </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </Panel>
 
-      {/* Timeline Area - Bottom Section (Full Width) */}
-      <div className="h-64 w-full bg-zinc-900 border-t border-zinc-800">
-        <Timeline
-          tracks={tracks}
-          clips={clips}
-          selectedClipIds={selectedClipIds}
-          playhead={playhead}
-          zoom={zoom}
-          duration={duration}
-          fps={fps}
-          onPlayheadChange={timelineStore.setPlayhead}
-          onZoomChange={timelineStore.setZoom}
-          onClipSelect={timelineStore.selectClip}
-          onClipMove={timelineStore.moveClip}
-          onClipTrim={timelineStore.updateClip}
-          onSplitClip={timelineStore.splitClip}
-          onDuplicateClips={(clipIds) => clipIds.forEach(id => timelineStore.duplicateClip(id))}
-          onDeleteClips={(clipIds) => clipIds.forEach(id => timelineStore.removeClip(id))}
-          onTrackUpdate={timelineStore.updateTrack}
-          onAddTrack={handleAddTrack}
-          onDeleteTrack={handleDeleteTrack}
-          onAssetDrop={handleAssetDrop}
-          onExport={handleExport}
-        />
-      </div>
+            <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-blue-500 transition-colors" />
+
+            {/* Preview Area - Center */}
+            <Panel defaultSize={60} minSize={35}>
+              <div className="h-full w-full flex flex-col bg-zinc-950 p-6">
+                {/* Video Preview Canvas */}
+                <div className="flex-1 flex items-center justify-center rounded-lg border border-zinc-800 overflow-hidden relative">
+                  <PreviewCanvas />
+                </div>
+
+                {/* Playback Controls */}
+                <div className="mt-4 flex items-center justify-center gap-4 flex-shrink-0">
+                  <button
+                    onClick={handleSkipBack}
+                    className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                    title="Skip back 1 second"
+                  >
+                    <SkipBack className="w-5 h-5 text-zinc-300" />
+                  </button>
+                  <button
+                    onClick={handleTogglePlayback}
+                    className="p-4 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                    title={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-6 h-6 text-white" />
+                    ) : (
+                      <Play className="w-6 h-6 text-white" />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleSkipForward}
+                    className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                    title="Skip forward 1 second"
+                  >
+                    <SkipForward className="w-5 h-5 text-zinc-300" />
+                  </button>
+                </div>
+              </div>
+            </Panel>
+
+            <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-blue-500 transition-colors" />
+
+            {/* Media Details & Properties - Right Side */}
+            <Panel defaultSize={20} minSize={15} maxSize={35}>
+              <div className="h-full w-full bg-zinc-900 border-l border-zinc-800 overflow-hidden flex flex-col">
+                {/* Media Details Panel - Shows all clips with expandable details */}
+                <div className="flex-1 overflow-hidden">
+                  <ClipsListPanel
+                    clips={clips}
+                    fps={fps}
+                    selectedClipIds={selectedClipIds}
+                    onClipSelect={timelineStore.selectClip}
+                  />
+                </div>
+
+                {/* Clip Properties Panel - Shows editable properties for selected clip */}
+                {selectedClip && (
+                  <div className="border-t border-zinc-800 overflow-y-auto flex-shrink-0">
+                    <ClipPropertiesPanel
+                      clip={selectedClip}
+                      fps={fps}
+                      onUpdate={timelineStore.updateClip}
+                    />
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </PanelGroup>
+        </Panel>
+
+        <PanelResizeHandle className="h-1 bg-zinc-800 hover:bg-blue-500 transition-colors" />
+
+        {/* Bottom Section: Timeline */}
+        <Panel defaultSize={33} minSize={20} maxSize={60}>
+          <div className="h-full w-full bg-zinc-900 border-t border-zinc-800 overflow-hidden">
+            <Timeline
+              tracks={tracks}
+              clips={clips}
+              selectedClipIds={selectedClipIds}
+              playhead={playhead}
+              zoom={zoom}
+              duration={duration}
+              fps={fps}
+              onPlayheadChange={timelineStore.setPlayhead}
+              onZoomChange={timelineStore.setZoom}
+              onClipSelect={timelineStore.selectClip}
+              onClipMove={timelineStore.moveClip}
+              onClipTrim={timelineStore.updateClip}
+              onSplitClip={timelineStore.splitClip}
+              onDuplicateClips={(clipIds) => clipIds.forEach(id => timelineStore.duplicateClip(id))}
+              onDeleteClips={(clipIds) => clipIds.forEach(id => timelineStore.removeClip(id))}
+              onTrackUpdate={timelineStore.updateTrack}
+              onAddTrack={handleAddTrack}
+              onDeleteTrack={handleDeleteTrack}
+              onAssetDrop={handleAssetDrop}
+              onExport={handleExport}
+            />
+          </div>
+        </Panel>
+      </PanelGroup>
 
       {/* Export Dialog */}
       <ExportDialog

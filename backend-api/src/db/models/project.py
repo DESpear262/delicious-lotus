@@ -3,6 +3,7 @@ Project model for video projects.
 """
 
 import uuid
+import enum
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, func
@@ -10,6 +11,14 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import BaseModel
+
+
+class ProjectType(str, enum.Enum):
+    """Enum for different project types."""
+    AD_CREATIVE = "ad-creative"
+    MUSIC_VIDEO = "music-video"
+    EDUCATIONAL_VIDEO = "educational-video"
+    CUSTOM = "custom"
 
 
 class Project(BaseModel):
@@ -23,6 +32,7 @@ class Project(BaseModel):
         id: UUID primary key
         name: Human-readable project name
         user_id: UUID of the user who owns this project
+        project_type: Type of the project (e.g. ad-creative, custom)
         thumbnail_url: Optional URL to project thumbnail image
         aspect_ratio: Video aspect ratio (e.g., '16:9', '4:3', '1:1')
         timebase_fps: Timeline frames per second (default: 30)
@@ -47,6 +57,7 @@ class Project(BaseModel):
     )
 
     # Project settings
+    project_type: Mapped[str] = mapped_column(String(50), nullable=False, default=ProjectType.CUSTOM, server_default="custom")
     thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     aspect_ratio: Mapped[str] = mapped_column(String(20), nullable=False, default="16:9")
     timebase_fps: Mapped[int] = mapped_column(Integer, nullable=False, default=30)

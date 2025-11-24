@@ -158,6 +158,10 @@ class MediaAssetLightResponse(BaseModel):
     thumbnail_url: str | None = Field(None, description="Presigned URL for thumbnail")
     tags: list[str] = Field(default_factory=list, description="Asset tags")
     created_at: datetime = Field(..., description="When asset was created")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Technical metadata (exposed in list view)",
+    )
 
     class Config:
         """Pydantic configuration."""

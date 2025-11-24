@@ -1,6 +1,6 @@
 /**
  * AI Generation Service
- * Handles API calls to Replicate for image and video generation
+ * Handles API calls to Replicate for image, video, and audio generation
  */
 
 import type { GenerationType, QualityTier } from '../types/stores'
@@ -12,6 +12,13 @@ export interface GenerateImageRequest {
   prompt: string
   qualityTier: QualityTier
   aspectRatio: string
+  model?: string
+  // Advanced params
+  image_input?: string | string[]
+  output_format?: string
+  output_quality?: number
+  seed?: number
+  disable_safety_checker?: boolean
 }
 
 export interface GenerateVideoRequest {
@@ -32,21 +39,44 @@ export interface GenerationResponse {
 }
 
 /**
- * Generate an image using Replicate's Nano-Banana model
+ * Generate an image using Replicate models
  * @param request - Image generation request parameters
  * @returns Response containing job ID for tracking
  */
 export async function generateImage(request: GenerateImageRequest): Promise<GenerationResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/replicate/nano-banana`, {
+  let endpoint = '/api/v1/replicate/nano-banana'
+
+  // Handle image_input: ensure it's an array if provided, or undefined
+  let imageInput: string[] | undefined
+  if (request.image_input) {
+    imageInput = Array.isArray(request.image_input) ? request.image_input : [request.image_input]
+  }
+
+  let body: Record<string, any> = {
+    prompt: request.prompt,
+    quality_tier: request.qualityTier,
+    aspect_ratio: request.aspectRatio,
+    image_input: imageInput,
+  }
+
+  if (request.model === 'flux-schnell') {
+    endpoint = '/api/v1/replicate/flux-schnell'
+    body = {
+      prompt: request.prompt,
+      aspect_ratio: request.aspectRatio,
+      output_format: request.output_format || 'webp',
+      output_quality: request.output_quality || 80,
+      disable_safety_checker: request.disable_safety_checker,
+      seed: request.seed,
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      prompt: request.prompt,
-      quality_tier: request.qualityTier,
-      aspect_ratio: request.aspectRatio,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {

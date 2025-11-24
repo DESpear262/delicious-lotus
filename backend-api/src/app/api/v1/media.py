@@ -920,6 +920,7 @@ async def list_media_assets(
                 thumbnail_url=thumbnail_url,
                 tags=asset.tags,
                 created_at=asset.created_at,
+                metadata=asset.file_metadata,
             )
             asset_responses.append(asset_response)
 
@@ -1004,14 +1005,19 @@ async def get_media_asset(
             url = None
             thumbnail_url = None
 
+        # Ensure file_metadata is a dict
+        file_metadata = media_asset.file_metadata
+        if not isinstance(file_metadata, dict):
+            file_metadata = {}
+
         # Build response with presigned URLs
         logger.info(
             "Returning media asset",
             extra={
                 "asset_id": str(asset_id),
-                "name": media_asset.name,
-                "file_metadata": media_asset.file_metadata,
-                "duration": media_asset.file_metadata.get("duration") if media_asset.file_metadata else None,
+                "media_name": media_asset.name,
+                "file_metadata": file_metadata,
+                "duration": file_metadata.get("duration"),
             },
         )
 
@@ -1027,7 +1033,7 @@ async def get_media_asset(
             thumbnail_url=thumbnail_url,
             status=media_asset.status,
             checksum=media_asset.checksum,
-            file_metadata=media_asset.file_metadata,
+            file_metadata=file_metadata,
             folder_id=media_asset.folder_id,
             tags=media_asset.tags,
             is_deleted=media_asset.is_deleted,

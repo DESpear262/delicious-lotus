@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { useProjectStore } from '../contexts/StoreContext';
@@ -20,12 +20,20 @@ export default function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Get projects and actions from store
+  const fetchProjects = useProjectStore((state) => state.fetchProjects);
   const getProjects = useProjectStore((state) => state.getProjects);
   const addProject = useProjectStore((state) => state.addProject);
   const removeProject = useProjectStore((state) => state.removeProject);
   const getCurrentProject = useProjectStore((state) => state.getCurrentProject);
   const currentProjectId = useProjectStore((state) => state.currentProjectId);
   const projects = useMemo(() => getProjects(), [getProjects]);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects().catch((error) => {
+      console.error('Failed to fetch projects:', error);
+    });
+  }, [fetchProjects]);
 
   // Filter projects based on search term
   const filteredProjects = useMemo(() => {
@@ -83,13 +91,14 @@ export default function ProjectsPage() {
     setIsDialogOpen(true);
   }, []);
 
-  const handleProjectCreated = useCallback((data: ProjectFormData) => {
+  const handleProjectCreated = useCallback(async (data: ProjectFormData) => {
     try {
       // Create project in store
-      const projectId = addProject(
+      const projectId = await addProject(
         {
           name: data.name,
           description: data.description,
+          type: 'custom',
         },
         {
           fps: data.fps,

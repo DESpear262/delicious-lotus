@@ -137,7 +137,7 @@ def import_video_from_url_job(
         s3_url = s3_manager.upload_file(
             local_path=temp_video_path,
             s3_key=s3_key,
-            extra_args={"ContentType": "video/mp4"},
+            extra_args={"ContentType": "video/mp4", "ContentDisposition": "inline"},
         )
 
         logger.info(f"Video uploaded to S3: {s3_key}")
@@ -171,8 +171,8 @@ def import_video_from_url_job(
         }
 
         # Prepare tags
-        tags = []
-        if metadata.get("aiGenerated") or metadata.get("prompt"):
+        tags = metadata.get("tags", [])
+        if "ai-generated" not in tags and (metadata.get("aiGenerated") or metadata.get("prompt")):
             tags.append("ai-generated")
 
         # Create or update asset with complete data in single transaction
@@ -385,8 +385,8 @@ def import_image_from_url_job(
             "imported_at": datetime.utcnow().isoformat(),
         }
 
-        tags = []
-        if metadata.get("aiGenerated") or metadata.get("prompt"):
+        tags = metadata.get("tags", [])
+        if "ai-generated" not in tags and (metadata.get("aiGenerated") or metadata.get("prompt")):
             tags.append("ai-generated")
 
         if not asset:

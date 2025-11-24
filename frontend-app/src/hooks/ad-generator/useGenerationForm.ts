@@ -2,14 +2,18 @@
  * Generation Form State Management Hook
  */
 
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/types/routes';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AdCreativeFormData } from '@/types/ad-generator/form';
-import { createGeneration } from '@/services/ad-generator/services/generation';
+import { createGeneration, generateVideoClipPrompts } from '@/services/ad-generator/services/generation';
 import { useFormValidation } from './useFormValidation';
-import { useFormPersistence } from './useFormPersistence';
-import type { CreateGenerationRequest } from '@/services/ad-generator/types';
+import { useProjectStore } from '@/contexts/StoreContext';
+import type {
+  CreateGenerationRequest,
+  CreateGenerationResponse,
+  VideoPromptRequest,
+  VideoPromptResponse,
+} from '@/services/ad-generator/types';
 
 const INITIAL_STATE: AdCreativeFormData = {
   prompt: '',
@@ -21,8 +25,8 @@ const INITIAL_STATE: AdCreativeFormData = {
   },
   includeCta: false,
   ctaText: '',
-  duration: 30,
-  aspectRatio: '16:9',
+  duration: 0,
+  aspectRatio: '',
   style: 'professional',
   musicStyle: 'corporate',
   parallelizeGenerations: false,
@@ -30,10 +34,26 @@ const INITIAL_STATE: AdCreativeFormData = {
 
 export function useGenerationForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectIdParam = searchParams.get('projectId');
+
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [formData, setFormData] = useState<AdCreativeFormData>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<CreateGenerationResponse | null>(null);
+  const [promptResult, setPromptResult] = useState<VideoPromptResponse | null>(null);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
+
+  // Project Store Integration
+  const currentProjectId = useProjectStore((state) => state.currentProjectId);
+  const compositionConfig = useProjectStore((state) => state.compositionConfig);
+  const addProject = useProjectStore((state) => state.addProject);
+  const loadProject = useProjectStore((state) => state.loadProject);
+  const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
+  const updateCompositionConfig = useProjectStore((state) => state.updateCompositionConfig);
+  const saveProject = useProjectStore((state) => state.saveProject);
 
   const {
     errors,
@@ -45,48 +65,142 @@ export function useGenerationForm() {
   } = useFormValidation();
 
   /**
-   * Handle form data restoration from localStorage
+   * Initialize or Load Project
    */
-  const handleRestore = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4) => {
-    setFormData(data);
-    setCurrentStep(step);
-  }, []);
+  useEffect(() => {
+    const initProject = async () => {
+      if (projectIdParam) {
+        // Case 1: URL has projectId
+        if (currentProjectId !== projectIdParam) {
+          try {
+            await loadProject(projectIdParam);
+          } catch (err) {
+            console.error("Failed to load project from URL", err);
+            // Fallback: maybe redirect to home or show error?
+          }
+        }
+      } else if (!currentProjectId) {
+        // Case 2: No URL param and no current project in store
+        // Create a new temporary/persisted project
+        try {
+          const newId = await addProject(
+            {
+              name: `Ad Campaign ${new Date().toLocaleTimeString()}`,
+              description: 'Auto-generated ad campaign',
+              type: 'ad-creative'
+            },
+            { aspectRatio: '16:9' }
+          );
+          // Update URL to reflect new project
+          navigate(`?projectId=${newId}`, { replace: true });
+        } catch (err) {
+          console.error("Failed to auto-create project", err);
+        }
+      }
+    };
 
-  const {
-    clearStorage,
-    showRestoreDialog,
-    handleResume,
-    handleDiscard,
-  } = useFormPersistence(formData, currentStep, handleRestore);
+    initProject();
+  }, [projectIdParam, currentProjectId, loadProject, addProject, navigate]);
+
+  // Track the last project ID we loaded data for to prevent stale data sync
+  const lastLoadedProjectId = useState<{ current: string | null }>({ current: null })[0];
+
+  /**
+   * Sync Store State to Form
+   */
+  useEffect(() => {
+    // Prevent syncing if store hasn't loaded the requested project yet
+    if (projectIdParam && currentProjectId !== projectIdParam) {
+      return;
+    }
+
+    // Only sync if we have a current project and it's either a new switch or we have data
+    if (currentProjectId) {
+      // Check if we are switching projects or loading for the first time
+      const isProjectSwitch = lastLoadedProjectId.current !== currentProjectId;
+      
+      if (isProjectSwitch) {
+        lastLoadedProjectId.current = currentProjectId;
+        
+        if (compositionConfig?.adWizard) {
+          // Load saved data
+          const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+          
+          setFormData(savedData || INITIAL_STATE);
+          setCurrentStep(savedStep || 1);
+          setPromptResult(savedPrompts || null);
+        } else {
+          // New/Empty project -> Reset form to defaults
+          setFormData(INITIAL_STATE);
+          setCurrentStep(1);
+          setPromptResult(null);
+        }
+      } else if (compositionConfig?.adWizard) {
+        // Same project, check for external updates (e.g. from other tabs or components)
+        // We use strict equality checks to avoid loops since we are also writing to this store
+        const { formData: savedData, currentStep: savedStep, promptResult: savedPrompts } = compositionConfig.adWizard;
+
+        if (savedData && JSON.stringify(savedData) !== JSON.stringify(formData)) {
+          setFormData(savedData);
+        }
+        if (savedStep && savedStep !== currentStep) {
+          setCurrentStep(savedStep);
+        }
+        if (savedPrompts !== undefined) {
+           setPromptResult(savedPrompts);
+        }
+      }
+    }
+  }, [currentProjectId, compositionConfig, projectIdParam]); // Removed formData/currentStep from deps to avoid loops?
+
+  /**
+   * Persist state to Project Store
+   */
+  const persistState = useCallback((data: AdCreativeFormData, step: 1 | 2 | 3 | 4, prompts?: VideoPromptResponse | null) => {
+    if (!currentProjectId) return;
+
+    updateCompositionConfig({
+      adWizard: {
+        formData: data,
+        currentStep: step,
+        promptResult: prompts ?? promptResult
+      }
+    });
+    saveProject().catch(err => console.error("Auto-save failed", err));
+  }, [currentProjectId, updateCompositionConfig, promptResult, saveProject]);
+
+
 
   /**
    * Update a single field
    */
   const updateField = useCallback(
     (field: string | keyof AdCreativeFormData, value: any) => {
-      setFormData((prev) => {
-        // Handle nested fields (e.g., brandColors.primary)
-        if (field.includes('.')) {
-          const [parent, child] = field.split('.') as [keyof AdCreativeFormData, string];
-          return {
-            ...prev,
-            [parent]: {
-              ...(prev[parent] as any),
-              [child]: value,
-            },
-          };
-        }
+      let newFormData = { ...formData };
 
-        return {
-          ...prev,
+      // Handle nested fields (e.g., brandColors.primary)
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.') as [keyof AdCreativeFormData, string];
+        newFormData = {
+          ...newFormData,
+          [parent]: {
+            ...(newFormData[parent] as any),
+            [child]: value,
+          },
+        };
+      } else {
+        newFormData = {
+          ...newFormData,
           [field]: value,
         };
-      });
+      }
 
+      setFormData(newFormData);
+      persistState(newFormData, currentStep);
       clearFieldError(field as string);
       setSubmitError(null);
     },
-    [clearFieldError]
+    [formData, currentStep, persistState, clearFieldError]
   );
 
   /**
@@ -94,11 +208,13 @@ export function useGenerationForm() {
    */
   const updateMultipleFields = useCallback(
     (updates: Partial<AdCreativeFormData>) => {
-      setFormData((prev) => ({ ...prev, ...updates }));
+      const newFormData = { ...formData, ...updates };
+      setFormData(newFormData);
+      persistState(newFormData, currentStep);
       clearErrors();
       setSubmitError(null);
     },
-    [clearErrors]
+    [formData, currentStep, persistState, clearErrors]
   );
 
   /**
@@ -128,32 +244,43 @@ export function useGenerationForm() {
     }
 
     if (currentStep < 4) {
-      setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3 | 4);
+      // Skip Step 2 (Brand) for now
+      let next = (currentStep + 1) as 1 | 2 | 3 | 4;
+      if (next === 2) next = 3;
+
+      setCurrentStep(next);
+      persistState(formData, next);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     return true;
-  }, [currentStep, formData, validateCurrentStep]);
+  }, [currentStep, formData, validateCurrentStep, persistState]);
 
   /**
    * Navigate to previous step
    */
   const previousStep = useCallback(() => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+      // Skip Step 2 (Brand) for now
+      let prev = (currentStep - 1) as 1 | 2 | 3 | 4;
+      if (prev === 2) prev = 1;
+
+      setCurrentStep(prev);
+      persistState(formData, prev);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       clearErrors();
     }
-  }, [currentStep, clearErrors]);
+  }, [currentStep, formData, persistState, clearErrors]);
 
   /**
    * Navigate to a specific step
    */
   const goToStep = useCallback((step: 1 | 2 | 3 | 4) => {
     setCurrentStep(step);
+    persistState(formData, step);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     clearErrors();
-  }, [clearErrors]);
+  }, [formData, persistState, clearErrors]);
 
   /**
    * Build API request from form data
@@ -162,8 +289,8 @@ export function useGenerationForm() {
     return {
       prompt: formData.prompt,
       parameters: {
-        duration_seconds: formData.duration,
-        aspect_ratio: formData.aspectRatio,
+        duration_seconds: formData.duration as 15 | 30 | 45 | 60,
+        aspect_ratio: formData.aspectRatio as '16:9' | '9:16' | '1:1',
         style: formData.style,
         brand: formData.brandName
           ? {
@@ -202,16 +329,17 @@ export function useGenerationForm() {
 
     setIsSubmitting(true);
     setSubmitError(null);
+    setAnalysisResult(null);
+    setPromptResult(null);
 
     try {
       const request = buildRequest();
       const response = await createGeneration(request);
 
-      // Clear localStorage draft on success
-      clearStorage();
+      // Save analysis result to project state? Maybe later.
 
-      // Navigate to progress page
-      navigate(`${ROUTES.AD_GENERATOR}/generation/${response.generation_id}`);
+      // Surface analysis output to the UI
+      setAnalysisResult(response);
     } catch (error: any) {
       console.error('Failed to create generation:', error);
 
@@ -236,7 +364,51 @@ export function useGenerationForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateCurrentStep, buildRequest, clearStorage, navigate]);
+  }, [formData, validateCurrentStep, buildRequest]);
+
+  /**
+   * Generate clip-level prompts via backend OpenAI helper
+   */
+  const generatePrompts = useCallback(async () => {
+    // If we already have results, just navigate
+    if (promptResult) {
+      navigate('/ad-generator/prompt-results');
+      return;
+    }
+
+    setPromptError(null);
+    setPromptResult(null);
+    setIsGeneratingPrompts(true);
+
+    try {
+      // Derive a sensible number of clips from duration (default 5s each, clamp 3-10 clips)
+      const estimatedClips = Math.max(3, Math.min(10, Math.round(formData.duration / 5)));
+      const clipLength = Math.max(
+        3,
+        Math.min(10, Math.round(formData.duration / Math.max(estimatedClips, 1)))
+      );
+
+      const request: VideoPromptRequest = {
+        prompt: formData.prompt,
+        num_clips: estimatedClips,
+        clip_length: clipLength,
+      };
+
+      const response = await generateVideoClipPrompts(request);
+      setPromptResult(response);
+
+      // Persist results to project
+      persistState(formData, currentStep, response);
+
+      navigate('/ad-generator/prompt-results');
+    } catch (error: any) {
+      console.error('Failed to generate clip prompts:', error);
+      const message = error?.message || 'Failed to generate clip prompts. Please try again.';
+      setPromptError(message);
+    } finally {
+      setIsGeneratingPrompts(false);
+    }
+  }, [formData, currentStep, navigate, persistState]);
 
   /**
    * Reset form to initial state
@@ -246,18 +418,25 @@ export function useGenerationForm() {
     setCurrentStep(1);
     clearErrors();
     setSubmitError(null);
-    clearStorage();
-  }, [clearErrors, clearStorage]);
+    // Clear project config? Maybe just reset adWizard part
+    if (currentProjectId) {
+      updateCompositionConfig({ adWizard: undefined });
+    }
+  }, [clearErrors, currentProjectId, updateCompositionConfig]);
 
   return {
     // State
     currentStep,
     formData,
     errors,
-    // Form persistence dialog
-    showRestoreDialog,
-    handleResume,
-    handleDiscard,
+    analysisResult,
+    promptResult,
+    promptError,
+    isGeneratingPrompts,
+    // Legacy dialog support (can be removed if no longer needed)
+    showRestoreDialog: false,
+    handleResume: () => { },
+    handleDiscard: () => { },
     isSubmitting,
     submitError,
 
@@ -269,6 +448,7 @@ export function useGenerationForm() {
     previousStep,
     goToStep,
     submitForm,
+    generatePrompts,
     resetForm,
   };
 }

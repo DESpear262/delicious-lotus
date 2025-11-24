@@ -21,8 +21,8 @@ export interface AdCreativeFormData {
   ctaText: string;
 
   // Step 3: Video Parameters
-  duration: 15 | 30 | 45 | 60;
-  aspectRatio: '16:9' | '9:16' | '1:1';
+  duration: 0 | 15 | 30 | 45 | 60;
+  aspectRatio: '' | '16:9' | '9:16' | '1:1';
   style: VideoStyle;
   musicStyle: MusicStyle;
   

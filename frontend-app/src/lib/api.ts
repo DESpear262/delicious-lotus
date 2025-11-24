@@ -122,3 +122,10 @@ export const api = {
 export async function updateMediaAsset(id: string, data: { name?: string }): Promise<any> {
   return api.patch(`/media/${id}/attributes`, data)
 }
+
+/**
+ * Get single media asset with full metadata
+ */
+export async function getMediaAsset(id: string): Promise<any> {
+  return api.get(`/media/${id}`)
+}

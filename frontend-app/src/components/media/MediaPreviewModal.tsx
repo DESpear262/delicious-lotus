@@ -16,7 +16,7 @@ import { Button } from '../ui/button'
 import { ExternalLink, Copy, Check, Pencil, X, Save, Info } from 'lucide-react'
 import type { MediaAsset } from '../../types/stores'
 import { useEffect, useRef, useState } from 'react'
-import { updateMediaAsset } from '../../lib/api'
+import { updateMediaAsset, getMediaAsset } from '../../lib/api'
 
 interface MediaPreviewModalProps {
   asset: MediaAsset | null
@@ -27,15 +27,18 @@ interface MediaPreviewModalProps {
 
 /**
  * MediaPreviewModal - Full-size preview modal for media assets
- * Shows images or playable videos with source URL link
+ * Shows images, playable videos, or audio files with source URL link
  */
 export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPreviewModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const [isCopied, setIsCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fullAsset, setFullAsset] = useState<MediaAsset | null>(null)
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
 
   // Reset state when modal opens/closes or asset changes
   useEffect(() => {
@@ -43,9 +46,33 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
       setEditedName(asset.name)
       setIsEditing(false)
       setError(null)
-    } else if (!isOpen && videoRef.current) {
-      videoRef.current.pause()
-      videoRef.current.currentTime = 0
+      setFullAsset(asset) // Start with what we have
+
+      // Fetch full metadata
+      setIsLoadingMetadata(true)
+      getMediaAsset(asset.id)
+        .then((data) => {
+          setFullAsset(data)
+        })
+        .catch((err) => {
+          console.error('Failed to fetch full asset details:', err)
+        })
+        .finally(() => {
+          setIsLoadingMetadata(false)
+        })
+
+    } else if (!isOpen) {
+      setFullAsset(null)
+      // Pause and reset video
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.currentTime = 0
+      }
+      // Pause and reset audio
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
     }
   }, [isOpen, asset])
 
@@ -53,6 +80,7 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
 
   const isVideo = asset.type === 'video'
   const isImage = asset.type === 'image'
+  const isAudio = asset.type === 'audio'
 
   const cleanUrl = asset.url.split('?')[0]
 
@@ -237,19 +265,46 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
                   <DropdownMenuLabel>Asset Information</DropdownMenuLabel>
                   <DropdownMenuSeparator />
 
-                  {asset.width && asset.height && (
+                  <div className="px-2 py-1.5 text-sm group">
+                    <span className="text-zinc-400 block text-xs mb-0.5">Asset ID</span>
+                    <div className="flex items-center gap-2">
+                      <code className="text-zinc-200 bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono">
+                        {asset.id}
+                      </code>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(asset.id)
+                          // We can reuse the existing toast or just show a checkmark
+                          // Since we don't have a separate state for ID copy, let's add one or use a simple visual feedback
+                          const btn = e.currentTarget
+                          const originalInner = btn.innerHTML
+                          btn.innerHTML = '<svg class="w-3 h-3 text-green-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                          setTimeout(() => {
+                            btn.innerHTML = originalInner
+                          }, 2000)
+                        }}
+                        className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                        title="Copy ID"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {fullAsset?.width && fullAsset?.height && (
                     <div className="px-2 py-1.5 text-sm">
                       <span className="text-zinc-400 block text-xs mb-0.5">Dimensions</span>
-                      {asset.width} × {asset.height}
+                      {fullAsset.width} × {fullAsset.height}
                     </div>
                   )}
 
                   {/* Tags Section */}
-                  {asset.tags && asset.tags.length > 0 && (
+                  {fullAsset?.tags && fullAsset.tags.length > 0 && (
                     <div className="px-2 py-1.5 text-sm">
                       <span className="text-zinc-400 block text-xs mb-1">Tags</span>
                       <div className="flex flex-wrap gap-1">
-                        {asset.tags.map((tag, index) => (
+                        {fullAsset.tags.map((tag, index) => (
                           <span key={index} className="px-1.5 py-0.5 bg-zinc-800 rounded text-xs text-zinc-300 border border-zinc-700">
                             {tag}
                           </span>
@@ -259,25 +314,25 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
                   )}
 
                   {/* Specific Metadata: Prompt */}
-                  {!!asset.metadata?.prompt && (
+                  {!!fullAsset?.metadata?.prompt && (
                     <div className="px-2 py-1.5 text-sm">
                       <span className="text-zinc-400 block text-xs mb-0.5">Prompt</span>
                       <p className="whitespace-pre-wrap text-zinc-200 line-clamp-6">
-                        {String(asset.metadata.prompt)}
+                        {String(fullAsset.metadata.prompt)}
                       </p>
                     </div>
                   )}
 
                   {/* Specific Metadata: Model */}
-                  {!!(asset.metadata?.model || asset.metadata?.ai_model) && (
+                  {!!(fullAsset?.metadata?.model || fullAsset?.metadata?.ai_model) && (
                     <div className="px-2 py-1.5 text-sm">
                       <span className="text-zinc-400 block text-xs mb-0.5">Model</span>
-                      {String(asset.metadata.model || asset.metadata.ai_model)}
+                      {String(fullAsset.metadata.model || fullAsset.metadata.ai_model)}
                     </div>
                   )}
 
                   {/* Other Metadata Loop */}
-                  {asset.metadata && Object.entries(asset.metadata).map(([key, value]) => {
+                  {fullAsset?.metadata && Object.entries(fullAsset.metadata).map(([key, value]) => {
                     // Skip keys we've already handled or that are internal/irrelevant
                     if (['prompt', 'model', 'ai_model'].includes(key)) return null
                     if (value === null || value === undefined) return null
@@ -295,9 +350,9 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
                   })}
 
                   {/* Fallback if absolutely nothing to show */}
-                  {!asset.width && !asset.height &&
-                    (!asset.tags || asset.tags.length === 0) &&
-                    (!asset.metadata || Object.keys(asset.metadata).length === 0) && (
+                  {!fullAsset?.width && !fullAsset?.height &&
+                    (!fullAsset?.tags || fullAsset.tags.length === 0) &&
+                    (!fullAsset?.metadata || Object.keys(fullAsset.metadata).length === 0) && (
                       <div className="px-2 py-1.5 text-sm text-zinc-500 italic">
                         No additional information available
                       </div>
@@ -332,7 +387,50 @@ export function MediaPreviewModal({ asset, isOpen, onClose, onUpdate }: MediaPre
             </video>
           )}
 
-          {!isImage && !isVideo && (
+          {isAudio && (
+            <div className="flex flex-col items-center justify-center gap-6 p-8">
+              {/* Audio Waveform Placeholder / Icon */}
+              <div className="w-32 h-32 bg-zinc-800 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-16 h-16 text-zinc-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                  />
+                </svg>
+              </div>
+
+              {/* Audio Player */}
+              <audio
+                ref={audioRef}
+                src={cleanUrl}
+                controls
+                autoPlay
+                className="w-full max-w-md"
+              >
+                Your browser does not support the audio element.
+              </audio>
+
+              {/* Audio Info */}
+              <div className="text-center">
+                <p className="text-zinc-300 font-medium">{asset.name}</p>
+                {asset.duration && (
+                  <p className="text-sm text-zinc-500 mt-1">
+                    Duration: {Math.floor(asset.duration / 60)}:{String(Math.floor(asset.duration % 60)).padStart(2, '0')}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!isImage && !isVideo && !isAudio && (
             <div className="text-center text-zinc-400 p-8">
               <p className="mb-2">Preview not available for this media type</p>
               <a

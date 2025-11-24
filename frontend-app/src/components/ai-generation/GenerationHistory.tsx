@@ -75,11 +75,10 @@ export default function GenerationHistory({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-              showFavoritesOnly
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${showFavoritesOnly
                 ? 'bg-pink-500/20 border-pink-500/50 text-pink-400'
                 : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-            }`}
+              }`}
           >
             <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
             Favorites
@@ -90,11 +89,10 @@ export default function GenerationHistory({
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
-                className={`px-3 py-1.5 rounded-lg border text-sm capitalize transition-colors ${
-                  filterType === type
+                className={`px-3 py-1.5 rounded-lg border text-sm capitalize transition-colors ${filterType === type
                     ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                }`}
+                  }`}
               >
                 {type}
               </button>
@@ -182,7 +180,7 @@ function HistoryCard({ item, onRerun, onToggleFavorite, onDelete }: HistoryCardP
               onClick={() =>
                 onRerun(
                   item.request.prompt,
-                  item.request.type,
+                  item.request.type as 'image' | 'video',
                   item.request.aspectRatio,
                   item.request.qualityTier
                 )
